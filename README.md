@@ -1,6 +1,10 @@
 # DO NOT USE THIS PROJECT. I'M ONLY PLAYING AROUND (FOR NOW)
 
 ```bash
+go get -d -v -t
+
+go test ./... -cover -run UnitTest
+
 docker run --rm \
     -v $PWD:/usr/src/myapp \
     -w /usr/src/myapp \

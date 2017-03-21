@@ -5,6 +5,8 @@ go get -d -v -t
 
 go test ./... -cover -run UnitTest
 
+# env: SCRAPE_INTERVAL
+
 docker run --rm \
     -v $PWD:/usr/src/myapp \
     -w /usr/src/myapp \

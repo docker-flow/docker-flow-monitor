@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/afero"
 	"os"
 	"net/http/httptest"
+"os/exec"
 )
 
 type ServerTestSuite struct {
@@ -401,6 +402,31 @@ ALERT alert-name-2
 	actual := serve.GetAlertConfig()
 
 	s.Equal(expected, actual)
+}
+
+// RunPrometheus
+
+func (s *ServerTestSuite) Test_RunPrometheus_ExecutesPrometheus() {
+	cmdRunOrig := cmdRun
+	defer func() { cmdRun = cmdRunOrig }()
+	actualArgs := []string{}
+	cmdRun = func(cmd *exec.Cmd) error {
+		actualArgs = cmd.Args
+		return nil
+	}
+
+	serve := New()
+	serve.RunPrometheus()
+
+	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles"}, actualArgs)
+}
+
+func (s *ServerTestSuite) Test_RunPrometheus_ReturnsError() {
+	serve := New()
+	// Assumes that `prometheus` does not exist
+	err := serve.RunPrometheus()
+
+	s.Error(err)
 }
 
 // Mock

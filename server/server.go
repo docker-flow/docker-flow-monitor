@@ -14,12 +14,17 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"os/exec"
 )
 
 var decoder = schema.NewDecoder()
 var mu = &sync.Mutex{}
 var fs = afero.NewOsFs()
 var prometheusAddr = "http://localhost:9090"
+// TODO: Test
+var cmdRun = func(cmd *exec.Cmd) error {
+	return cmd.Run()
+}
 
 type Alert struct {
 	AlertName string
@@ -54,11 +59,12 @@ var New = func() *Serve {
 }
 
 func (s *Serve) Execute() error {
+	go s.RunPrometheus()
 	// TODO: Request initial data from swarm-listener
 	address := "0.0.0.0:8080"
 	r := mux.NewRouter().StrictSlash(true)
-	r.HandleFunc("/v1/docker-flow-monitor", s.Handler).Methods("GET")
 	// TODO: Add DELETE method
+	r.HandleFunc("/v1/docker-flow-monitor", s.Handler).Methods("GET")
 	if err := httpListenAndServe(address, r); err != nil {
 		log.Println(err.Error())
 		return err
@@ -159,4 +165,13 @@ ALERT {{.AlertName}}
 	var b bytes.Buffer
 	tmpl.Execute(&b, s.Alerts)
 	return b.String()
+}
+
+func (s *Serve) RunPrometheus() error {
+	// TODO: Move to server package
+//	// TODO: Output to stdout/stderr
+	cmd := exec.Command("/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmdRun(cmd)
 }

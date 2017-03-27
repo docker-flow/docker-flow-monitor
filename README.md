@@ -1,11 +1,11 @@
 # DO NOT USE THIS PROJECT. I'M ONLY PLAYING AROUND (FOR NOW)
 
+## Build
+
 ```bash
 go get -d -v -t
 
 go test ./... -cover -run UnitTest
-
-# env: SCRAPE_INTERVAL
 
 docker run --rm \
     -v $PWD:/usr/src/myapp \
@@ -16,17 +16,70 @@ docker run --rm \
 docker image build -t vfarcic/docker-flow-monitor:beta .
 
 docker image push vfarcic/docker-flow-monitor:beta
+```
+
+## Setup
+
+```bash
+docker service create --name monitor \
+    -p 9090:9090 \
+    prom/prometheus
+
+docker service ps monitor
+
+open "http://localhost:9090"
+
+docker service rm monitor
+
+# TODO: Remove :beta
+
+docker network create -d overlay monitor
 
 docker service create --name monitor \
-    -p 8080:8080 \
     -p 9090:9090 \
+    -e SCRAPE_INTERVAL=10 \
     vfarcic/docker-flow-monitor:beta
 
 docker service ps monitor
 
-curl "http://localhost:8080/v1/docker-flow-monitor/alert?alertName=my-alert&alertIf=my-if&alertFrom=my-from" | jq '.'
+open "http://localhost:9090/config"
 
-docker service logs monitor
+docker service create --name swarm-listener \
+    --network monitor \
+    --mount "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock" \
+    -e DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure \
+    vfarcic/docker-flow-swarm-listener
 
-open "http://localhost:9090"
+docker service ps swarm-listener
 ```
+
+# Scrapes
+
+```bash
+# TODO: Create a stack and add it to https://github.com/vfarcic/docker-flow-stacks
+
+docker service create --name cadvisor \
+    --mode global \
+    --network monitor \
+    --mount "type=bind,source=/,target=/rootfs" \
+    --mount "type=bind,source=/var/run,target=/var/run" \
+    --mount "type=bind,source=/sys,target=/sys" \
+    --mount "type=bind,source=/var/lib/docker,target=/var/lib/docker" \
+    --label com.df.notify=true \
+    --label com.df.scrapePort=8080 \
+    google/cadvisor
+
+docker service logs swarm-listener
+
+open "http://localhost:9090/config"
+
+curl "http://localhost:8080/v1/docker-flow-monitor/reconfigure?scrapePort=8080&serviceName=cadvisor"
+```
+
+# Alerts
+
+```bash
+curl "http://localhost:8080/v1/docker-flow-monitor?alertName=my-alert&alertIf=my-if&alertFrom=my-from" | jq '.'
+```
+
+# DFP

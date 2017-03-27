@@ -43,7 +43,7 @@ type Serve struct {
 }
 
 type Response struct {
-	Status      string
+	Status      int
 	Message     string
 	Alert
 	Scrape
@@ -59,12 +59,15 @@ var New = func() *Serve {
 }
 
 func (s *Serve) Execute() error {
+	s.WriteConfig()
+	log.Println("Starting Prometheus")
 	go s.RunPrometheus()
 	// TODO: Request initial data from swarm-listener
 	address := "0.0.0.0:8080"
 	r := mux.NewRouter().StrictSlash(true)
 	// TODO: Add DELETE method
-	r.HandleFunc("/v1/docker-flow-monitor", s.Handler).Methods("GET")
+	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.Handler).Methods("GET")
+	log.Println("Starting Docker Flow Monitor")
 	if err := httpListenAndServe(address, r); err != nil {
 		log.Println(err.Error())
 		return err
@@ -73,44 +76,23 @@ func (s *Serve) Execute() error {
 }
 
 func (s *Serve) Handler(w http.ResponseWriter, req *http.Request) {
+	log.Println("Processing " + req.URL.Path)
 	req.ParseForm()
-	alert := Alert{}
-	scrape := Scrape{}
-	decoder.Decode(&alert, req.Form)
 	// TODO: Add serviceName to the alertName
 	// TODO: Create alert configs
 	// TODO: Handle multiple alerts
-	if len(alert.AlertName) > 0 {
-		alert.AlertName = strings.Replace(alert.AlertName, "-", "", -1)
-		alert.AlertName = strings.Replace(alert.AlertName, "_", "", -1)
-		s.Alerts[alert.AlertName] = alert
-	}
-	decoder.Decode(&scrape, req.Form)
-	if len(scrape.ServiceName) > 0 {
-		s.Scrapes[scrape.ServiceName] = scrape
-	}
+	alert := s.getAlert(req)
+	scrape := s.getScrape(req)
 	s.WriteConfig()
-	response := Response{
-		Status: "OK",
-		Alert: alert,
-		Scrape: scrape,
+	promResp, err := s.reloadPrometheus()
+	statusCode := http.StatusInternalServerError
+	if promResp != nil {
+		statusCode = promResp.StatusCode
 	}
-	promReq, _ := http.NewRequest("POST", prometheusAddr + "/-/reload", nil)
-	client := &http.Client{}
-	status := http.StatusOK
-	if resp, err := client.Do(promReq); err != nil {
-		status = http.StatusInternalServerError
-		response.Message = err.Error()
-	} else if resp.StatusCode != http.StatusOK {
-		status = resp.StatusCode
-		response.Message = fmt.Sprintf("Prometheus returned status code %d", status)
-	}
-	if status != http.StatusOK {
-		response.Status = "NOK"
-	}
+	resp := s.getResponse(&alert, &scrape, err, statusCode)
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	js, _ := json.Marshal(response)
+	w.WriteHeader(resp.Status)
+	js, _ := json.Marshal(resp)
 	w.Write(js)
 }
 
@@ -141,14 +123,17 @@ global:
 }
 
 func (s *Serve) GetScrapeConfig() string {
-	templateString := `{{range .}}
-scrape_configs:
+	if len(s.Scrapes) == 0 {
+		return ""
+	}
+	templateString := `
+scrape_configs:{{range .}}
   - job_name: "{{.ServiceName}}"
     dns_sd_configs:
       - names: ["tasks.{{.ServiceName}}"]
         type: A
-        port: {{.ScrapePort}}
-{{end}}`
+        port: {{.ScrapePort}}{{end}}
+`
 	tmpl, _ := template.New("").Parse(templateString)
 	var b bytes.Buffer
 	tmpl.Execute(&b, s.Scrapes)
@@ -174,4 +159,47 @@ func (s *Serve) RunPrometheus() error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmdRun(cmd)
+}
+
+func (s *Serve) getAlert(req *http.Request) Alert {
+	alert := Alert{}
+	decoder.Decode(&alert, req.Form)
+	if len(alert.AlertName) > 0 {
+		alert.AlertName = strings.Replace(alert.AlertName, "-", "", -1)
+		alert.AlertName = strings.Replace(alert.AlertName, "_", "", -1)
+		s.Alerts[alert.AlertName] = alert
+		log.Println("Adding alert " + alert.AlertName)
+	}
+	return alert
+}
+
+func (s *Serve) getScrape(req *http.Request) Scrape {
+	scrape := Scrape{}
+	decoder.Decode(&scrape, req.Form)
+	if len(scrape.ServiceName) > 0 {
+		s.Scrapes[scrape.ServiceName] = scrape
+		log.Println("Adding scrape " + scrape.ServiceName)
+	}
+	return scrape
+}
+
+func (s *Serve) reloadPrometheus() (*http.Response, error) {
+	promReq, _ := http.NewRequest("POST", prometheusAddr + "/-/reload", nil)
+	client := &http.Client{}
+	return client.Do(promReq)
+}
+
+func (s *Serve) getResponse(alert *Alert, scrape *Scrape, err error, statusCode int) Response {
+	resp := Response{
+		Status: statusCode,
+		Alert: *alert,
+		Scrape: *scrape,
+	}
+	if err != nil {
+		resp.Message = err.Error()
+		resp.Status = http.StatusInternalServerError
+	} else if statusCode != http.StatusOK {
+		resp.Message = fmt.Sprintf("Prometheus returned status code %d", statusCode)
+	}
+	return resp
 }

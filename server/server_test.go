@@ -82,6 +82,22 @@ func (s *ServerTestSuite) Test_Execute_ReturnsError_WhenHTTPListenAndServeFails(
 	s.Error(actual)
 }
 
+func (s *ServerTestSuite) Test_Execute_WritesConfig() {
+	expected := `
+global:
+  scrape_interval: 5s
+`
+	fsOrig := fs
+	defer func() { fs = fsOrig }()
+	fs = afero.NewMemMapFs()
+
+	serve := New()
+	serve.Execute()
+
+	actual, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
+	s.Equal(expected, string(actual))
+}
+
 // Handler
 
 func (s *ServerTestSuite) Test_Handler_SetsContentHeaderToJson() {
@@ -172,7 +188,7 @@ func (s *ServerTestSuite) Test_Handler_RemovesSpecialCharactersFromTheAlertName(
 
 func (s *ServerTestSuite) Test_Handler_ReturnsJson() {
 	expected := Response{
-		Status: "OK",
+		Status: http.StatusOK,
 		Alert: Alert{
 			AlertName: "myalert",
 			AlertIf: "my-if",
@@ -271,7 +287,7 @@ func (s *ServerTestSuite) Test_Handler_ReturnsNokWhenPrometheusReloadFails() {
 	serve := New()
 	serve.Handler(rwMock, req)
 
-	s.Equal("NOK", actualResponse.Status)
+	s.Equal(http.StatusInternalServerError, actualResponse.Status)
 }
 
 func (s *ServerTestSuite) Test_Handler_ReturnsStatusCodeFromPrometheus() {
@@ -299,7 +315,7 @@ func (s *ServerTestSuite) Test_Handler_ReturnsStatusCodeFromPrometheus() {
 	serve := New()
 	serve.Handler(rwMock, req)
 
-	s.Equal("NOK", actualResponse.Status)
+	s.Equal(http.StatusBadGateway, actualResponse.Status)
 	s.Equal(http.StatusBadGateway, actualStatus)
 }
 
@@ -364,8 +380,6 @@ scrape_configs:
       - names: ["tasks.service-1"]
         type: A
         port: 1234
-
-scrape_configs:
   - job_name: "service-2"
     dns_sd_configs:
       - names: ["tasks.service-2"]
@@ -380,6 +394,14 @@ scrape_configs:
 	actual := serve.GetScrapeConfig()
 
 	s.Equal(expected, actual)
+}
+
+func (s *ServerTestSuite) Test_GetScrapeConfig_ReturnsEmptyString_WhenNoData() {
+	serve := New()
+
+	actual := serve.GetScrapeConfig()
+
+	s.Empty(actual)
 }
 
 // GetAlertConfig

@@ -1,0 +1,30 @@
+version: "3"
+
+services:
+
+  monitor:
+    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    networks:
+      - monitor
+    ports:
+      - 9090:9090
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - SCRAPE_INTERVAL=10
+
+  swarm-listener:
+    image: vfarcic/docker-flow-swarm-listener
+    networks:
+      - monitor
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  monitor:
+    external: true

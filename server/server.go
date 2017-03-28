@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"os/exec"
+	"io/ioutil"
 )
 
 var decoder = schema.NewDecoder()
@@ -33,8 +34,8 @@ type Alert struct {
 }
 
 type Scrape struct {
-	ServiceName string
-	ScrapePort 	int
+	ServiceName string `json:"serviceName,omitempty"`
+	ScrapePort 	int `json:"scrapePort,string,omitempty"`
 }
 
 type Serve struct {
@@ -59,10 +60,8 @@ var New = func() *Serve {
 }
 
 func (s *Serve) Execute() error {
-	s.WriteConfig()
-	log.Println("Starting Prometheus")
+	s.InitialConfig()
 	go s.RunPrometheus()
-	// TODO: Request initial data from swarm-listener
 	address := "0.0.0.0:8080"
 	r := mux.NewRouter().StrictSlash(true)
 	// TODO: Add DELETE method
@@ -97,6 +96,7 @@ func (s *Serve) Handler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Serve) WriteConfig() {
+	log.Println("Writing config")
 	mu.Lock()
 	defer mu.Unlock()
 	fs.MkdirAll("/etc/prometheus", 0755)
@@ -153,12 +153,38 @@ ALERT {{.AlertName}}
 }
 
 func (s *Serve) RunPrometheus() error {
-	// TODO: Move to server package
-//	// TODO: Output to stdout/stderr
+	log.Println("Starting Prometheus")
 	cmd := exec.Command("/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmdRun(cmd)
+}
+
+func (s *Serve) InitialConfig() error {
+	if len(os.Getenv("LISTENER_ADDRESS")) > 0 {
+		addr := os.Getenv("LISTENER_ADDRESS")
+		if !strings.HasPrefix(addr, "http") {
+			addr = fmt.Sprintf("http://%s:8080")
+		}
+		addr = fmt.Sprintf("%s/v1/docker-flow-swarm-listener/get-services", addr)
+		resp, err := http.Get(addr)
+		if err != nil {
+			return err
+		}
+		body, _ := ioutil.ReadAll(resp.Body)
+		scrapes := []Scrape{}
+		json.Unmarshal(body, &scrapes)
+		for _, scrape := range scrapes {
+			s.Scrapes[scrape.ServiceName] = scrape
+		}
+		alerts := []Alert{}
+		json.Unmarshal(body, &alerts)
+		for _, alert := range alerts {
+			s.Alerts[alert.AlertName] = alert
+		}
+	}
+	s.WriteConfig()
+	return nil
 }
 
 func (s *Serve) getAlert(req *http.Request) Alert {
@@ -184,9 +210,7 @@ func (s *Serve) getScrape(req *http.Request) Scrape {
 }
 
 func (s *Serve) reloadPrometheus() (*http.Response, error) {
-	promReq, _ := http.NewRequest("POST", prometheusAddr + "/-/reload", nil)
-	client := &http.Client{}
-	return client.Do(promReq)
+	return http.Post(prometheusAddr + "/-/reload", "application/json", nil)
 }
 
 func (s *Serve) getResponse(alert *Alert, scrape *Scrape, err error, statusCode int) Response {

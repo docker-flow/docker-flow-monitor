@@ -31,12 +31,13 @@ open "http://localhost:9090"
 
 docker service rm monitor
 
-# TODO: Remove :beta
-
 docker network create -d overlay monitor
+
+# TODO: Remove :beta
 
 docker service create --name monitor \
     -p 9090:9090 \
+    --network monitor \
     -e SCRAPE_INTERVAL=10 \
     vfarcic/docker-flow-monitor:beta
 
@@ -51,12 +52,14 @@ docker service create --name swarm-listener \
     vfarcic/docker-flow-swarm-listener
 
 docker service ps swarm-listener
+
+# TODO: Create a stack with monitor and swarm-listener and add it to https://github.com/vfarcic/docker-flow-stacks
 ```
 
 # Scrapes
 
 ```bash
-# TODO: Create a stack and add it to https://github.com/vfarcic/docker-flow-stacks
+# TODO: Create a stack with exporters and add it to https://github.com/vfarcic/docker-flow-stacks
 
 docker service create --name cadvisor \
     --mode global \
@@ -69,11 +72,17 @@ docker service create --name cadvisor \
     --label com.df.scrapePort=8080 \
     google/cadvisor
 
+docker service ps cadvisor
+
 docker service logs swarm-listener
+
+docker service logs monitor
 
 open "http://localhost:9090/config"
 
-curl "http://localhost:8080/v1/docker-flow-monitor/reconfigure?scrapePort=8080&serviceName=cadvisor"
+open "http://localhost:9090/graph"
+
+curl "http://swarm-listener:8080/v1/docker-flow-swarm-listener/get-services"
 ```
 
 # Alerts

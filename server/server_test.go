@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/afero"
 	"os"
 	"net/http/httptest"
-"os/exec"
+	"os/exec"
 )
 
 type ServerTestSuite struct {
@@ -23,7 +23,7 @@ func (s *ServerTestSuite) SetupTest() {
 func TestServerUnitTestSuite(t *testing.T) {
 	s := new(ServerTestSuite)
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	defer func() { testServer.Close() }()
+	defer testServer.Close()
 	prometheusAddrOrig := prometheusAddr
 	defer func() { prometheusAddr = prometheusAddrOrig }()
 	prometheusAddr = testServer.URL
@@ -258,7 +258,7 @@ func (s *ServerTestSuite) Test_Handler_SendsReloadRequestToPrometheus() {
 		actualMethod = r.Method
 		actualPath = r.URL.Path
 	}))
-	defer func() { testServer.Close() }()
+	defer testServer.Close()
 	prometheusAddrOrig := prometheusAddr
 	defer func() { prometheusAddr = prometheusAddrOrig }()
 	prometheusAddr = testServer.URL
@@ -307,7 +307,7 @@ func (s *ServerTestSuite) Test_Handler_ReturnsStatusCodeFromPrometheus() {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 	}))
-	defer func() { testServer.Close() }()
+	defer testServer.Close()
 	prometheusAddrOrig := prometheusAddr
 	defer func() { prometheusAddr = prometheusAddrOrig }()
 	prometheusAddr = testServer.URL
@@ -449,6 +449,89 @@ func (s *ServerTestSuite) Test_RunPrometheus_ReturnsError() {
 	err := serve.RunPrometheus()
 
 	s.Error(err)
+}
+
+// InitialConfig
+
+func (s *ServerTestSuite) Test_InitialConfig_RequestsDataFromSwarmListener() {
+	actualMethod := ""
+	actualPath := ""
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		actualMethod = r.Method
+		actualPath = r.URL.Path
+	}))
+	defer testServer.Close()
+	defer func() { os.Unsetenv("LISTENER_ADDRESS") }()
+	os.Setenv("LISTENER_ADDRESS", testServer.URL)
+
+	serve := New()
+	serve.InitialConfig()
+
+	s.Equal("GET", actualMethod)
+	s.Equal("/v1/docker-flow-swarm-listener/get-services", actualPath)
+}
+
+func (s *ServerTestSuite) Test_InitialConfig_ReturnsError_WhenAddressIsInvalid() {
+	defer func() { os.Unsetenv("LISTENER_ADDRESS") }()
+	os.Setenv("LISTENER_ADDRESS", "127.0.0.1")
+
+	serve := New()
+	err := serve.InitialConfig()
+
+	s.Error(err)
+}
+
+func (s *ServerTestSuite) Test_InitialConfig_DoesNotSendRequest_WhenListenerAddressIsEmpty() {
+	serve := New()
+	err := serve.InitialConfig()
+
+	s.NoError(err)
+}
+
+func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
+	expected := map[string]Scrape{
+		"service-1": Scrape{ServiceName: "service-1", ScrapePort: 1111},
+		"service-2": Scrape{ServiceName: "service-2", ScrapePort: 2222},
+	}
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		resp := []map[string]string{}
+		resp = append(resp, map[string]string{"scrapePort": "1111", "serviceName": "service-1"})
+		resp = append(resp, map[string]string{"scrapePort": "2222", "serviceName": "service-2"})
+		js, _ := json.Marshal(resp)
+		w.Write(js)
+	}))
+	defer testServer.Close()
+	defer func() { os.Unsetenv("LISTENER_ADDRESS") }()
+	os.Setenv("LISTENER_ADDRESS", testServer.URL)
+
+	serve := New()
+	serve.InitialConfig()
+
+	s.Equal(expected, serve.Scrapes)
+}
+
+func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
+	expected := map[string]Alert{
+		"alert-1": Alert{AlertName: "alert-1", AlertIf: "if-1", AlertFrom: "from-1"},
+		"alert-2": Alert{AlertName: "alert-2", AlertIf: "if-2", AlertFrom: "from-2"},
+	}
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		resp := []map[string]string{}
+		resp = append(resp, map[string]string{"alertName": "alert-1", "alertIf": "if-1", "alertFrom": "from-1"})
+		resp = append(resp, map[string]string{"alertName": "alert-2", "alertIf": "if-2", "alertFrom": "from-2"})
+		js, _ := json.Marshal(resp)
+		w.Write(js)
+	}))
+	defer testServer.Close()
+	defer func() { os.Unsetenv("LISTENER_ADDRESS") }()
+	os.Setenv("LISTENER_ADDRESS", testServer.URL)
+
+	serve := New()
+	serve.InitialConfig()
+
+	s.Equal(expected, serve.Alerts)
 }
 
 // Mock

@@ -82,7 +82,6 @@ func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
 	// TODO: Create alert configs
 	// TODO: Handle multiple alerts
 	alerts := s.getAlerts(req)
-	println(len(alerts))
 	scrape := s.getScrape(req)
 	s.WriteConfig()
 	promResp, err := s.reloadPrometheus()
@@ -246,7 +245,7 @@ func (s *Serve) getAlertNameFormatted(serviceName, alertName string) string {
 func (s *Serve) getScrape(req *http.Request) Scrape {
 	scrape := Scrape{}
 	decoder.Decode(&scrape, req.Form)
-	if len(scrape.ServiceName) > 0 {
+	if len(scrape.ServiceName) > 0 && scrape.ScrapePort > 0 {
 		s.Scrapes[scrape.ServiceName] = scrape
 		logPrintln("Adding scrape " + scrape.ServiceName)
 	}

@@ -41,6 +41,8 @@ docker service rm monitor
 
 docker network create -d overlay monitor
 
+docker network create -d overlay proxy
+
 docker service create --name monitor \
     -p 9090:9090 \
     --network monitor \
@@ -52,9 +54,11 @@ docker service ps monitor
 open "http://localhost:9090/config"
 
 docker service create --name swarm-listener \
-    --network monitor \
+    --network monitor --network proxy \
     --mount "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock" \
-    -e DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure \
+    -e DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure,http://proxy:8080/v1/docker-flow-proxy/reconfigure \
+    -e DF_NOTIFY_REMOVE_SERVICE_URL=http://proxy:8080/v1/docker-flow-proxy/remove \
+    --constraint 'node.role==manager' \
     vfarcic/docker-flow-swarm-listener
 
 docker service ps swarm-listener
@@ -83,8 +87,6 @@ docker service logs monitor
 open "http://localhost:9090/config"
 
 open "http://localhost:9090/graph"
-
-docker network create -d overlay proxy
 
 docker service create --name proxy \
     -p 80:80 -p 443:443 \

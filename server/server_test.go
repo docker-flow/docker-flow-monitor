@@ -206,6 +206,16 @@ func (s *ServerTestSuite) Test_GetHandler_DoesNotAddAlert_WhenAlertNameIsEmpty()
 	s.Equal(0, len(serve.Alerts))
 }
 
+func (s *ServerTestSuite) Test_GetHandler_DoesNotAddScrape_WhenScrapePortZero() {
+	rwMock := ResponseWriterMock{}
+	req, _ := http.NewRequest("GET", "/v1/docker-flow-monitor?serviceName=my-service", nil)
+
+	serve := New()
+	serve.GetHandler(rwMock, req)
+
+	s.Equal(0, len(serve.Scrapes))
+}
+
 func (s *ServerTestSuite) Test_GetHandler_AddsAlertNameFormatted() {
 	expected := Alert{
 		AlertName: "my-alert",

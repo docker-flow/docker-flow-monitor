@@ -22,10 +22,10 @@ var decoder = schema.NewDecoder()
 var mu = &sync.Mutex{}
 var fs = afero.NewOsFs()
 var prometheusAddr = "http://localhost:9090"
-// TODO: Test
 var cmdRun = func(cmd *exec.Cmd) error {
 	return cmd.Run()
 }
+var logPrintln = log.Println
 
 type Alert struct {
 	AlertName string
@@ -46,7 +46,7 @@ type Serve struct {
 type Response struct {
 	Status      int
 	Message     string
-	Alert
+	Alerts      []Alert
 	Scrape
 }
 
@@ -64,23 +64,23 @@ func (s *Serve) Execute() error {
 	go s.RunPrometheus()
 	address := "0.0.0.0:8080"
 	r := mux.NewRouter().StrictSlash(true)
-	// TODO: Add DELETE method
-	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.Handler).Methods("GET")
-	log.Println("Starting Docker Flow Monitor")
+	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.GetHandler).Methods("GET")
+	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.DeleteHandler).Methods("DELETE")
+	logPrintln("Starting Docker Flow Monitor")
 	if err := httpListenAndServe(address, r); err != nil {
-		log.Println(err.Error())
+		logPrintln(err.Error())
 		return err
 	}
 	return nil
 }
 
-func (s *Serve) Handler(w http.ResponseWriter, req *http.Request) {
-	log.Println("Processing " + req.URL.Path)
+func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
+	logPrintln("Processing " + req.URL.Path)
 	req.ParseForm()
 	// TODO: Add serviceName to the alertName
 	// TODO: Create alert configs
 	// TODO: Handle multiple alerts
-	alert := s.getAlert(req)
+	alert := s.getAlerts(req)
 	scrape := s.getScrape(req)
 	s.WriteConfig()
 	promResp, err := s.reloadPrometheus()
@@ -95,8 +95,28 @@ func (s *Serve) Handler(w http.ResponseWriter, req *http.Request) {
 	w.Write(js)
 }
 
+func (s *Serve) DeleteHandler(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()
+	serviceName := req.URL.Query().Get("serviceName")
+	// TODO: Remove alerts
+	scrape := s.Scrapes[serviceName]
+	delete(s.Scrapes, serviceName)
+	s.WriteConfig()
+	promResp, err := s.reloadPrometheus()
+	statusCode := http.StatusInternalServerError
+	if promResp != nil {
+		statusCode = promResp.StatusCode
+	}
+	// TODO: Replace nil with alerts
+	resp := s.getResponse(&[]Alert{}, &scrape, err, statusCode)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.Status)
+	js, _ := json.Marshal(resp)
+	w.Write(js)
+}
+
 func (s *Serve) WriteConfig() {
-	log.Println("Writing config")
+	logPrintln("Writing config")
 	mu.Lock()
 	defer mu.Unlock()
 	fs.MkdirAll("/etc/prometheus", 0755)
@@ -153,7 +173,7 @@ ALERT {{.AlertName}}
 }
 
 func (s *Serve) RunPrometheus() error {
-	log.Println("Starting Prometheus")
+	logPrintln("Starting Prometheus")
 	cmd := exec.Command("/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -187,16 +207,17 @@ func (s *Serve) InitialConfig() error {
 	return nil
 }
 
-func (s *Serve) getAlert(req *http.Request) Alert {
+func (s *Serve) getAlerts(req *http.Request) []Alert {
 	alert := Alert{}
 	decoder.Decode(&alert, req.Form)
+	// TODO: Add multiple alerts
 	if len(alert.AlertName) > 0 {
 		alert.AlertName = strings.Replace(alert.AlertName, "-", "", -1)
 		alert.AlertName = strings.Replace(alert.AlertName, "_", "", -1)
 		s.Alerts[alert.AlertName] = alert
-		log.Println("Adding alert " + alert.AlertName)
+		logPrintln("Adding alert " + alert.AlertName)
 	}
-	return alert
+	return []Alert{alert}
 }
 
 func (s *Serve) getScrape(req *http.Request) Scrape {
@@ -204,7 +225,7 @@ func (s *Serve) getScrape(req *http.Request) Scrape {
 	decoder.Decode(&scrape, req.Form)
 	if len(scrape.ServiceName) > 0 {
 		s.Scrapes[scrape.ServiceName] = scrape
-		log.Println("Adding scrape " + scrape.ServiceName)
+		logPrintln("Adding scrape " + scrape.ServiceName)
 	}
 	return scrape
 }
@@ -213,10 +234,10 @@ func (s *Serve) reloadPrometheus() (*http.Response, error) {
 	return http.Post(prometheusAddr + "/-/reload", "application/json", nil)
 }
 
-func (s *Serve) getResponse(alert *Alert, scrape *Scrape, err error, statusCode int) Response {
+func (s *Serve) getResponse(alerts *[]Alert, scrape *Scrape, err error, statusCode int) Response {
 	resp := Response{
 		Status: statusCode,
-		Alert: *alert,
+		Alerts: *alerts,
 		Scrape: *scrape,
 	}
 	if err != nil {

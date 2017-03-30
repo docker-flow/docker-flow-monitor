@@ -22,6 +22,9 @@ func (s *ServerTestSuite) SetupTest() {
 
 func TestServerUnitTestSuite(t *testing.T) {
 	s := new(ServerTestSuite)
+	logPrintlnOrig := logPrintln
+	defer func() { logPrintln = logPrintlnOrig }()
+	logPrintln = func(v ...interface{}) {}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer testServer.Close()
 	prometheusAddrOrig := prometheusAddr
@@ -98,9 +101,9 @@ global:
 	s.Equal(expected, string(actual))
 }
 
-// Handler
+// GetHandler
 
-func (s *ServerTestSuite) Test_Handler_SetsContentHeaderToJson() {
+func (s *ServerTestSuite) Test_GetHandler_SetsContentHeaderToJson() {
 	actual := http.Header{}
 	rwMock := ResponseWriterMock{
 		HeaderMock: func() http.Header {
@@ -111,12 +114,12 @@ func (s *ServerTestSuite) Test_Handler_SetsContentHeaderToJson() {
 	req, _ := http.NewRequest("GET", addr, nil)
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
 
 	s.Equal("application/json", actual.Get("Content-Type"))
 }
 
-func (s *ServerTestSuite) Test_Handler_AddsAlert() {
+func (s *ServerTestSuite) Test_GetHandler_AddsAlert() {
 	expected := Alert{
 			AlertName: "myAlert",
 			AlertIf: "my-if",
@@ -132,12 +135,12 @@ func (s *ServerTestSuite) Test_Handler_AddsAlert() {
 	req, _ := http.NewRequest("GET", addr, nil)
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
 
 	s.Equal(expected, serve.Alerts[expected.AlertName])
 }
 
-func (s *ServerTestSuite) Test_Handler_AddsScrape() {
+func (s *ServerTestSuite) Test_GetHandler_AddsScrape() {
 	expected := Scrape{
 		ServiceName: "my-service",
 		ScrapePort: 1234,
@@ -151,22 +154,22 @@ func (s *ServerTestSuite) Test_Handler_AddsScrape() {
 	req, _ := http.NewRequest("GET", addr, nil)
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
 
 	s.Equal(expected, serve.Scrapes[expected.ServiceName])
 }
 
-func (s *ServerTestSuite) Test_Handler_DoesNotAddAlert_WhenAlertNameIsEmpty() {
+func (s *ServerTestSuite) Test_GetHandler_DoesNotAddAlert_WhenAlertNameIsEmpty() {
 	rwMock := ResponseWriterMock{}
 	req, _ := http.NewRequest("GET", "/v1/docker-flow-monitor", nil)
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
 
 	s.Equal(0, len(serve.Alerts))
 }
 
-func (s *ServerTestSuite) Test_Handler_RemovesSpecialCharactersFromTheAlertName() {
+func (s *ServerTestSuite) Test_GetHandler_RemovesSpecialCharactersFromTheAlertName() {
 	expected := Alert{
 		AlertName: "myalert",
 		AlertIf: "my-if",
@@ -181,19 +184,19 @@ func (s *ServerTestSuite) Test_Handler_RemovesSpecialCharactersFromTheAlertName(
 	req, _ := http.NewRequest("GET", addr, nil)
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
 
 	s.Equal(expected, serve.Alerts["myalert"])
 }
 
-func (s *ServerTestSuite) Test_Handler_ReturnsJson() {
+func (s *ServerTestSuite) Test_GetHandler_ReturnsJson() {
 	expected := Response{
 		Status: http.StatusOK,
-		Alert: Alert{
+		Alerts: []Alert{Alert{
 			AlertName: "myalert",
 			AlertIf: "my-if",
 			AlertFrom: "my-from",
-		},
+		}},
 		Scrape: Scrape{
 			ServiceName: "my-service",
 			ScrapePort: 1234,
@@ -210,19 +213,19 @@ func (s *ServerTestSuite) Test_Handler_ReturnsJson() {
 		"/v1/docker-flow-monitor?serviceName=%s&scrapePort=%d&alertName=%s&alertIf=%s&alertFrom=%s",
 		expected.ServiceName,
 		expected.ScrapePort,
-		expected.AlertName,
-		expected.AlertIf,
-		expected.AlertFrom,
+		expected.Alerts[0].AlertName,
+		expected.Alerts[0].AlertIf,
+		expected.Alerts[0].AlertFrom,
 	)
 	req, _ := http.NewRequest("GET", addr, nil)
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
 
 	s.Equal(expected, actual)
 }
 
-func (s *ServerTestSuite) Test_Handler_CallsWriteConfig() {
+func (s *ServerTestSuite) Test_GetHandler_CallsWriteConfig() {
 	expected := `
 global:
   scrape_interval: 5s
@@ -242,13 +245,13 @@ scrape_configs:
 	fs = afero.NewMemMapFs()
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
 
 	actual, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
 	s.Equal(expected, string(actual))
 }
 
-func (s *ServerTestSuite) Test_Handler_SendsReloadRequestToPrometheus() {
+func (s *ServerTestSuite) Test_GetHandler_SendsReloadRequestToPrometheus() {
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
 	req, _ := http.NewRequest("GET", addr, nil)
@@ -264,13 +267,13 @@ func (s *ServerTestSuite) Test_Handler_SendsReloadRequestToPrometheus() {
 	prometheusAddr = testServer.URL
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
 
 	s.Equal("POST", actualMethod)
 	s.Equal("/-/reload", actualPath)
 }
 
-func (s *ServerTestSuite) Test_Handler_ReturnsNokWhenPrometheusReloadFails() {
+func (s *ServerTestSuite) Test_GetHandler_ReturnsNokWhenPrometheusReloadFails() {
 	actualResponse := Response{}
 	rwMock := ResponseWriterMock{
 		WriteMock: func(content []byte) (int, error) {
@@ -285,12 +288,12 @@ func (s *ServerTestSuite) Test_Handler_ReturnsNokWhenPrometheusReloadFails() {
 	prometheusAddr = "this-url-does-not-exist"
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
 
 	s.Equal(http.StatusInternalServerError, actualResponse.Status)
 }
 
-func (s *ServerTestSuite) Test_Handler_ReturnsStatusCodeFromPrometheus() {
+func (s *ServerTestSuite) Test_GetHandler_ReturnsStatusCodeFromPrometheus() {
 	actualResponse := Response{}
 	actualStatus := 0
 	rwMock := ResponseWriterMock{
@@ -313,7 +316,175 @@ func (s *ServerTestSuite) Test_Handler_ReturnsStatusCodeFromPrometheus() {
 	prometheusAddr = testServer.URL
 
 	serve := New()
-	serve.Handler(rwMock, req)
+	serve.GetHandler(rwMock, req)
+
+	s.Equal(http.StatusBadGateway, actualResponse.Status)
+	s.Equal(http.StatusBadGateway, actualStatus)
+}
+
+// DeleteHandler
+
+func (s *ServerTestSuite) Test_DeleteHandler_SetsContentHeaderToJson() {
+	actual := http.Header{}
+	rwMock := ResponseWriterMock{
+		HeaderMock: func() http.Header {
+			return actual
+		},
+	}
+	addr := "/v1/docker-flow-monitor?alertName=my-alert&alertIf=my-if"
+	req, _ := http.NewRequest("DELETE", addr, nil)
+
+	serve := New()
+	serve.DeleteHandler(rwMock, req)
+
+	s.Equal("application/json", actual.Get("Content-Type"))
+}
+
+func (s *ServerTestSuite) Test_DeleteHandler_RemovesScrape() {
+	rwMock := ResponseWriterMock{}
+	addr := "/v1/docker-flow-monitor?serviceName=my-service-1"
+	req, _ := http.NewRequest("DELETE", addr, nil)
+
+	serve := New()
+	serve.Scrapes["my-service-1"] = Scrape{ServiceName: "my-service-1", ScrapePort: 1111}
+	serve.Scrapes["my-service-2"] = Scrape{ServiceName: "my-service-2", ScrapePort: 2222}
+	serve.DeleteHandler(rwMock, req)
+
+	s.Len(serve.Scrapes, 1)
+	s.Equal(serve.Scrapes["my-service-2"], Scrape{ServiceName: "my-service-2", ScrapePort: 2222})
+}
+
+func (s *ServerTestSuite) Test_DeleteHandler_ReturnsJson() {
+	// TODO: Add alerts to expected
+	expected := Response{
+		Status: http.StatusOK,
+		Alerts: []Alert{},
+		Scrape: Scrape{
+			ServiceName: "my-service",
+			ScrapePort: 1234,
+		},
+	}
+	actual := Response{}
+	rwMock := ResponseWriterMock{
+		WriteMock: func(content []byte) (int, error) {
+			json.Unmarshal(content, &actual)
+			return 0, nil
+		},
+	}
+	addr := "/v1/docker-flow-monitor?serviceName=my-service"
+	req, _ := http.NewRequest("DELETE", addr, nil)
+
+	serve := New()
+	serve.Scrapes[expected.Scrape.ServiceName] = expected.Scrape
+	serve.DeleteHandler(rwMock, req)
+
+	s.Equal(expected, actual)
+}
+
+func (s *ServerTestSuite) Test_DeleteHandler_CallsWriteConfig() {
+	expectedAfterGet := `
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "my-service"
+    dns_sd_configs:
+      - names: ["tasks.my-service"]
+        type: A
+        port: 1234
+`
+	rwMock := ResponseWriterMock{}
+	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
+	req, _ := http.NewRequest("GET", addr, nil)
+	fsOrig := fs
+	defer func() { fs = fsOrig }()
+	fs = afero.NewMemMapFs()
+
+	serve := New()
+	serve.GetHandler(rwMock, req)
+
+	actual, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
+	s.Equal(expectedAfterGet, string(actual))
+
+	expectedAfterDelete := `
+global:
+  scrape_interval: 5s
+`
+	addr = "/v1/docker-flow-monitor?serviceName=my-service"
+	req, _ = http.NewRequest("DELETE", addr, nil)
+
+	serve.DeleteHandler(rwMock, req)
+
+	actual, _ = afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
+	s.Equal(expectedAfterDelete, string(actual))
+}
+
+func (s *ServerTestSuite) Test_DeleteHandler_SendsReloadRequestToPrometheus() {
+	rwMock := ResponseWriterMock{}
+	addr := "/v1/docker-flow-monitor?serviceName=my-service"
+	req, _ := http.NewRequest("DELETE", addr, nil)
+	actualMethod := ""
+	actualPath := ""
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		actualMethod = r.Method
+		actualPath = r.URL.Path
+	}))
+	defer testServer.Close()
+	prometheusAddrOrig := prometheusAddr
+	defer func() { prometheusAddr = prometheusAddrOrig }()
+	prometheusAddr = testServer.URL
+
+	serve := New()
+	serve.DeleteHandler(rwMock, req)
+
+	s.Equal("POST", actualMethod)
+	s.Equal("/-/reload", actualPath)
+}
+
+func (s *ServerTestSuite) Test_DeleteHandler_ReturnsNokWhenPrometheusReloadFails() {
+	actualResponse := Response{}
+	rwMock := ResponseWriterMock{
+		WriteMock: func(content []byte) (int, error) {
+			json.Unmarshal(content, &actualResponse)
+			return 0, nil
+		},
+	}
+	addr := "/v1/docker-flow-monitor?serviceName=my-service"
+	req, _ := http.NewRequest("DELETE", addr, nil)
+	prometheusAddrOrig := prometheusAddr
+	defer func() { prometheusAddr = prometheusAddrOrig }()
+	prometheusAddr = "this-url-does-not-exist"
+
+	serve := New()
+	serve.DeleteHandler(rwMock, req)
+
+	s.Equal(http.StatusInternalServerError, actualResponse.Status)
+}
+
+func (s *ServerTestSuite) Test_DeleteHandler_ReturnsStatusCodeFromPrometheus() {
+	actualResponse := Response{}
+	actualStatus := 0
+	rwMock := ResponseWriterMock{
+		WriteMock: func(content []byte) (int, error) {
+			json.Unmarshal(content, &actualResponse)
+			return 0, nil
+		},
+		WriteHeaderMock: func(header int) {
+			actualStatus = header
+		},
+	}
+	addr := "/v1/docker-flow-monitor?serviceName=my-service"
+	req, _ := http.NewRequest("DELETE", addr, nil)
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer testServer.Close()
+	prometheusAddrOrig := prometheusAddr
+	defer func() { prometheusAddr = prometheusAddrOrig }()
+	prometheusAddr = testServer.URL
+
+	serve := New()
+	serve.DeleteHandler(rwMock, req)
 
 	s.Equal(http.StatusBadGateway, actualResponse.Status)
 	s.Equal(http.StatusBadGateway, actualStatus)

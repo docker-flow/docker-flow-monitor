@@ -1,5 +1,11 @@
 # DO NOT USE THIS PROJECT. I'M ONLY PLAYING AROUND (FOR NOW)
 
+## TODO
+
+* Test in bash
+* Remove beta tags
+* Create stacks
+
 ## Build
 
 ```bash
@@ -29,11 +35,11 @@ docker service ps monitor
 
 open "http://localhost:9090"
 
+open "http://localhost:9090/config"
+
 docker service rm monitor
 
 docker network create -d overlay monitor
-
-# TODO: Remove :beta
 
 docker service create --name monitor \
     -p 9090:9090 \
@@ -52,15 +58,11 @@ docker service create --name swarm-listener \
     vfarcic/docker-flow-swarm-listener
 
 docker service ps swarm-listener
-
-# TODO: Create a stack with monitor and swarm-listener and add it to https://github.com/vfarcic/docker-flow-stacks
 ```
 
-# Scrapes
+## Exporters
 
 ```bash
-# TODO: Create a stack with exporters and add it to https://github.com/vfarcic/docker-flow-stacks
-
 docker service create --name cadvisor \
     --mode global \
     --network monitor \
@@ -82,13 +84,55 @@ open "http://localhost:9090/config"
 
 open "http://localhost:9090/graph"
 
-curl "http://swarm-listener:8080/v1/docker-flow-swarm-listener/get-services"
+docker network create -d overlay proxy
+
+docker service create --name proxy \
+    -p 80:80 -p 443:443 \
+    --network proxy --network monitor \
+    -e LISTENER_ADDRESS=swarm-listener \
+    -e MODE=swarm \
+    -e STATS_USER=admin \
+    -e STATS_PASS=admin \
+    vfarcic/docker-flow-proxy
+
+docker network create -d overlay go-demo
+
+docker service create --name go-demo-db \
+  --network go-demo \
+  mongo
+
+docker service create --name go-demo \
+  -e DB=go-demo-db \
+  --network go-demo \
+  --network proxy \
+  --label com.df.notify=true \
+  --label com.df.distribute=true \
+  --label com.df.servicePath=/demo \
+  --label com.df.port=8080 \
+  vfarcic/go-demo
+
+docker service ps go-demo
+
+curl -i "http://localhost/demo/hello"
+
+docker service create --name haproxy-exporter \
+    -p 9101:9101 \
+    quay.io/prometheus/haproxy-exporter \
+    -haproxy.scrape-uri="http://admin:admin@proxy?stats;csv"
+
+open "http://localhost:9090/config"
+
+seq 20 | xargs curl -i "http://google.com"
 ```
 
-# Alerts
+## Custom Exporters
+
+TODO: Explanation
+
+## Alerts
 
 ```bash
 curl "http://localhost:8080/v1/docker-flow-monitor?alertName=my-alert&alertIf=my-if&alertFrom=my-from" | jq '.'
 ```
 
-# DFP
+## DFP

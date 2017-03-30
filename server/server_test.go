@@ -121,13 +121,16 @@ func (s *ServerTestSuite) Test_GetHandler_SetsContentHeaderToJson() {
 
 func (s *ServerTestSuite) Test_GetHandler_AddsAlert() {
 	expected := Alert{
-			AlertName: "myAlert",
-			AlertIf: "my-if",
-			AlertFrom: "my-from",
+		ServiceName: "my-service",
+		AlertName: "my-alert",
+		AlertIf: "my-if",
+		AlertFrom: "my-from",
+		AlertNameFormatted: "myservicemyalert",
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?alertName=%s&alertIf=%s&alertFrom=%s",
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFrom=%s",
+		expected.ServiceName,
 		expected.AlertName,
 		expected.AlertIf,
 		expected.AlertFrom,
@@ -137,7 +140,41 @@ func (s *ServerTestSuite) Test_GetHandler_AddsAlert() {
 	serve := New()
 	serve.GetHandler(rwMock, req)
 
-	s.Equal(expected, serve.Alerts[expected.AlertName])
+	s.Equal(expected, serve.Alerts[expected.AlertNameFormatted])
+}
+
+func (s *ServerTestSuite) Test_GetHandler_AddsAlerts() {
+	expected := []Alert{}
+	for i:=1; i <=2; i++ {
+		expected = append(expected, Alert{
+			ServiceName: "my-service",
+			AlertName: fmt.Sprintf("my-alert-%d", i),
+			AlertIf: fmt.Sprintf("my-if-%d", i),
+			AlertFrom: fmt.Sprintf("my-from-%d", i),
+			AlertNameFormatted: fmt.Sprintf("myservicemyalert%d", i),
+		})
+	}
+	rwMock := ResponseWriterMock{}
+	addr := fmt.Sprintf(
+		"/v1/docker-flow-monitor?serviceName=%s&alertName.1=%s&alertIf.1=%s&alertFrom.1=%s&alertName.2=%s&alertIf.2=%s&alertFrom.2=%s",
+		expected[0].ServiceName,
+		expected[0].AlertName,
+		expected[0].AlertIf,
+		expected[0].AlertFrom,
+		expected[1].AlertName,
+		expected[1].AlertIf,
+		expected[1].AlertFrom,
+	)
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.GetHandler(rwMock, req)
+
+	s.Equal(2, len(serve.Alerts))
+	s.Contains(serve.Alerts, expected[0].AlertNameFormatted)
+	s.Contains(expected, serve.Alerts[expected[0].AlertNameFormatted])
+	s.Contains(serve.Alerts, expected[1].AlertNameFormatted)
+	s.Contains(expected, serve.Alerts[expected[1].AlertNameFormatted])
 }
 
 func (s *ServerTestSuite) Test_GetHandler_AddsScrape() {
@@ -169,15 +206,17 @@ func (s *ServerTestSuite) Test_GetHandler_DoesNotAddAlert_WhenAlertNameIsEmpty()
 	s.Equal(0, len(serve.Alerts))
 }
 
-func (s *ServerTestSuite) Test_GetHandler_RemovesSpecialCharactersFromTheAlertName() {
+func (s *ServerTestSuite) Test_GetHandler_AddsAlertNameFormatted() {
 	expected := Alert{
-		AlertName: "myalert",
+		AlertName: "my-alert",
 		AlertIf: "my-if",
 		AlertFrom: "my-from",
+		AlertNameFormatted: "myalert",
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?alertName=my-alert&alertIf=%s&alertFrom=%s",
+		"/v1/docker-flow-monitor?alertName=%s&alertIf=%s&alertFrom=%s",
+		expected.AlertName,
 		expected.AlertIf,
 		expected.AlertFrom,
 	)
@@ -193,9 +232,11 @@ func (s *ServerTestSuite) Test_GetHandler_ReturnsJson() {
 	expected := Response{
 		Status: http.StatusOK,
 		Alerts: []Alert{Alert{
+			ServiceName: "my-service",
 			AlertName: "myalert",
 			AlertIf: "my-if",
 			AlertFrom: "my-from",
+			AlertNameFormatted: "myservicemyalert",
 		}},
 		Scrape: Scrape{
 			ServiceName: "my-service",
@@ -579,17 +620,20 @@ func (s *ServerTestSuite) Test_GetScrapeConfig_ReturnsEmptyString_WhenNoData() {
 
 func (s *ServerTestSuite) Test_GetAlertConfig_ReturnsConfigWithData() {
 	serve := New()
-	expected := `
-ALERT alert-name-1
-  IF alert-if-1
-  FROM alert-from-1
-
-ALERT alert-name-2
-  IF alert-if-2
-`
-	serve.Alerts = map[string]Alert {
-		"alert-name-1": Alert{ AlertName: "alert-name-1", AlertIf: "alert-if-1", AlertFrom: "alert-from-1" },
-		"alert-name-2": Alert{ AlertName: "alert-name-2", AlertIf: "alert-if-2" },
+	expected := ""
+	for _, i := range []int{1, 2} {
+		expected += fmt.Sprintf(`
+ALERT alertNameFormatted%d
+  IF alert-if-%d
+  FROM alert-from-%d
+`, i, i, i)
+		serve.Alerts[fmt.Sprintf("alert-name-%d", i)] = Alert{
+			AlertNameFormatted: fmt.Sprintf("alertNameFormatted%d", i),
+			ServiceName: fmt.Sprintf("my-service-%d", i),
+			AlertName: fmt.Sprintf("alert-name-%d", i),
+			AlertIf: fmt.Sprintf("alert-if-%d", i),
+			AlertFrom: fmt.Sprintf("alert-from-%d", i),
+		}
 	}
 
 	actual := serve.GetAlertConfig()

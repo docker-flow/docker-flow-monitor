@@ -28,14 +28,16 @@ var cmdRun = func(cmd *exec.Cmd) error {
 var logPrintln = log.Println
 
 type Alert struct {
-	AlertName string
-	AlertIf   string
-	AlertFrom string
+	AlertName string `json:"alertName"`
+	AlertNameFormatted string
+	AlertFrom string `json:"alertFrom,omitempty"`
+	AlertIf   string `json:"alertIf,omitempty"`
+	ServiceName string `json:"serviceName"`
 }
 
 type Scrape struct {
-	ServiceName string `json:"serviceName,omitempty"`
 	ScrapePort 	int `json:"scrapePort,string,omitempty"`
+	ServiceName string `json:"serviceName"`
 }
 
 type Serve struct {
@@ -77,10 +79,10 @@ func (s *Serve) Execute() error {
 func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
 	logPrintln("Processing " + req.URL.Path)
 	req.ParseForm()
-	// TODO: Add serviceName to the alertName
 	// TODO: Create alert configs
 	// TODO: Handle multiple alerts
-	alert := s.getAlerts(req)
+	alerts := s.getAlerts(req)
+	println(len(alerts))
 	scrape := s.getScrape(req)
 	s.WriteConfig()
 	promResp, err := s.reloadPrometheus()
@@ -88,7 +90,7 @@ func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
 	if promResp != nil {
 		statusCode = promResp.StatusCode
 	}
-	resp := s.getResponse(&alert, &scrape, err, statusCode)
+	resp := s.getResponse(&alerts, &scrape, err, statusCode)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.Status)
 	js, _ := json.Marshal(resp)
@@ -162,7 +164,7 @@ scrape_configs:{{range .}}
 
 func (s *Serve) GetAlertConfig() string {
 	templateString := `{{range .}}
-ALERT {{.AlertName}}
+ALERT {{.AlertNameFormatted}}
   IF {{.AlertIf}}{{if .AlertFrom}}
   FROM {{.AlertFrom}}{{end}}
 {{end}}`
@@ -208,16 +210,37 @@ func (s *Serve) InitialConfig() error {
 }
 
 func (s *Serve) getAlerts(req *http.Request) []Alert {
-	alert := Alert{}
-	decoder.Decode(&alert, req.Form)
-	// TODO: Add multiple alerts
-	if len(alert.AlertName) > 0 {
-		alert.AlertName = strings.Replace(alert.AlertName, "-", "", -1)
-		alert.AlertName = strings.Replace(alert.AlertName, "_", "", -1)
-		s.Alerts[alert.AlertName] = alert
-		logPrintln("Adding alert " + alert.AlertName)
+	alerts := []Alert{}
+	alertFromDecode := Alert{}
+	decoder.Decode(&alertFromDecode, req.Form)
+	if len(alertFromDecode.AlertName) > 0 {
+		alertFromDecode.AlertNameFormatted = s.getAlertNameFormatted(alertFromDecode.ServiceName, alertFromDecode.AlertName)
+		s.Alerts[alertFromDecode.AlertNameFormatted] = alertFromDecode
+		alerts = append(alerts, alertFromDecode)
+		logPrintln("Adding alert %s for the service %s", alertFromDecode.AlertName, alertFromDecode.ServiceName)
 	}
-	return []Alert{alert}
+	for i:=1; i <= 10; i++ {
+		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
+		if len(alertName) == 0 {
+			break
+		}
+		alert := Alert{
+			AlertNameFormatted: s.getAlertNameFormatted(alertFromDecode.ServiceName, alertName),
+			ServiceName: alertFromDecode.ServiceName,
+			AlertName: alertName,
+			AlertIf: req.URL.Query().Get(fmt.Sprintf("alertIf.%d", i)),
+			AlertFrom: req.URL.Query().Get(fmt.Sprintf("alertFrom.%d", i)),
+		}
+		s.Alerts[alert.AlertNameFormatted] = alert
+		alerts = append(alerts, alert)
+	}
+	return alerts
+}
+
+func (s *Serve) getAlertNameFormatted(serviceName, alertName string) string {
+	value := fmt.Sprintf("%s%s", serviceName, alertName)
+	value = strings.Replace(value, "-", "", -1)
+	return strings.Replace(value, "_", "", -1)
 }
 
 func (s *Serve) getScrape(req *http.Request) Scrape {

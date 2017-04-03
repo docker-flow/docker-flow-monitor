@@ -25,7 +25,7 @@ var prometheusAddr = "http://localhost:9090"
 var cmdRun = func(cmd *exec.Cmd) error {
 	return cmd.Run()
 }
-var logPrintln = log.Println
+var logPrintf = log.Printf
 
 type Alert struct {
 	AlertName string `json:"alertName"`
@@ -68,19 +68,17 @@ func (s *Serve) Execute() error {
 	r := mux.NewRouter().StrictSlash(true)
 	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.GetHandler).Methods("GET")
 	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.DeleteHandler).Methods("DELETE")
-	logPrintln("Starting Docker Flow Monitor")
+	logPrintf("Starting Docker Flow Monitor")
 	if err := httpListenAndServe(address, r); err != nil {
-		logPrintln(err.Error())
+		logPrintf(err.Error())
 		return err
 	}
 	return nil
 }
 
 func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
-	logPrintln("Processing " + req.URL.Path)
+	logPrintf("Processing " + req.URL.Path)
 	req.ParseForm()
-	// TODO: Create alert configs
-	// TODO: Handle multiple alerts
 	alerts := s.getAlerts(req)
 	scrape := s.getScrape(req)
 	s.WriteConfig()
@@ -108,7 +106,7 @@ func (s *Serve) DeleteHandler(w http.ResponseWriter, req *http.Request) {
 	if promResp != nil {
 		statusCode = promResp.StatusCode
 	}
-	// TODO: Replace nil with alerts
+	// TODO: Replace &[]Alert{} with alerts
 	resp := s.getResponse(&[]Alert{}, &scrape, err, statusCode)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.Status)
@@ -117,12 +115,14 @@ func (s *Serve) DeleteHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Serve) WriteConfig() {
-	logPrintln("Writing config")
+	logPrintf("Writing config")
 	mu.Lock()
 	defer mu.Unlock()
 	fs.MkdirAll("/etc/prometheus", 0755)
 	gc, _ := s.GetGlobalConfig()
 	sc := s.GetScrapeConfig()
+	// TODO: Add rule_files if there's at least one alert
+	// TODO: Write alerts to a separate file
 	config := fmt.Sprintf(`%s
 %s`,
 		gc,
@@ -174,7 +174,7 @@ ALERT {{.AlertNameFormatted}}
 }
 
 func (s *Serve) RunPrometheus() error {
-	logPrintln("Starting Prometheus")
+	logPrintf("Starting Prometheus")
 	cmd := exec.Command("/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -183,6 +183,7 @@ func (s *Serve) RunPrometheus() error {
 
 func (s *Serve) InitialConfig() error {
 	if len(os.Getenv("LISTENER_ADDRESS")) > 0 {
+		logPrintf("Requesting services from Docker Flow Swarm Listener")
 		addr := os.Getenv("LISTENER_ADDRESS")
 		if !strings.HasPrefix(addr, "http") {
 			addr = fmt.Sprintf("http://%s:8080")
@@ -216,7 +217,7 @@ func (s *Serve) getAlerts(req *http.Request) []Alert {
 		alertFromDecode.AlertNameFormatted = s.getAlertNameFormatted(alertFromDecode.ServiceName, alertFromDecode.AlertName)
 		s.Alerts[alertFromDecode.AlertNameFormatted] = alertFromDecode
 		alerts = append(alerts, alertFromDecode)
-		logPrintln("Adding alert %s for the service %s", alertFromDecode.AlertName, alertFromDecode.ServiceName)
+		logPrintf("Adding alert %s for the service %s", alertFromDecode.AlertName, alertFromDecode.ServiceName)
 	}
 	for i:=1; i <= 10; i++ {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
@@ -247,7 +248,7 @@ func (s *Serve) getScrape(req *http.Request) Scrape {
 	decoder.Decode(&scrape, req.Form)
 	if len(scrape.ServiceName) > 0 && scrape.ScrapePort > 0 {
 		s.Scrapes[scrape.ServiceName] = scrape
-		logPrintln("Adding scrape " + scrape.ServiceName)
+		logPrintf("Adding scrape " + scrape.ServiceName)
 	}
 	return scrape
 }

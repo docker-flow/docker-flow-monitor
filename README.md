@@ -43,15 +43,29 @@ docker network create -d overlay monitor
 
 docker network create -d overlay proxy
 
+# TODO: Add to the proxy
+
 docker service create --name monitor \
     -p 9090:9090 \
     --network monitor \
-    -e SCRAPE_INTERVAL=10 \
+    -e SCRAPE_INTERVAL=5 \
+    -e LISTENER_ADDRESS=swarm-listener \
     vfarcic/docker-flow-monitor:beta
 
 docker service ps monitor
 
 open "http://localhost:9090/config"
+
+docker service create --name proxy \
+    -p 80:80 -p 443:443 \
+    --network proxy --network monitor \
+    -e LISTENER_ADDRESS=swarm-listener \
+    -e MODE=swarm \
+    -e STATS_USER=admin \
+    -e STATS_PASS=admin \
+    vfarcic/docker-flow-proxy
+
+docker service ps proxy
 
 docker service create --name swarm-listener \
     --network monitor --network proxy \
@@ -67,6 +81,44 @@ docker service ps swarm-listener
 ## Exporters
 
 ```bash
+# TODO: Add the exporter manally
+
+docker service create --name haproxy-exporter \
+    --network monitor --network proxy \
+    --label com.df.notify=true \
+    --label com.df.scrapePort=9101 \
+    quay.io/prometheus/haproxy-exporter \
+    -haproxy.scrape-uri="http://admin:admin@proxy?stats;csv"
+
+open "http://localhost:9090/config"
+
+docker network create -d overlay go-demo
+
+docker service create --name go-demo-db \
+  --network go-demo \
+  mongo
+
+docker service create --name go-demo \
+  -e DB=go-demo-db \
+  --network go-demo --network proxy \
+  --label com.df.notify=true \
+  --label com.df.distribute=true \
+  --label com.df.servicePath=/demo \
+  --label com.df.port=8080 \
+  vfarcic/go-demo
+
+docker service ps go-demo
+
+curl -i "http://localhost/demo/hello"
+
+open "http://localhost:9090/graph"
+
+for ((n=0;n<20;n++)); do
+    curl "http://localhost/demo/hello"
+done
+
+open "http://localhost:9090/graph"
+
 docker service create --name cadvisor \
     --mode global \
     --network monitor \
@@ -88,43 +140,9 @@ open "http://localhost:9090/config"
 
 open "http://localhost:9090/graph"
 
-docker service create --name proxy \
-    -p 80:80 -p 443:443 \
-    --network proxy --network monitor \
-    -e LISTENER_ADDRESS=swarm-listener \
-    -e MODE=swarm \
-    -e STATS_USER=admin \
-    -e STATS_PASS=admin \
-    vfarcic/docker-flow-proxy
-
-docker network create -d overlay go-demo
-
-docker service create --name go-demo-db \
-  --network go-demo \
-  mongo
-
-docker service create --name go-demo \
-  -e DB=go-demo-db \
-  --network go-demo \
-  --network proxy \
-  --label com.df.notify=true \
-  --label com.df.distribute=true \
-  --label com.df.servicePath=/demo \
-  --label com.df.port=8080 \
-  vfarcic/go-demo
-
-docker service ps go-demo
-
-curl -i "http://localhost/demo/hello"
-
-docker service create --name haproxy-exporter \
-    -p 9101:9101 \
-    quay.io/prometheus/haproxy-exporter \
-    -haproxy.scrape-uri="http://admin:admin@proxy?stats;csv"
-
-open "http://localhost:9090/config"
-
-seq 20 | xargs curl -i "http://google.com"
+for ((n=0;n<20;n++)); do
+    curl "http://localhost/demo/hello"
+done
 ```
 
 ## Custom Exporters
@@ -134,7 +152,28 @@ TODO: Explanation
 ## Alerts
 
 ```bash
-curl "http://localhost:8080/v1/docker-flow-monitor?alertName=my-alert&alertIf=my-if&alertFrom=my-from" | jq '.'
-```
+docker service update \
+    --limit-memory 20mb \
+    --reserve-memory 10mb \
+    go-demo
 
-## DFP
+open "http://localhost:9090/graph"
+
+# container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+
+docker service update \
+    --label-add com.df.alertName=memlimit \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < (container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} * 0.8)' \
+    go-demo
+
+curl "http://localhost:8080/v1/docker-flow-monitor?alertName=godemoalert&alertIf=container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < (container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} * 0.8)" | jq '.'
+
+# TODO: Add alert-from example
+
+# TODO: Alert manager
+
+# TODO: Failover
+
+# TODO: Everything at once through stacks
+```

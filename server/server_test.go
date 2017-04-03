@@ -22,9 +22,9 @@ func (s *ServerTestSuite) SetupTest() {
 
 func TestServerUnitTestSuite(t *testing.T) {
 	s := new(ServerTestSuite)
-	logPrintlnOrig := logPrintln
-	defer func() { logPrintln = logPrintlnOrig }()
-	logPrintln = func(v ...interface{}) {}
+	logPrintlnOrig := logPrintf
+	defer func() { logPrintf = logPrintlnOrig }()
+	logPrintf = func(v ...interface{}) {}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer testServer.Close()
 	prometheusAddrOrig := prometheusAddr

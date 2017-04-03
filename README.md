@@ -81,7 +81,7 @@ docker service ps swarm-listener
 ## Exporters
 
 ```bash
-# TODO: Add the exporter manally
+# TODO: Add the exporter manually
 
 docker service create --name haproxy-exporter \
     --network monitor --network proxy \
@@ -168,6 +168,10 @@ docker service update \
     go-demo
 
 curl "http://localhost:8080/v1/docker-flow-monitor?alertName=godemoalert&alertIf=container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < (container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} * 0.8)" | jq '.'
+
+# TODO: Delete alert
+
+# TODO: Add alert from labels
 
 # TODO: Add alert-from example
 

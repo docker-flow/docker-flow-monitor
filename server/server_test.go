@@ -24,7 +24,7 @@ func TestServerUnitTestSuite(t *testing.T) {
 	s := new(ServerTestSuite)
 	logPrintlnOrig := logPrintf
 	defer func() { logPrintf = logPrintlnOrig }()
-	logPrintf = func(v ...interface{}) {}
+	logPrintf = func(format string, v ...interface{}) {}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer testServer.Close()
 	prometheusAddrOrig := prometheusAddr
@@ -287,6 +287,9 @@ scrape_configs:
       - names: ["tasks.my-service"]
         type: A
         port: 1234
+
+rule_files:
+  - 'alert.rules'
 `
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234&alertName=my-alert&alertIf=my-if&alertFrom=my-from"
@@ -402,14 +405,28 @@ func (s *ServerTestSuite) Test_DeleteHandler_RemovesScrape() {
 	serve.DeleteHandler(rwMock, req)
 
 	s.Len(serve.Scrapes, 1)
-	s.Equal(serve.Scrapes["my-service-2"], Scrape{ServiceName: "my-service-2", ScrapePort: 2222})
+}
+
+func (s *ServerTestSuite) Test_DeleteHandler_RemovesAlerts() {
+	rwMock := ResponseWriterMock{}
+	addr := "/v1/docker-flow-monitor?serviceName=my-service-1"
+	req, _ := http.NewRequest("DELETE", addr, nil)
+
+	serve := New()
+	serve.Alerts["myservice1alert1"] = Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
+	serve.Alerts["myservice1alert2"] = Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
+	serve.Alerts["myservice2alert1"] = Alert{ServiceName: "my-service-2", AlertName: "my-alert-1"}
+	serve.DeleteHandler(rwMock, req)
+
+	s.Len(serve.Alerts, 1)
 }
 
 func (s *ServerTestSuite) Test_DeleteHandler_ReturnsJson() {
-	// TODO: Add alerts to expected
 	expected := Response{
 		Status: http.StatusOK,
-		Alerts: []Alert{},
+		Alerts: []Alert{
+			Alert{ServiceName: "my-service", AlertName: "my-alert"},
+		},
 		Scrape: Scrape{
 			ServiceName: "my-service",
 			ScrapePort: 1234,
@@ -427,6 +444,8 @@ func (s *ServerTestSuite) Test_DeleteHandler_ReturnsJson() {
 
 	serve := New()
 	serve.Scrapes[expected.Scrape.ServiceName] = expected.Scrape
+	alertKey := serve.getAlertNameFormatted(expected.Alerts[0].ServiceName, expected.Alerts[0].AlertName)
+	serve.Alerts[alertKey] = expected.Alerts[0]
 	serve.DeleteHandler(rwMock, req)
 
 	s.Equal(expected, actual)
@@ -564,6 +583,35 @@ func (s *ServerTestSuite) Test_WriteConfig_WritesConfig() {
 
 	actual, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
 	s.Equal(expected, string(actual))
+}
+
+func (s *ServerTestSuite) Test_WriteConfig_WritesAlerts() {
+	fsOrig := fs
+	defer func() { fs = fsOrig }()
+	fs = afero.NewMemMapFs()
+	serve := New()
+	serve.Alerts["myalert"] = Alert{
+		ServiceName: "my-service",
+		AlertName: "alert-name",
+		AlertNameFormatted: "myservicealertname",
+		AlertIf: "alert-if",
+	}
+	gc, _ := serve.GetGlobalConfig()
+	expectedConfig := fmt.Sprintf(`%s
+
+rule_files:
+  - 'alert.rules'
+`,
+		gc,
+	)
+	expectedAlerts := serve.GetAlertConfig()
+
+	serve.WriteConfig()
+
+	actualConfig, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
+	s.Equal(expectedConfig, string(actualConfig))
+	actualAlerts, _ := afero.ReadFile(fs, "/etc/prometheus/alert.rules")
+	s.Equal(expectedAlerts, string(actualAlerts))
 }
 
 // GetGlobalConfig

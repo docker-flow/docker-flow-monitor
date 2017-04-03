@@ -97,17 +97,16 @@ func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Serve) DeleteHandler(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	serviceName := req.URL.Query().Get("serviceName")
-	// TODO: Remove alerts
 	scrape := s.Scrapes[serviceName]
 	delete(s.Scrapes, serviceName)
+	alerts := s.deleteAlerts(serviceName)
 	s.WriteConfig()
 	promResp, err := s.reloadPrometheus()
 	statusCode := http.StatusInternalServerError
 	if promResp != nil {
 		statusCode = promResp.StatusCode
 	}
-	// TODO: Replace &[]Alert{} with alerts
-	resp := s.getResponse(&[]Alert{}, &scrape, err, statusCode)
+	resp := s.getResponse(&alerts, &scrape, err, statusCode)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.Status)
 	js, _ := json.Marshal(resp)
@@ -121,12 +120,19 @@ func (s *Serve) WriteConfig() {
 	fs.MkdirAll("/etc/prometheus", 0755)
 	gc, _ := s.GetGlobalConfig()
 	sc := s.GetScrapeConfig()
-	// TODO: Add rule_files if there's at least one alert
-	// TODO: Write alerts to a separate file
+	ruleFiles := ""
+	if len(s.Alerts) > 0 {
+		ruleFiles = `
+rule_files:
+  - 'alert.rules'
+`
+		afero.WriteFile(fs, "/etc/prometheus/alert.rules", []byte(s.GetAlertConfig()), 0644)
+	}
 	config := fmt.Sprintf(`%s
-%s`,
+%s%s`,
 		gc,
 		sc,
+		ruleFiles,
 	)
 	afero.WriteFile(fs, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }
@@ -162,6 +168,7 @@ scrape_configs:{{range .}}
 }
 
 func (s *Serve) GetAlertConfig() string {
+	// TODO: Add ANNOTATIONS
 	templateString := `{{range .}}
 ALERT {{.AlertNameFormatted}}
   IF {{.AlertIf}}{{if .AlertFrom}}
@@ -237,9 +244,24 @@ func (s *Serve) getAlerts(req *http.Request) []Alert {
 	return alerts
 }
 
+func (s *Serve) deleteAlerts(serviceName string) []Alert {
+	alerts := []Alert{}
+	serviceNameFormatted := s.getNameFormatted(serviceName)
+	for k, v := range s.Alerts {
+		if strings.HasPrefix(k, serviceNameFormatted) {
+			alerts = append(alerts, v)
+			delete(s.Alerts, k)
+		}
+	}
+	return alerts
+}
+
 func (s *Serve) getAlertNameFormatted(serviceName, alertName string) string {
-	value := fmt.Sprintf("%s%s", serviceName, alertName)
-	value = strings.Replace(value, "-", "", -1)
+	return s.getNameFormatted(fmt.Sprintf("%s%s", serviceName, alertName))
+}
+
+func (s *Serve) getNameFormatted(name string) string {
+	value := strings.Replace(name, "-", "", -1)
 	return strings.Replace(value, "_", "", -1)
 }
 

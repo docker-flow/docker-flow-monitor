@@ -184,7 +184,6 @@ ALERT {{.AlertNameFormatted}}
 
 func (s *Serve) RunPrometheus() error {
 	logPrintf("Starting Prometheus")
-	// TODO: Add -web.route-prefix
 	cmdString := "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles"
 	if len(os.Getenv("WEB_ROUTE_PREFIX")) > 0 {
 		cmdString = fmt.Sprintf("%s -web.route-prefix %s", cmdString, os.Getenv("WEB_ROUTE_PREFIX"))

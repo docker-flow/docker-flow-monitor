@@ -306,6 +306,9 @@ rule_files:
 }
 
 func (s *ServerTestSuite) Test_GetHandler_SendsReloadRequestToPrometheus() {
+	webRoutePrefixOrig := os.Getenv("WEB_ROUTE_PREFIX")
+	defer func() { os.Setenv("WEB_ROUTE_PREFIX", webRoutePrefixOrig) }()
+	os.Setenv("WEB_ROUTE_PREFIX", "/something")
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
 	req, _ := http.NewRequest("GET", addr, nil)
@@ -324,7 +327,7 @@ func (s *ServerTestSuite) Test_GetHandler_SendsReloadRequestToPrometheus() {
 	serve.GetHandler(rwMock, req)
 
 	s.Equal("POST", actualMethod)
-	s.Equal("/-/reload", actualPath)
+	s.Equal("/something/-/reload", actualPath)
 }
 
 func (s *ServerTestSuite) Test_GetHandler_ReturnsNokWhenPrometheusReloadFails() {
@@ -714,6 +717,44 @@ func (s *ServerTestSuite) Test_RunPrometheus_ExecutesPrometheus() {
 	serve.RunPrometheus()
 
 	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles"}, actualArgs)
+}
+
+func (s *ServerTestSuite) Test_RunPrometheus_AddsRoutePrefix() {
+	cmdRunOrig := cmdRun
+	defer func() {
+		cmdRun = cmdRunOrig
+		os.Unsetenv("WEB_ROUTE_PREFIX")
+	}()
+	os.Setenv("WEB_ROUTE_PREFIX", "/something")
+	actualArgs := []string{}
+	cmdRun = func(cmd *exec.Cmd) error {
+		actualArgs = cmd.Args
+		return nil
+	}
+
+	serve := New()
+	serve.RunPrometheus()
+
+	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.route-prefix /something"}, actualArgs)
+}
+
+func (s *ServerTestSuite) Test_RunPrometheus_AddsExternalUrl() {
+	cmdRunOrig := cmdRun
+	defer func() {
+		cmdRun = cmdRunOrig
+		os.Unsetenv("WEB_EXTERNAL_URL")
+	}()
+	os.Setenv("WEB_EXTERNAL_URL", "/something")
+	actualArgs := []string{}
+	cmdRun = func(cmd *exec.Cmd) error {
+		actualArgs = cmd.Args
+		return nil
+	}
+
+	serve := New()
+	serve.RunPrometheus()
+
+	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.external-url /something"}, actualArgs)
 }
 
 func (s *ServerTestSuite) Test_RunPrometheus_ReturnsError() {

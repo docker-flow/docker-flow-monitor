@@ -63,6 +63,7 @@ var New = func() *Serve {
 
 func (s *Serve) Execute() error {
 	s.InitialConfig()
+	s.WriteConfig()
 	go s.RunPrometheus()
 	address := "0.0.0.0:8080"
 	r := mux.NewRouter().StrictSlash(true)
@@ -114,7 +115,6 @@ func (s *Serve) DeleteHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Serve) WriteConfig() {
-	logPrintf("Writing config")
 	mu.Lock()
 	defer mu.Unlock()
 	fs.MkdirAll("/etc/prometheus", 0755)
@@ -122,6 +122,7 @@ func (s *Serve) WriteConfig() {
 	sc := s.GetScrapeConfig()
 	ruleFiles := ""
 	if len(s.Alerts) > 0 {
+		logPrintf("Writing alert fules")
 		ruleFiles = `
 rule_files:
   - 'alert.rules'
@@ -134,6 +135,7 @@ rule_files:
 		sc,
 		ruleFiles,
 	)
+	logPrintf("Writing config")
 	afero.WriteFile(fs, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }
 
@@ -182,7 +184,15 @@ ALERT {{.AlertNameFormatted}}
 
 func (s *Serve) RunPrometheus() error {
 	logPrintf("Starting Prometheus")
-	cmd := exec.Command("/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles")
+	// TODO: Add -web.route-prefix
+	cmdString := "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles"
+	if len(os.Getenv("WEB_ROUTE_PREFIX")) > 0 {
+		cmdString = fmt.Sprintf("%s -web.route-prefix %s", cmdString, os.Getenv("WEB_ROUTE_PREFIX"))
+	}
+	if len(os.Getenv("WEB_EXTERNAL_URL")) > 0 {
+		cmdString = fmt.Sprintf("%s -web.external-url %s", cmdString, os.Getenv("WEB_EXTERNAL_URL"))
+	}
+	cmd := exec.Command("/bin/sh", "-c", cmdString)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmdRun(cmd)
@@ -212,7 +222,6 @@ func (s *Serve) InitialConfig() error {
 			s.Alerts[alert.AlertName] = alert
 		}
 	}
-	s.WriteConfig()
 	return nil
 }
 
@@ -276,7 +285,9 @@ func (s *Serve) getScrape(req *http.Request) Scrape {
 }
 
 func (s *Serve) reloadPrometheus() (*http.Response, error) {
-	return http.Post(prometheusAddr + "/-/reload", "application/json", nil)
+	logPrintf("Reloading Prometheus")
+	addr := fmt.Sprintf("%s%s/-/reload", prometheusAddr, os.Getenv("WEB_ROUTE_PREFIX"))
+	return http.Post(addr, "application/json", nil)
 }
 
 func (s *Serve) getResponse(alerts *[]Alert, scrape *Scrape, err error, statusCode int) Response {

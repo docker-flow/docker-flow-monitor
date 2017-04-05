@@ -2,8 +2,6 @@
 
 ## TODO
 
-* Test in bash
-* Remove beta tags
 * Create stacks
 
 ## Build
@@ -19,9 +17,9 @@ docker run --rm \
     -v go:/go golang:1.6 \
     bash -c "go get -d -v -t && CGO_ENABLED=0 GOOS=linux go build -v -o docker-flow-monitor"
 
-docker image build -t vfarcic/docker-flow-monitor:beta .
+docker image build -t vfarcic/docker-flow-monitor .
 
-docker image push vfarcic/docker-flow-monitor:beta
+docker image push vfarcic/docker-flow-monitor
 ```
 
 ## Setup
@@ -32,6 +30,8 @@ docker service create --name monitor \
     prom/prometheus
 
 docker service ps monitor
+
+# proxy_url
 
 open "http://localhost:9090"
 
@@ -49,39 +49,57 @@ docker service create --name monitor \
     -p 9090:9090 \
     --network monitor \
     -e SCRAPE_INTERVAL=5 \
-    -e LISTENER_ADDRESS=swarm-listener \
-    vfarcic/docker-flow-monitor:beta
+    vfarcic/docker-flow-monitor
 
 docker service ps monitor
 
 open "http://localhost:9090/config"
 
-docker service create --name proxy \
-    -p 80:80 -p 443:443 \
-    --network proxy --network monitor \
-    -e LISTENER_ADDRESS=swarm-listener \
-    -e MODE=swarm \
-    -e STATS_USER=admin \
-    -e STATS_PASS=admin \
-    vfarcic/docker-flow-proxy
+docker service rm monitor
+```
 
-docker service ps proxy
+## Integration With DFP
 
+```bash
 docker service create --name swarm-listener \
     --network monitor --network proxy \
     --mount "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock" \
-    -e DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure,http://proxy:8080/v1/docker-flow-proxy/reconfigure \
+    -e DF_NOTIFY_CREATE_SERVICE_URL=http://proxy:8080/v1/docker-flow-proxy/reconfigure \
     -e DF_NOTIFY_REMOVE_SERVICE_URL=http://proxy:8080/v1/docker-flow-proxy/remove \
     --constraint 'node.role==manager' \
     vfarcic/docker-flow-swarm-listener
 
-docker service ps swarm-listener
+docker service create --name proxy \
+    -p 80:80 -p 443:443 \
+    --network proxy --network monitor \
+    --env LISTENER_ADDRESS=swarm-listener \
+    --env MODE=swarm \
+    --env STATS_USER=admin \
+    --env STATS_PASS=admin \
+    vfarcic/docker-flow-proxy
+
+docker service create --name monitor \
+    --network monitor \
+    --env SCRAPE_INTERVAL=5 \
+    --env WEB_ROUTE_PREFIX=/prom \
+    --env WEB_EXTERNAL_URL=http://localhost/prom \
+    --label com.df.notify=true \
+    --label com.df.distribute=true \
+    --label com.df.servicePath=/prom \
+    --label com.df.port=9090 \
+    vfarcic/docker-flow-monitor
+
+docker service ps monitor
+
+open "http://localhost/prom"
 ```
 
 ## Exporters
 
 ```bash
-# TODO: Add the exporter manually
+docker service update \
+    --env-add DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure,http://proxy:8080/v1/docker-flow-proxy/reconfigure \
+    swarm-listener
 
 docker service create --name haproxy-exporter \
     --network monitor --network proxy \
@@ -90,7 +108,7 @@ docker service create --name haproxy-exporter \
     quay.io/prometheus/haproxy-exporter \
     -haproxy.scrape-uri="http://admin:admin@proxy?stats;csv"
 
-open "http://localhost:9090/config"
+open "http://localhost/prom/config"
 
 docker network create -d overlay go-demo
 
@@ -171,13 +189,19 @@ curl "http://localhost:8080/v1/docker-flow-monitor?alertName=godemoalert&alertIf
 
 # TODO: Delete alert
 
-# TODO: Add alert from labels
+# TODO: Add alerts from labels
 
 # TODO: Add alert-from example
 
 # TODO: Alert manager
 
 # TODO: Failover
+
+```bash
+docker service update \
+    --env-add LISTENER_ADDRESS=swarm-listener \
+    monitor
+```
 
 # TODO: Everything at once through stacks
 ```

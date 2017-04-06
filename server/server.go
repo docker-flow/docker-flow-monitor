@@ -8,12 +8,11 @@ import (
 	"encoding/json"
 	"sync"
 	"github.com/spf13/afero"
-	"html/template"
+	"text/template"
 	"bytes"
 	"strings"
 	"fmt"
 	"os"
-	"strconv"
 	"os/exec"
 	"io/ioutil"
 )
@@ -69,6 +68,8 @@ func (s *Serve) Execute() error {
 	r := mux.NewRouter().StrictSlash(true)
 	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.GetHandler).Methods("GET")
 	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.DeleteHandler).Methods("DELETE")
+	r.HandleFunc("/v1/docker-flow-monitor/", s.EmptyHandler).Methods("GET")
+	r.HandleFunc("/v1/docker-flow-monitor/", s.EmptyHandler).Methods("DELETE")
 	logPrintf("Starting Docker Flow Monitor")
 	if err := httpListenAndServe(address, r); err != nil {
 		logPrintf(err.Error())
@@ -77,17 +78,19 @@ func (s *Serve) Execute() error {
 	return nil
 }
 
+func (s *Serve) EmptyHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
 	logPrintf("Processing " + req.URL.Path)
 	req.ParseForm()
 	alerts := s.getAlerts(req)
 	scrape := s.getScrape(req)
 	s.WriteConfig()
-	promResp, err := s.reloadPrometheus()
-	statusCode := http.StatusInternalServerError
-	if promResp != nil {
-		statusCode = promResp.StatusCode
-	}
+	err := s.reloadPrometheus()
+	statusCode := http.StatusOK
 	resp := s.getResponse(&alerts, &scrape, err, statusCode)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.Status)
@@ -96,17 +99,15 @@ func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Serve) DeleteHandler(w http.ResponseWriter, req *http.Request) {
+	logPrintf("Processing " + req.URL.Path)
 	req.ParseForm()
 	serviceName := req.URL.Query().Get("serviceName")
 	scrape := s.Scrapes[serviceName]
 	delete(s.Scrapes, serviceName)
 	alerts := s.deleteAlerts(serviceName)
 	s.WriteConfig()
-	promResp, err := s.reloadPrometheus()
-	statusCode := http.StatusInternalServerError
-	if promResp != nil {
-		statusCode = promResp.StatusCode
-	}
+	err := s.reloadPrometheus()
+	statusCode := http.StatusOK
 	resp := s.getResponse(&alerts, &scrape, err, statusCode)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.Status)
@@ -118,7 +119,7 @@ func (s *Serve) WriteConfig() {
 	mu.Lock()
 	defer mu.Unlock()
 	fs.MkdirAll("/etc/prometheus", 0755)
-	gc, _ := s.GetGlobalConfig()
+	gc := s.GetGlobalConfig()
 	sc := s.GetScrapeConfig()
 	ruleFiles := ""
 	if len(s.Alerts) > 0 {
@@ -139,16 +140,21 @@ rule_files:
 	afero.WriteFile(fs, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }
 
-func (s *Serve) GetGlobalConfig() (config string, err error) {
-	scrapeInterval := 5
-	if len(os.Getenv("SCRAPE_INTERVAL")) > 0 {
-		scrapeInterval, err = strconv.Atoi(os.Getenv("SCRAPE_INTERVAL"))
+func (s *Serve) GetGlobalConfig() string {
+	config := `
+global:`
+	for _, e := range os.Environ() {
+		if key, value := s.getArgFromEnv(e, "GLOBAL"); len(key) > 0 {
+			config = fmt.Sprintf(
+				`%s
+  %s: %s`,
+				config,
+				key,
+				value,
+			)
+		}
 	}
-	return fmt.Sprintf(`
-global:
-  scrape_interval: %ds`,
-		scrapeInterval,
-	), err
+	return config
 }
 
 func (s *Serve) GetScrapeConfig() string {
@@ -184,12 +190,12 @@ ALERT {{.AlertNameFormatted}}
 
 func (s *Serve) RunPrometheus() error {
 	logPrintf("Starting Prometheus")
-	cmdString := "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles"
-	if len(os.Getenv("WEB_ROUTE_PREFIX")) > 0 {
-		cmdString = fmt.Sprintf("%s -web.route-prefix %s", cmdString, os.Getenv("WEB_ROUTE_PREFIX"))
-	}
-	if len(os.Getenv("WEB_EXTERNAL_URL")) > 0 {
-		cmdString = fmt.Sprintf("%s -web.external-url %s", cmdString, os.Getenv("WEB_EXTERNAL_URL"))
+	cmdString := "prometheus"
+	for _, e := range os.Environ() {
+		if key, value := s.getArgFromEnv(e, "ARG"); len(key) > 0 {
+			key = strings.Replace(key, "_", ".", -1)
+			cmdString = fmt.Sprintf("%s -%s=%s", cmdString, key, value)
+		}
 	}
 	cmd := exec.Command("/bin/sh", "-c", cmdString)
 	cmd.Stdout = os.Stdout
@@ -283,10 +289,12 @@ func (s *Serve) getScrape(req *http.Request) Scrape {
 	return scrape
 }
 
-func (s *Serve) reloadPrometheus() (*http.Response, error) {
+func (s *Serve) reloadPrometheus() error {
 	logPrintf("Reloading Prometheus")
-	addr := fmt.Sprintf("%s%s/-/reload", prometheusAddr, os.Getenv("WEB_ROUTE_PREFIX"))
-	return http.Post(addr, "application/json", nil)
+	cmd := exec.Command("pkill", "-HUP", "prometheus")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmdRun(cmd)
 }
 
 func (s *Serve) getResponse(alerts *[]Alert, scrape *Scrape, err error, statusCode int) Response {
@@ -298,8 +306,18 @@ func (s *Serve) getResponse(alerts *[]Alert, scrape *Scrape, err error, statusCo
 	if err != nil {
 		resp.Message = err.Error()
 		resp.Status = http.StatusInternalServerError
-	} else if statusCode != http.StatusOK {
-		resp.Message = fmt.Sprintf("Prometheus returned status code %d", statusCode)
 	}
 	return resp
+}
+
+func (s *Serve) getArgFromEnv(env, prefix string) (key, value string) {
+	if strings.HasPrefix(env, prefix + "_") {
+		values := strings.Split(env, "=")
+		key = values[0]
+		key = strings.TrimLeft(key, prefix)
+		key = strings.ToLower(key)
+		key = strings.Replace(key, "_", "", 1)
+		value = values[1]
+	}
+	return key, value
 }

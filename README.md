@@ -2,7 +2,11 @@
 
 ## TODO
 
+* Change /prom to /monitor
 * Create stacks
+* Write a blog port
+* Add to the book
+* Add to [http://training.play-with-docker.com/](http://training.play-with-docker.com/)
 
 ## Build
 
@@ -48,7 +52,7 @@ docker network create -d overlay proxy
 docker service create --name monitor \
     -p 9090:9090 \
     --network monitor \
-    -e SCRAPE_INTERVAL=5 \
+    -e GLOBAL_SCRAPE_INTERVAL=5s \
     vfarcic/docker-flow-monitor
 
 docker service ps monitor
@@ -80,9 +84,9 @@ docker service create --name proxy \
 
 docker service create --name monitor \
     --network monitor \
-    --env SCRAPE_INTERVAL=5 \
-    --env WEB_ROUTE_PREFIX=/prom \
-    --env WEB_EXTERNAL_URL=http://localhost/prom \
+    --env GLOBAL_SCRAPE_INTERVAL=5s \
+    --env ARG_WEB_ROUTE-PREFIX=/prom \
+    --env ARG_WEB_EXTERNAL-URL=http://localhost/prom \
     --label com.df.notify=true \
     --label com.df.distribute=true \
     --label com.df.servicePath=/prom \
@@ -129,9 +133,11 @@ docker service ps go-demo
 
 curl -i "http://localhost/demo/hello"
 
-open "http://localhost:9090/graph"
+open "http://localhost/prom/graph"
 
-for ((n=0;n<20;n++)); do
+# http_request_duration_microseconds
+
+for ((n=0;n<200;n++)); do
     curl "http://localhost/demo/hello"
 done
 
@@ -154,13 +160,17 @@ docker service logs swarm-listener
 
 docker service logs monitor
 
-open "http://localhost:9090/config"
+open "http://localhost/prom/config"
 
-open "http://localhost:9090/graph"
+open "http://localhost/prom/graph"
 
-for ((n=0;n<20;n++)); do
+# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+
+for ((n=0;n<200;n++)); do
     curl "http://localhost/demo/hello"
 done
+
+# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
 ```
 
 ## Custom Exporters
@@ -175,7 +185,7 @@ docker service update \
     --reserve-memory 10mb \
     go-demo
 
-open "http://localhost:9090/graph"
+open "http://localhost/prom/graph"
 
 # container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"}
 # container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
@@ -185,7 +195,9 @@ docker service update \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < (container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} * 0.8)' \
     go-demo
 
-curl "http://localhost:8080/v1/docker-flow-monitor?alertName=godemoalert&alertIf=container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < (container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} * 0.8)" | jq '.'
+open "http://localhost/prom/config"
+
+open "http://localhost/prom/alerts"
 
 # TODO: Delete alert
 
@@ -197,7 +209,6 @@ curl "http://localhost:8080/v1/docker-flow-monitor?alertName=godemoalert&alertIf
 
 # TODO: Failover
 
-```bash
 docker service update \
     --env-add LISTENER_ADDRESS=swarm-listener \
     monitor

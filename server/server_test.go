@@ -11,6 +11,7 @@ import (
 	"os"
 	"net/http/httptest"
 	"os/exec"
+	"net/url"
 )
 
 type ServerTestSuite struct {
@@ -30,6 +31,11 @@ func TestServerUnitTestSuite(t *testing.T) {
 	prometheusAddrOrig := prometheusAddr
 	defer func() { prometheusAddr = prometheusAddrOrig }()
 	prometheusAddr = testServer.URL
+	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
+	os.Setenv("ARG_CONFIG_FILE", "/etc/prometheus/prometheus.yml")
+	os.Setenv("ARG_STORAGE_LOCAL_PATH", "/prometheus")
+	os.Setenv("ARG_WEB_CONSOLE_LIBRARIES", "/usr/share/prometheus/console_libraries")
+	os.Setenv("ARG_WEB_CONSOLE_TEMPLATES", "/usr/share/prometheus/consoles")
 	suite.Run(t, s)
 }
 
@@ -101,6 +107,40 @@ global:
 	s.Equal(expected, string(actual))
 }
 
+// EmptyHandler
+
+func (s *ServerTestSuite) Test_EmptyHandler_SetsContentHeaderToJson() {
+	actual := http.Header{}
+	rwMock := ResponseWriterMock{
+		HeaderMock: func() http.Header {
+			return actual
+		},
+	}
+	addr := "/v1/docker-flow-monitor"
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.EmptyHandler(rwMock, req)
+
+	s.Equal("application/json", actual.Get("Content-Type"))
+}
+
+func (s *ServerTestSuite) Test_EmptyHandler_SetsStatusCodeTo200() {
+	actual := 0
+	rwMock := ResponseWriterMock{
+		WriteHeaderMock: func(status int) {
+			actual = status
+		},
+	}
+	addr := "/v1/docker-flow-monitor"
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.EmptyHandler(rwMock, req)
+
+	s.Equal(200, actual)
+}
+
 // GetHandler
 
 func (s *ServerTestSuite) Test_GetHandler_SetsContentHeaderToJson() {
@@ -119,11 +159,32 @@ func (s *ServerTestSuite) Test_GetHandler_SetsContentHeaderToJson() {
 	s.Equal("application/json", actual.Get("Content-Type"))
 }
 
+func (s *ServerTestSuite) Test_GetHandler_SetsStatusCodeTo200() {
+	actual := 0
+	cmdRunOrig := cmdRun
+	defer func() { cmdRun = cmdRunOrig }()
+	cmdRun = func(cmd *exec.Cmd) error {
+		return nil
+	}
+	rwMock := ResponseWriterMock{
+		WriteHeaderMock: func(status int) {
+			actual = status
+		},
+	}
+	addr := "/v1/docker-flow-monitor?alertName=my-alert&alertIf=my-if"
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.GetHandler(rwMock, req)
+
+	s.Equal(200, actual)
+}
+
 func (s *ServerTestSuite) Test_GetHandler_AddsAlert() {
 	expected := Alert{
 		ServiceName: "my-service",
 		AlertName: "my-alert",
-		AlertIf: "my-if",
+		AlertIf: "a>b",
 		AlertFrom: "my-from",
 		AlertNameFormatted: "myservicemyalert",
 	}
@@ -132,7 +193,7 @@ func (s *ServerTestSuite) Test_GetHandler_AddsAlert() {
 		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFrom=%s",
 		expected.ServiceName,
 		expected.AlertName,
-		expected.AlertIf,
+		url.QueryEscape(expected.AlertIf),
 		expected.AlertFrom,
 	)
 	req, _ := http.NewRequest("GET", addr, nil)
@@ -239,6 +300,11 @@ func (s *ServerTestSuite) Test_GetHandler_AddsAlertNameFormatted() {
 }
 
 func (s *ServerTestSuite) Test_GetHandler_ReturnsJson() {
+	cmdRunOrig := cmdRun
+	defer func() { cmdRun = cmdRunOrig }()
+	cmdRun = func(cmd *exec.Cmd) error {
+		return nil
+	}
 	expected := Response{
 		Status: http.StatusOK,
 		Alerts: []Alert{Alert{
@@ -306,28 +372,21 @@ rule_files:
 }
 
 func (s *ServerTestSuite) Test_GetHandler_SendsReloadRequestToPrometheus() {
-	webRoutePrefixOrig := os.Getenv("WEB_ROUTE_PREFIX")
-	defer func() { os.Setenv("WEB_ROUTE_PREFIX", webRoutePrefixOrig) }()
-	os.Setenv("WEB_ROUTE_PREFIX", "/something")
+	cmdRunOrig := cmdRun
+	defer func() { cmdRun = cmdRunOrig }()
+	actualArgs := [][]string{}
+	cmdRun = func(cmd *exec.Cmd) error {
+		actualArgs = append(actualArgs, cmd.Args)
+		return nil
+	}
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
 	req, _ := http.NewRequest("GET", addr, nil)
-	actualMethod := ""
-	actualPath := ""
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		actualMethod = r.Method
-		actualPath = r.URL.Path
-	}))
-	defer testServer.Close()
-	prometheusAddrOrig := prometheusAddr
-	defer func() { prometheusAddr = prometheusAddrOrig }()
-	prometheusAddr = testServer.URL
 
 	serve := New()
 	serve.GetHandler(rwMock, req)
 
-	s.Equal("POST", actualMethod)
-	s.Equal("/something/-/reload", actualPath)
+	s.Contains(actualArgs, []string{"pkill", "-HUP", "prometheus"})
 }
 
 func (s *ServerTestSuite) Test_GetHandler_ReturnsNokWhenPrometheusReloadFails() {
@@ -364,19 +423,12 @@ func (s *ServerTestSuite) Test_GetHandler_ReturnsStatusCodeFromPrometheus() {
 	}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
 	req, _ := http.NewRequest("GET", addr, nil)
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadGateway)
-	}))
-	defer testServer.Close()
-	prometheusAddrOrig := prometheusAddr
-	defer func() { prometheusAddr = prometheusAddrOrig }()
-	prometheusAddr = testServer.URL
 
 	serve := New()
 	serve.GetHandler(rwMock, req)
 
-	s.Equal(http.StatusBadGateway, actualResponse.Status)
-	s.Equal(http.StatusBadGateway, actualStatus)
+	s.Equal(http.StatusInternalServerError, actualResponse.Status)
+	s.Equal(http.StatusInternalServerError, actualStatus)
 }
 
 // DeleteHandler
@@ -425,6 +477,11 @@ func (s *ServerTestSuite) Test_DeleteHandler_RemovesAlerts() {
 }
 
 func (s *ServerTestSuite) Test_DeleteHandler_ReturnsJson() {
+	cmdRunOrig := cmdRun
+	defer func() { cmdRun = cmdRunOrig }()
+	cmdRun = func(cmd *exec.Cmd) error {
+		return nil
+	}
 	expected := Response{
 		Status: http.StatusOK,
 		Alerts: []Alert{
@@ -493,14 +550,17 @@ global:
 }
 
 func (s *ServerTestSuite) Test_DeleteHandler_SendsReloadRequestToPrometheus() {
+	cmdRunOrig := cmdRun
+	defer func() { cmdRun = cmdRunOrig }()
+	actualArgs := [][]string{}
+	cmdRun = func(cmd *exec.Cmd) error {
+		actualArgs = append(actualArgs, cmd.Args)
+		return nil
+	}
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service"
 	req, _ := http.NewRequest("DELETE", addr, nil)
-	actualMethod := ""
-	actualPath := ""
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		actualMethod = r.Method
-		actualPath = r.URL.Path
 	}))
 	defer testServer.Close()
 	prometheusAddrOrig := prometheusAddr
@@ -510,8 +570,7 @@ func (s *ServerTestSuite) Test_DeleteHandler_SendsReloadRequestToPrometheus() {
 	serve := New()
 	serve.DeleteHandler(rwMock, req)
 
-	s.Equal("POST", actualMethod)
-	s.Equal("/-/reload", actualPath)
+	s.Contains(actualArgs, []string{"pkill", "-HUP", "prometheus"})
 }
 
 func (s *ServerTestSuite) Test_DeleteHandler_ReturnsNokWhenPrometheusReloadFails() {
@@ -524,9 +583,6 @@ func (s *ServerTestSuite) Test_DeleteHandler_ReturnsNokWhenPrometheusReloadFails
 	}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service"
 	req, _ := http.NewRequest("DELETE", addr, nil)
-	prometheusAddrOrig := prometheusAddr
-	defer func() { prometheusAddr = prometheusAddrOrig }()
-	prometheusAddr = "this-url-does-not-exist"
 
 	serve := New()
 	serve.DeleteHandler(rwMock, req)
@@ -548,19 +604,12 @@ func (s *ServerTestSuite) Test_DeleteHandler_ReturnsStatusCodeFromPrometheus() {
 	}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service"
 	req, _ := http.NewRequest("DELETE", addr, nil)
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadGateway)
-	}))
-	defer testServer.Close()
-	prometheusAddrOrig := prometheusAddr
-	defer func() { prometheusAddr = prometheusAddrOrig }()
-	prometheusAddr = testServer.URL
 
 	serve := New()
 	serve.DeleteHandler(rwMock, req)
 
-	s.Equal(http.StatusBadGateway, actualResponse.Status)
-	s.Equal(http.StatusBadGateway, actualStatus)
+	s.Equal(http.StatusInternalServerError, actualResponse.Status)
+	s.Equal(http.StatusInternalServerError, actualStatus)
 }
 
 // WriteConfig
@@ -574,7 +623,7 @@ func (s *ServerTestSuite) Test_WriteConfig_WritesConfig() {
 		"service-1": Scrape{ ServiceName: "service-1", ScrapePort: 1234 },
 		"service-2": Scrape{ ServiceName: "service-2", ScrapePort: 5678 },
 	}
-	gc, _ := serve.GetGlobalConfig()
+	gc := serve.GetGlobalConfig()
 	sc := serve.GetScrapeConfig()
 	expected := fmt.Sprintf(`%s
 %s`,
@@ -597,9 +646,9 @@ func (s *ServerTestSuite) Test_WriteConfig_WritesAlerts() {
 		ServiceName: "my-service",
 		AlertName: "alert-name",
 		AlertNameFormatted: "myservicealertname",
-		AlertIf: "alert-if",
+		AlertIf: "a>b",
 	}
-	gc, _ := serve.GetGlobalConfig()
+	gc := serve.GetGlobalConfig()
 	expectedConfig := fmt.Sprintf(`%s
 
 rule_files:
@@ -620,26 +669,16 @@ rule_files:
 // GetGlobalConfig
 
 func (s *ServerTestSuite) Test_GlobalConfig_ReturnsConfigWithData() {
-	scrapeIntervalOrig := os.Getenv("SCRAPE_INTERVAL")
-	defer func() { os.Setenv("SCRAPE_INTERVAL", scrapeIntervalOrig) }()
-	os.Setenv("SCRAPE_INTERVAL", "123")
+	scrapeIntervalOrig := os.Getenv("GLOBAL_SCRAPE_INTERVAL")
+	defer func() { os.Setenv("GLOBAL_SCRAPE_INTERVAL", scrapeIntervalOrig) }()
+	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "123s")
 	serve := New()
 	expected := `
 global:
   scrape_interval: 123s`
 
-	actual, _ := serve.GetGlobalConfig()
+	actual := serve.GetGlobalConfig()
 	s.Equal(expected, actual)
-}
-
-func (s *ServerTestSuite) Test_GlobalConfig_ReturnsError_WhenScrapeIntervalIsNotNumber() {
-	scrapeIntervalOrig := os.Getenv("SCRAPE_INTERVAL")
-	defer func() { os.Setenv("SCRAPE_INTERVAL", scrapeIntervalOrig) }()
-	os.Setenv("SCRAPE_INTERVAL", "xxx")
-	serve := New()
-
-	_, err := serve.GetGlobalConfig()
-	s.Error(err)
 }
 
 // GetScrapeConfig
@@ -723,9 +762,9 @@ func (s *ServerTestSuite) Test_RunPrometheus_AddsRoutePrefix() {
 	cmdRunOrig := cmdRun
 	defer func() {
 		cmdRun = cmdRunOrig
-		os.Unsetenv("WEB_ROUTE_PREFIX")
+		os.Unsetenv("ARG_WEB_ROUTE-PREFIX")
 	}()
-	os.Setenv("WEB_ROUTE_PREFIX", "/something")
+	os.Setenv("ARG_WEB_ROUTE-PREFIX", "/something")
 	actualArgs := []string{}
 	cmdRun = func(cmd *exec.Cmd) error {
 		actualArgs = cmd.Args
@@ -735,16 +774,16 @@ func (s *ServerTestSuite) Test_RunPrometheus_AddsRoutePrefix() {
 	serve := New()
 	serve.RunPrometheus()
 
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.route-prefix /something"}, actualArgs)
+	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.route-prefix=/something"}, actualArgs)
 }
 
 func (s *ServerTestSuite) Test_RunPrometheus_AddsExternalUrl() {
 	cmdRunOrig := cmdRun
 	defer func() {
 		cmdRun = cmdRunOrig
-		os.Unsetenv("WEB_EXTERNAL_URL")
+		os.Unsetenv("ARG_WEB_EXTERNAL-URL")
 	}()
-	os.Setenv("WEB_EXTERNAL_URL", "/something")
+	os.Setenv("ARG_WEB_EXTERNAL-URL", "/something")
 	actualArgs := []string{}
 	cmdRun = func(cmd *exec.Cmd) error {
 		actualArgs = cmd.Args
@@ -754,7 +793,7 @@ func (s *ServerTestSuite) Test_RunPrometheus_AddsExternalUrl() {
 	serve := New()
 	serve.RunPrometheus()
 
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.external-url /something"}, actualArgs)
+	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.external-url=/something"}, actualArgs)
 }
 
 func (s *ServerTestSuite) Test_RunPrometheus_ReturnsError() {

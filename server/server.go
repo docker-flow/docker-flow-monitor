@@ -66,10 +66,9 @@ func (s *Serve) Execute() error {
 	go s.RunPrometheus()
 	address := "0.0.0.0:8080"
 	r := mux.NewRouter().StrictSlash(true)
-	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.GetHandler).Methods("GET")
-	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.DeleteHandler).Methods("DELETE")
-	r.HandleFunc("/v1/docker-flow-monitor/", s.EmptyHandler).Methods("GET")
-	r.HandleFunc("/v1/docker-flow-monitor/", s.EmptyHandler).Methods("DELETE")
+	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.ReconfigureHandler)
+	r.HandleFunc("/v1/docker-flow-monitor/remove", s.RemoveHandler)
+	r.HandleFunc("/v1/docker-flow-monitor/", s.EmptyHandler)
 	logPrintf("Starting Docker Flow Monitor")
 	if err := httpListenAndServe(address, r); err != nil {
 		logPrintf(err.Error())
@@ -83,11 +82,12 @@ func (s *Serve) EmptyHandler(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
+func (s *Serve) ReconfigureHandler(w http.ResponseWriter, req *http.Request) {
 	logPrintf("Processing " + req.URL.Path)
 	req.ParseForm()
-	alerts := s.getAlerts(req)
 	scrape := s.getScrape(req)
+	s.deleteAlerts(scrape.ServiceName)
+	alerts := s.getAlerts(req)
 	s.WriteConfig()
 	err := s.reloadPrometheus()
 	statusCode := http.StatusOK
@@ -98,7 +98,7 @@ func (s *Serve) GetHandler(w http.ResponseWriter, req *http.Request) {
 	w.Write(js)
 }
 
-func (s *Serve) DeleteHandler(w http.ResponseWriter, req *http.Request) {
+func (s *Serve) RemoveHandler(w http.ResponseWriter, req *http.Request) {
 	logPrintf("Processing " + req.URL.Path)
 	req.ParseForm()
 	serviceName := req.URL.Query().Get("serviceName")

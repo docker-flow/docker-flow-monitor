@@ -47,8 +47,6 @@ docker network create -d overlay monitor
 
 docker network create -d overlay proxy
 
-# TODO: Add to the proxy
-
 docker service create --name monitor \
     -p 9090:9090 \
     --network monitor \
@@ -121,13 +119,13 @@ docker service create --name go-demo-db \
   mongo
 
 docker service create --name go-demo \
-  -e DB=go-demo-db \
-  --network go-demo --network proxy \
-  --label com.df.notify=true \
-  --label com.df.distribute=true \
-  --label com.df.servicePath=/demo \
-  --label com.df.port=8080 \
-  vfarcic/go-demo
+    -e DB=go-demo-db \
+    --network go-demo --network proxy \
+    --label com.df.notify=true \
+    --label com.df.distribute=true \
+    --label com.df.servicePath=/demo \
+    --label com.df.port=8080 \
+    vfarcic/go-demo
 
 docker service ps go-demo
 
@@ -141,7 +139,9 @@ for ((n=0;n<200;n++)); do
     curl "http://localhost/demo/hello"
 done
 
-open "http://localhost:9090/graph"
+open "http://localhost/prom/graph"
+
+# http_request_duration_microseconds
 
 docker service create --name cadvisor \
     --mode global \
@@ -180,12 +180,30 @@ TODO: Explanation
 ## Alerts
 
 ```bash
+open "http://localhost/prom/graph"
+
+docker service update \
+    --label-add com.df.alertName=mem \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 10000000' \
+    go-demo
+
+open "http://localhost/prom/config"
+
+open "http://localhost/prom/alerts"
+
+docker service update \
+    --label-add com.df.alertName=memlimit \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 1000000' \
+    go-demo
+
+open "http://localhost/prom/alerts"
+
 docker service update \
     --limit-memory 20mb \
     --reserve-memory 10mb \
     go-demo
 
-open "http://localhost/prom/graph"
+open "http://localhost/prom/alerts"
 
 # container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"}
 # container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
@@ -199,9 +217,9 @@ open "http://localhost/prom/config"
 
 open "http://localhost/prom/alerts"
 
-# TODO: Delete alert
+# TODO: Multiple alerts
 
-# TODO: Add alerts from labels
+# TODO: Delete alert
 
 # TODO: Add alert-from example
 
@@ -212,6 +230,8 @@ open "http://localhost/prom/alerts"
 docker service update \
     --env-add LISTENER_ADDRESS=swarm-listener \
     monitor
+
+# TODO: Delete service
 ```
 
 # TODO: Everything at once through stacks

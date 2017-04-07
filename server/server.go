@@ -29,7 +29,7 @@ var logPrintf = log.Printf
 type Alert struct {
 	AlertName string `json:"alertName"`
 	AlertNameFormatted string
-	AlertFrom string `json:"alertFrom,omitempty"`
+	AlertFor string `json:"alertFor,omitempty"`
 	AlertIf   string `json:"alertIf,omitempty"`
 	ServiceName string `json:"serviceName"`
 }
@@ -123,7 +123,7 @@ func (s *Serve) WriteConfig() {
 	sc := s.GetScrapeConfig()
 	ruleFiles := ""
 	if len(s.Alerts) > 0 {
-		logPrintf("Writing alert fules")
+		logPrintf("Writing to alert.rules")
 		ruleFiles = `
 rule_files:
   - 'alert.rules'
@@ -136,7 +136,7 @@ rule_files:
 		sc,
 		ruleFiles,
 	)
-	logPrintf("Writing config")
+	logPrintf("Writing to prometheus.yml")
 	afero.WriteFile(fs, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }
 
@@ -179,8 +179,8 @@ func (s *Serve) GetAlertConfig() string {
 	// TODO: Add ANNOTATIONS
 	templateString := `{{range .}}
 ALERT {{.AlertNameFormatted}}
-  IF {{.AlertIf}}{{if .AlertFrom}}
-  FROM {{.AlertFrom}}{{end}}
+  IF {{.AlertIf}}{{if .AlertFor}}
+  For {{.AlertFor}}{{end}}
 {{end}}`
 	tmpl, _ := template.New("").Parse(templateString)
 	var b bytes.Buffer
@@ -232,13 +232,13 @@ func (s *Serve) InitialConfig() error {
 
 func (s *Serve) getAlerts(req *http.Request) []Alert {
 	alerts := []Alert{}
-	alertFromDecode := Alert{}
-	decoder.Decode(&alertFromDecode, req.Form)
-	if len(alertFromDecode.AlertName) > 0 {
-		alertFromDecode.AlertNameFormatted = s.getAlertNameFormatted(alertFromDecode.ServiceName, alertFromDecode.AlertName)
-		s.Alerts[alertFromDecode.AlertNameFormatted] = alertFromDecode
-		alerts = append(alerts, alertFromDecode)
-		logPrintf("Adding alert %s for the service %s", alertFromDecode.AlertName, alertFromDecode.ServiceName)
+	alertDecode := Alert{}
+	decoder.Decode(&alertDecode, req.Form)
+	if len(alertDecode.AlertName) > 0 {
+		alertDecode.AlertNameFormatted = s.getAlertNameFormatted(alertDecode.ServiceName, alertDecode.AlertName)
+		s.Alerts[alertDecode.AlertNameFormatted] = alertDecode
+		alerts = append(alerts, alertDecode)
+		logPrintf("Adding alert %s for the service %s", alertDecode.AlertName, alertDecode.ServiceName)
 	}
 	for i:=1; i <= 10; i++ {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
@@ -246,11 +246,11 @@ func (s *Serve) getAlerts(req *http.Request) []Alert {
 			break
 		}
 		alert := Alert{
-			AlertNameFormatted: s.getAlertNameFormatted(alertFromDecode.ServiceName, alertName),
-			ServiceName: alertFromDecode.ServiceName,
+			AlertNameFormatted: s.getAlertNameFormatted(alertDecode.ServiceName, alertName),
+			ServiceName: alertDecode.ServiceName,
 			AlertName: alertName,
 			AlertIf: req.URL.Query().Get(fmt.Sprintf("alertIf.%d", i)),
-			AlertFrom: req.URL.Query().Get(fmt.Sprintf("alertFrom.%d", i)),
+			AlertFor: req.URL.Query().Get(fmt.Sprintf("alertFor.%d", i)),
 		}
 		s.Alerts[alert.AlertNameFormatted] = alert
 		alerts = append(alerts, alert)

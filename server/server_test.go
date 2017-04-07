@@ -185,16 +185,16 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 		ServiceName: "my-service",
 		AlertName: "my-alert",
 		AlertIf: "a>b",
-		AlertFrom: "my-from",
+		AlertFor: "my-for",
 		AlertNameFormatted: "myservicemyalert",
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFrom=%s",
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s",
 		expected.ServiceName,
 		expected.AlertName,
 		url.QueryEscape(expected.AlertIf),
-		expected.AlertFrom,
+		expected.AlertFor,
 	)
 	req, _ := http.NewRequest("GET", addr, nil)
 
@@ -209,16 +209,16 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
 		ServiceName: "my-service",
 		AlertName: "my-alert",
 		AlertIf: "a>b",
-		AlertFrom: "my-from",
+		AlertFor: "my-for",
 		AlertNameFormatted: "myservicemyalert",
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFrom=%s",
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s",
 		expected.ServiceName,
 		expected.AlertName,
 		url.QueryEscape(expected.AlertIf),
-		expected.AlertFrom,
+		expected.AlertFor,
 	)
 	req, _ := http.NewRequest("GET", addr, nil)
 
@@ -244,20 +244,20 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 			ServiceName: "my-service",
 			AlertName: fmt.Sprintf("my-alert-%d", i),
 			AlertIf: fmt.Sprintf("my-if-%d", i),
-			AlertFrom: fmt.Sprintf("my-from-%d", i),
+			AlertFor: fmt.Sprintf("my-for-%d", i),
 			AlertNameFormatted: fmt.Sprintf("myservicemyalert%d", i),
 		})
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?serviceName=%s&alertName.1=%s&alertIf.1=%s&alertFrom.1=%s&alertName.2=%s&alertIf.2=%s&alertFrom.2=%s",
+		"/v1/docker-flow-monitor?serviceName=%s&alertName.1=%s&alertIf.1=%s&alertFor.1=%s&alertName.2=%s&alertIf.2=%s&alertFor.2=%s",
 		expected[0].ServiceName,
 		expected[0].AlertName,
 		expected[0].AlertIf,
-		expected[0].AlertFrom,
+		expected[0].AlertFor,
 		expected[1].AlertName,
 		expected[1].AlertIf,
-		expected[1].AlertFrom,
+		expected[1].AlertFor,
 	)
 	req, _ := http.NewRequest("GET", addr, nil)
 
@@ -314,15 +314,15 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
 	expected := Alert{
 		AlertName: "my-alert",
 		AlertIf: "my-if",
-		AlertFrom: "my-from",
+		AlertFor: "my-for",
 		AlertNameFormatted: "myalert",
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?alertName=%s&alertIf=%s&alertFrom=%s",
+		"/v1/docker-flow-monitor?alertName=%s&alertIf=%s&alertFor=%s",
 		expected.AlertName,
 		expected.AlertIf,
-		expected.AlertFrom,
+		expected.AlertFor,
 	)
 	req, _ := http.NewRequest("GET", addr, nil)
 
@@ -344,7 +344,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
 			ServiceName: "my-service",
 			AlertName: "myalert",
 			AlertIf: "my-if",
-			AlertFrom: "my-from",
+			AlertFor: "my-for",
 			AlertNameFormatted: "myservicemyalert",
 		}},
 		Scrape: Scrape{
@@ -360,12 +360,12 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
 		},
 	}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?serviceName=%s&scrapePort=%d&alertName=%s&alertIf=%s&alertFrom=%s",
+		"/v1/docker-flow-monitor?serviceName=%s&scrapePort=%d&alertName=%s&alertIf=%s&alertFor=%s",
 		expected.ServiceName,
 		expected.ScrapePort,
 		expected.Alerts[0].AlertName,
 		expected.Alerts[0].AlertIf,
-		expected.Alerts[0].AlertFrom,
+		expected.Alerts[0].AlertFor,
 	)
 	req, _ := http.NewRequest("GET", addr, nil)
 
@@ -391,7 +391,7 @@ rule_files:
   - 'alert.rules'
 `
 	rwMock := ResponseWriterMock{}
-	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234&alertName=my-alert&alertIf=my-if&alertFrom=my-from"
+	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234&alertName=my-alert&alertIf=my-if&alertFor=my-for"
 	req, _ := http.NewRequest("GET", addr, nil)
 	fsOrig := fs
 	defer func() { fs = fsOrig }()
@@ -758,14 +758,14 @@ func (s *ServerTestSuite) Test_GetAlertConfig_ReturnsConfigWithData() {
 		expected += fmt.Sprintf(`
 ALERT alertNameFormatted%d
   IF alert-if-%d
-  FROM alert-from-%d
+  FOR alert-for-%d
 `, i, i, i)
 		serve.Alerts[fmt.Sprintf("alert-name-%d", i)] = Alert{
 			AlertNameFormatted: fmt.Sprintf("alertNameFormatted%d", i),
 			ServiceName: fmt.Sprintf("my-service-%d", i),
 			AlertName: fmt.Sprintf("alert-name-%d", i),
 			AlertIf: fmt.Sprintf("alert-if-%d", i),
-			AlertFrom: fmt.Sprintf("alert-from-%d", i),
+			AlertFor: fmt.Sprintf("alert-for-%d", i),
 		}
 	}
 
@@ -899,14 +899,14 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
 
 func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 	expected := map[string]Alert{
-		"alert-1": Alert{AlertName: "alert-1", AlertIf: "if-1", AlertFrom: "from-1"},
-		"alert-2": Alert{AlertName: "alert-2", AlertIf: "if-2", AlertFrom: "from-2"},
+		"alert-1": Alert{AlertName: "alert-1", AlertIf: "if-1", AlertFor: "for-1"},
+		"alert-2": Alert{AlertName: "alert-2", AlertIf: "if-2", AlertFor: "for-2"},
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		resp := []map[string]string{}
-		resp = append(resp, map[string]string{"alertName": "alert-1", "alertIf": "if-1", "alertFrom": "from-1"})
-		resp = append(resp, map[string]string{"alertName": "alert-2", "alertIf": "if-2", "alertFrom": "from-2"})
+		resp = append(resp, map[string]string{"alertName": "alert-1", "alertIf": "if-1", "alertFor": "for-1"})
+		resp = append(resp, map[string]string{"alertName": "alert-2", "alertIf": "if-2", "alertFor": "for-2"})
 		js, _ := json.Marshal(resp)
 		w.Write(js)
 	}))

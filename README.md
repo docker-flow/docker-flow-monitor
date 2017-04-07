@@ -274,7 +274,28 @@ open "http://localhost/prom/config"
 
 open "http://localhost/prom/rules"
 
-# TODO: Alert manager
+# TODO: Continue
+
+echo '
+route:
+  receiver: "slack"
+  repeat_interval: 1h
+
+receivers:
+    - name: "slack"
+      slack_configs:
+          - send_resolved: true
+            text: "Hello!"
+            api_url: "https://hooks.slack.com/services/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"
+' | tee alertmanager.yml
+
+docker service create --name alert-manager \
+    --mount "type=bind,source=$PWD/alertmanager.yml,target=/etc/alertmanager/config.yml" \
+    prom/alertmanager
+
+docker service update \
+    --env-add ARG_ALERTMANAGER_ARL=http://alert-manager:9093
+    monitor
 
 # TODO: Failover
 
@@ -283,5 +304,6 @@ docker service update \
     monitor
 ```
 
+# TODO: Prometheus persistence
+
 # TODO: Everything at once through stacks
-```

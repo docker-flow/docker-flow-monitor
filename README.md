@@ -8,24 +8,6 @@
 * Add to the book
 * Add to [http://training.play-with-docker.com/](http://training.play-with-docker.com/)
 
-## Build
-
-```bash
-go get -d -v -t
-
-go test ./... -cover -run UnitTest
-
-docker run --rm \
-    -v $PWD:/usr/src/myapp \
-    -w /usr/src/myapp \
-    -v go:/go golang:1.6 \
-    bash -c "go get -d -v -t && CGO_ENABLED=0 GOOS=linux go build -v -o docker-flow-monitor"
-
-docker image build -t vfarcic/docker-flow-monitor .
-
-docker image push vfarcic/docker-flow-monitor
-```
-
 ## Setup
 
 ```bash
@@ -135,7 +117,7 @@ curl -i "http://localhost/demo/hello"
 
 open "http://localhost/prom/graph"
 
-# http_request_duration_microseconds
+# haproxy_backend_connections_total
 
 for ((n=0;n<200;n++)); do
     curl "http://localhost/demo/hello"
@@ -143,7 +125,7 @@ done
 
 open "http://localhost/prom/graph"
 
-# http_request_duration_microseconds
+# haproxy_backend_connections_total
 
 docker service create --name cadvisor \
     --mode global \
@@ -184,10 +166,12 @@ TODO: Explanation
 ```bash
 docker service update \
     --label-add com.df.alertName=mem \
-    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 10000000' \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < 10000000' \
     go-demo
 
 open "http://localhost/prom/config"
+
+open "http://localhost/prom/rules"
 
 open "http://localhost/prom/alerts"
 
@@ -197,7 +181,7 @@ open "http://localhost/prom/graph"
 
 docker service update \
     --label-add com.df.alertName=mem \
-    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 1000000' \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < 1000000' \
     go-demo
 
 open "http://localhost/prom/alerts"
@@ -273,9 +257,21 @@ docker service rm node-exporter
 open "http://localhost/prom/config"
 
 open "http://localhost/prom/rules"
+```
 
+## Failover
+
+```bash
 # TODO: Continue
 
+docker service update \
+    --env-add LISTENER_ADDRESS=swarm-listener \
+    monitor
+```
+
+## Alert Manager
+
+```bash
 echo '
 route:
   receiver: "slack"
@@ -290,20 +286,23 @@ receivers:
 ' | tee alertmanager.yml
 
 docker service create --name alert-manager \
+    -p 9093:9093 \
     --mount "type=bind,source=$PWD/alertmanager.yml,target=/etc/alertmanager/config.yml" \
     prom/alertmanager
+
+curl -H "Content-Type: application/json" -d '[{"labels":{"alertname":"TestAlert1"}}]' localhost:9093/api/v1/alerts
+
+docker service update \
+    --publish-rm 9093:9093 \
+    alert-manager
 
 docker service update \
     --env-add ARG_ALERTMANAGER_ARL=http://alert-manager:9093
     monitor
-
-# TODO: Failover
-
-docker service update \
-    --env-add LISTENER_ADDRESS=swarm-listener \
-    monitor
 ```
 
-# TODO: Prometheus persistence
+## Stacks
 
-# TODO: Everything at once through stacks
+## Prometheus persistence
+
+## Microscaling

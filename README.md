@@ -1,18 +1,5 @@
 # DO NOT USE THIS PROJECT. I'M ONLY PLAYING AROUND (FOR NOW)
 
-## TODO
-
-* Publish docs
-* Publish a blog post
-* Add to the book
-* Add to [http://training.play-with-docker.com/](http://training.play-with-docker.com/)
-
-## Setup
-
-## Custom Exporters
-
-TODO: Explanation
-
 ## Alerts
 
 ```bash
@@ -21,13 +8,13 @@ docker service update \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < 10000000' \
     go-demo
 
-open "http://localhost/prom/config"
+open "http://localhost/monitor/config"
 
-open "http://localhost/prom/rules"
+open "http://localhost/monitor/rules"
 
-open "http://localhost/prom/alerts"
+open "http://localhost/monitor/alerts"
 
-open "http://localhost/prom/graph"
+open "http://localhost/monitor/graph"
 
 # container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
 
@@ -36,14 +23,14 @@ docker service update \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < 1000000' \
     go-demo
 
-open "http://localhost/prom/alerts"
+open "http://localhost/monitor/alerts"
 
 docker service update \
     --limit-memory 20mb \
     --reserve-memory 10mb \
     go-demo
 
-open "http://localhost/prom/graph"
+open "http://localhost/monitor/graph"
 
 # container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"}
 # container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
@@ -53,14 +40,14 @@ docker service update \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.1' \
     go-demo
 
-open "http://localhost/prom/alerts"
+open "http://localhost/monitor/alerts"
 
 docker service update \
     --label-add com.df.alertName=memlimit \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8' \
     go-demo
 
-open "http://localhost/prom/alerts"
+open "http://localhost/monitor/alerts"
 
 docker service update \
     --label-add com.df.alertName=memlimit \
@@ -68,8 +55,10 @@ docker service update \
     --label-add com.df.alertFor='1m' \
     go-demo
 
-open "http://localhost/prom/alerts"
+open "http://localhost/monitor/alerts"
 ```
+
+NOTE: Rules can be added to exporters as well
 
 ## Multiple Alerts
 
@@ -86,7 +75,7 @@ docker service create \
     --label com.df.notify=true \
     --label com.df.scrapePort=9100 \
     --label com.df.alertName.1=memload \
-    --label com.df.alertIf.1='(sum(node_memory_MemTotal) - sum(node_memory_MemFree + node_memory_Buffers + node_memory_Cached) ) / sum(node_memory_MemTotal) > 0.8' \
+    --label com.df.alertIf.1='(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8' \
     --label com.df.alertName.2=diskload \
     --label com.df.alertIf.2='(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8' \
     basi/node-exporter:v1.13.0 \
@@ -97,6 +86,10 @@ docker service create \
     -collectors.enabled="conntrack,diskstats,entropy,filefd,filesystem,loadavg,mdadm,meminfo,netdev,netstat,stat,textfile,time,vmstat,ipvs"
 ```
 
+## Alert
+
+TODO
+
 ## Removing Alerts and Scrapes
 
 ```bash
@@ -106,9 +99,9 @@ docker service update \
 
 docker service rm node-exporter
 
-open "http://localhost/prom/config"
+open "http://localhost/monitor/config"
 
-open "http://localhost/prom/rules"
+open "http://localhost/monitor/rules"
 ```
 
 ## Failover

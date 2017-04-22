@@ -142,7 +142,7 @@ open "http://localhost:9090/config"
 docker service rm monitor
 ```
 
-## Integration With Docker Flow Proxy
+## Integrating Docker Flow Monitor With Docker Flow Proxy
 
 ```bash
 docker network create -d overlay proxy
@@ -212,7 +212,7 @@ open "http://localhost/monitor"
 
 ![Prometheus integrated with Docker Flow Proxy](img/with-proxy.png)
 
-## Integration With Exporters
+## Integrating Docker Flow Monitor With Exporters
 
 ```bash
 curl -o exporters.yml \
@@ -267,6 +267,8 @@ open "http://localhost/monitor/config"
 
 ![Configuration with exporters](img/exporters.png)
 
+TODO: Targets screenshot
+
 ```bash
 curl -o go-demo.yml \
     https://raw.githubusercontent.com/vfarcic/go-demo/master/docker-compose-stack.yml
@@ -289,6 +291,8 @@ open "http://localhost/monitor/graph"
 
 # haproxy_backend_connections_total
 
+TODO: Screenshot
+
 open "http://localhost/monitor/graph"
 
 # container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
@@ -300,4 +304,16 @@ done
 open "http://localhost/monitor/graph"
 
 # container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
+
+TODO: Screenshot
+
+# sum by (instance) (node_memory_MemFree)
+
+TODO: Screenshot
 ```
+
+##
+
+## Combining Custom Exporters And Alerts
+
+TODO

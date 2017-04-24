@@ -1,65 +1,5 @@
 # DO NOT USE THIS PROJECT. I'M ONLY PLAYING AROUND (FOR NOW)
 
-## Alerts
-
-```bash
-docker service update \
-    --label-add com.df.alertName=mem \
-    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < 10000000' \
-    go-demo
-
-open "http://localhost/monitor/config"
-
-open "http://localhost/monitor/rules"
-
-open "http://localhost/monitor/alerts"
-
-open "http://localhost/monitor/graph"
-
-# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
-
-docker service update \
-    --label-add com.df.alertName=mem \
-    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"} < 1000000' \
-    go-demo
-
-open "http://localhost/monitor/alerts"
-
-docker service update \
-    --limit-memory 20mb \
-    --reserve-memory 10mb \
-    go-demo
-
-open "http://localhost/monitor/graph"
-
-# container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"}
-# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
-
-docker service update \
-    --label-add com.df.alertName=memlimit \
-    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.1' \
-    go-demo
-
-open "http://localhost/monitor/alerts"
-
-docker service update \
-    --label-add com.df.alertName=memlimit \
-    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8' \
-    go-demo
-
-open "http://localhost/monitor/alerts"
-
-docker service update \
-    --label-add com.df.alertName=memlimit \
-    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8' \
-    --label-add com.df.alertFor='1m' \
-    go-demo
-
-open "http://localhost/monitor/alerts"
-```
-
-NOTE: Rules can be added to exporters as well
-
 ## Multiple Alerts
 
 ```bash
@@ -85,10 +25,6 @@ docker service create \
     -collector.textfile.directory /etc/node-exporter/ \
     -collectors.enabled="conntrack,diskstats,entropy,filefd,filesystem,loadavg,mdadm,meminfo,netdev,netstat,stat,textfile,time,vmstat,ipvs"
 ```
-
-## Alert
-
-TODO
 
 ## Removing Alerts and Scrapes
 

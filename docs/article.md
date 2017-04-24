@@ -134,6 +134,8 @@ services:
 
 The environment variable `GLOBAL_SCRAPE_INTERVAL` shows the first improvement over the "original" Prometheus service. It allows us to define entries of its configuration as environment variables. This, in itself, is not a big improvement. More powerful additions will be presented later on.
 
+TODO: Link to env. vars. docs.
+
 Now we're ready to deploy the stack.
 
 ```bash
@@ -329,53 +331,150 @@ open "http://localhost/monitor/config"
 
 ![Configuration with exporters](img/exporters.png)
 
+We can also confirm that all the targets are indeed working.
+
+```bash
+open "http://localhost/monitor/targets"
+```
+
 TODO: Targets screenshot
+
+If we used the "official" Prometheus image. Setting up those targets would require update to the config file and reload of the service. On top of that, we'd need to persist the configuration. Instead, we let Swarm Listener notify the Monitor that there are new services that should, in this case, generate new scraping targets. Instead splitting the initial information into multiple locations, we specified scraping info as service labels.
+
+Now that targets are configured and scraping data, we should generate some traffic that would let us see the metrics in action.
+
+We'll deploy the [go-demo stack](https://github.com/vfarcic/go-demo/blob/master/docker-compose-stack.yml). It contains a service with an API and a corresponding database.
 
 ```bash
 curl -o go-demo.yml \
     https://raw.githubusercontent.com/vfarcic/go-demo/master/docker-compose-stack.yml
 
 docker stack deploy -c go-demo.yml go-demo
-
-docker stack ps go-demo
-
-curl -i "http://localhost/demo/hello"
-
-open "http://localhost/monitor/graph"
-
-# haproxy_backend_connections_total
-
-for ((n=0;n<200;n++)); do
-    curl "http://localhost/demo/hello"
-done
-
-open "http://localhost/monitor/graph"
-
-# haproxy_backend_connections_total
-
-TODO: Screenshot
-
-open "http://localhost/monitor/graph"
-
-# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
-
-for ((n=0;n<200;n++)); do
-    curl "http://localhost/demo/hello"
-done
-
-open "http://localhost/monitor/graph"
-
-# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
-
-TODO: Screenshot
-
-# sum by (instance) (node_memory_MemFree)
-
-TODO: Screenshot
 ```
 
-##
+As before, we should wait a few moments for the service to become operational. Please execute `docker stack ps go-demo` to confirm that all the replicas are running.
 
-## Combining Custom Exporters And Alerts
+Now that the demo service is running, we can explore some of the metrics we have at our disposal.
 
-TODO
+```bash
+open "http://localhost/monitor/graph"
+```
+
+Please type `haproxy_backend_connections_total` in the *Expression* field and press the *Execute* button. The result should be zero connections. Let's spice it up by creating a bit of traffic.
+
+```bash
+for ((n=0;n<200;n++)); do
+    curl "http://localhost/demo/hello"
+done
+```
+
+We sent 200 requests to the `go-demo` service.
+
+If we go back to the Prometheus UI and repeat the execution of the `haproxy_backend_connections_total` expression, the result should be different. The result will be different from one machine to another. In my case, there are 67 backend connections.
+
+![HA Proxy metrics](img/haproxy-backend-connections-total.png)
+
+We could display the data as a graph by clicking the *Graph* tab. I recommend using Grafana instead but that's out of the scope of this text.
+
+How about memory usage? We have the data through `cadvisor` scraping so we might just as well use it.
+
+Please type `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}` in the expression field and click
+the *Execute* button.
+
+The result is memory usage limited to the Docker service `go-demo_main`. Depending on the view, you should see three values in *Console* or three lines in the *Graph* tab. They represent memory usage of the three replicas of the `go-demo_main` service.
+
+![cAdvisor metrics](img/container-memory-usage-bytes.png)
+
+Finally, let's explore one of the `node-exporter` metrics. We can, for example, display the amount of free memory on each node.
+
+Please type `sum by (instance) (node_memory_MemFree)` in the expression field and click the *Execute* button.
+
+The result is representation of free memory for each of the nodes of the cluster.
+
+TODO: Screenshot
+
+## Integrating Docker Flow Monitor With Alerts
+
+TODO: Continue
+
+```bash
+docker service update \
+    --label-add com.df.alertName=mem \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 20000000' \
+    go-demo_main
+
+open "http://localhost/monitor/config"
+```
+
+![Configuration with alert rules](img/config-with-alert-rules.png)
+
+```bash
+open "http://localhost/monitor/rules"
+```
+
+![Rules with go-demo memory usage](img/rules-go-demo-memory.png)
+
+```bash
+open "http://localhost/monitor/alerts"
+```
+
+Click `godemomainmem`
+
+![Alerts with go-demo memory usage](img/alerts-go-demo-memory.png)
+
+```bash
+open "http://localhost/monitor/graph"
+
+# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
+
+docker service update \
+    --label-add com.df.alertName=mem \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 1000000' \
+    go-demo_main
+```
+
+NOTE: Add labels to the stack, not ad-hoc commands.
+
+```bash
+open "http://localhost/monitor/alerts"
+```
+
+Click `godemomainmem`
+
+![Alerts with go-demo memory usage in firing state](img/alerts-go-demo-memory-firing.png)
+
+```bash
+docker service update \
+    --limit-memory 20mb \
+    --reserve-memory 10mb \
+    go-demo
+
+open "http://localhost/monitor/graph"
+
+# container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+
+docker service update \
+    --label-add com.df.alertName=memlimit \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.1' \
+    go-demo
+
+open "http://localhost/monitor/alerts"
+
+docker service update \
+    --label-add com.df.alertName=memlimit \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8' \
+    go-demo
+
+open "http://localhost/monitor/alerts"
+
+docker service update \
+    --label-add com.df.alertName=memlimit \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8' \
+    --label-add com.df.alertFor='1m' \
+    go-demo
+
+open "http://localhost/monitor/alerts"
+```
+
+NOTE: Rules can be added to exporters as well

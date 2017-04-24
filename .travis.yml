@@ -10,7 +10,7 @@ services:
 
 script:
   - set -e
-  - docker run --rm -v $PWD:/usr/src/myapp -w /usr/src/myapp -v go:/go golang:1.6 bash -c "go get -d -v -t && go test --cover ./... --run UnitTest && go build -v -o docker-flow-monitor"
+  - docker run --rm -v $PWD:/usr/src/myapp -w /usr/src/myapp -v go:/go golang:1.6 bash -c "go get -t github.com/stretchr/testify/suite && go get -d -v -t && go test --cover ./... --run UnitTest && go build -v -o docker-flow-monitor"
   - docker build -t vfarcic/docker-flow-monitor .
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD; fi'
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker tag vfarcic/docker-flow-monitor vfarcic/docker-flow-monitor:${VERSION}; fi'

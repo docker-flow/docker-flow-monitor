@@ -180,7 +180,7 @@ func (s *Serve) GetAlertConfig() string {
 	templateString := `{{range .}}
 ALERT {{.AlertNameFormatted}}
   IF {{.AlertIf}}{{if .AlertFor}}
-  For {{.AlertFor}}{{end}}
+  FOR {{.AlertFor}}{{end}}
 {{end}}`
 	tmpl, _ := template.New("").Parse(templateString)
 	var b bytes.Buffer

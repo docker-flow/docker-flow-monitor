@@ -100,20 +100,24 @@ We can create a new Docker image that would extend the one we used and add our o
 
 We can enter a running Prometheus container, modify its configuration, and reload it. While this allows a higher level of dynamism, it is not fault tolerant. If Prometheus fails, Swarm will reschedule it, and all the changes we made will be lost. Besides fault tolerance, modifying a config in a running container poses additional problems when running it as a service inside a cluster. We need to find out the node it is running in, SSH into it, figure out the ID of the container, and, only than, we can `exec` into it and modify the config. While those steps are not overly complex and can be scripted, they will pose an unnecessary complexity. Discarded!
 
-We could mount a network volume to the service. TODO: Continue
-
-```bash
-docker stack rm monitor
-```
+We could mount a network volume to the service. That would solve persistence, but would still leave the problem created by a dynamic nature of a cluster. We still, potentially, need to change the configuration and reload Prometheus every time a new service is deployed or updated. Wouldn't it be great if Prometheus could be configured through environment variables instead configuration files? That would make it more "container native". How about an API that would allow us to add a scrape target or an alert? If that sounds like something that would be an interesting addition to Prometheus, this is your lucky day. Just read on.
 
 ## Deploying Docker Flow Monitor
 
+Deploying *Docker Flow Monitor* is easy (almost all Docker services are). We'll start by creating a network called `monitor`. We could let Docker stack create it for us but it is useful to have it defined externally so that we can easily attach it to services from other stacks.
+
 ```bash
 docker network create -d overlay monitor
+```
 
+Now we can download the stack.
+
+```bash
 curl -o monitor.yml \
     https://raw.githubusercontent.com/vfarcic/docker-flow-stacks/master/metrics/docker-flow-monitor.yml
 ```
+
+The stack is as follows.
 
 ```
 version: "3"
@@ -128,21 +132,27 @@ services:
       - 9090:9090
 ```
 
+The environment variable `GLOBAL_SCRAPE_INTERVAL` shows the first improvement over the "original" Prometheus service. It allows us to define entries of its configuration as environment variables. This, in itself, is not a big improvement. More powerful additions will be presented later on.
+
+Now we're ready to deploy the stack.
+
 ```bash
 docker stack deploy -c monitor.yml monitor
+```
 
-docker stack ps monitor
+Please wait a few moments until Swarm pulls the image and starts the service. You can monitor the status by executing the `docker stack ps monitor` command.
 
+Once the service is running, we can confirm that the environment variable indeed generated the configuration.
+
+```bash
 open "http://localhost:9090/config"
 ```
 
 ![Configuration defined through environment variables](img/env-to-config.png)
 
-```bash
-docker service rm monitor
-```
-
 ## Integrating Docker Flow Monitor With Docker Flow Proxy
+
+Having a port opened (other than `80` and `443`) is generally not a good idea. If for no other reason, at least because its not user friendly to remember a different port for each service. To mitigate this, we'll integrate *Docker Flow Monitor* with [Docker Flow Proxy](http://proxy.dockerflow.com/).
 
 ```bash
 docker network create -d overlay proxy
@@ -151,12 +161,20 @@ curl -o proxy.yml \
     https://raw.githubusercontent.com/vfarcic/docker-flow-stacks/master/proxy/docker-flow-proxy.yml
 
 docker stack deploy -c proxy.yml proxy
+```
 
-docker stack ps proxy
+We create the `proxy` network, downloaded the [docker-flow-proxy.yml](https://github.com/vfarcic/docker-flow-stacks/blob/master/proxy/docker-flow-proxy.yml) stack, and deployed it.
 
+With the proxy up and runnin, we should redeploy our monitor. This time it will not expose port `9090`.
+
+We'll start by downloading the [docker-flow-monitor-proxy.yml](https://github.com/vfarcic/docker-flow-stacks/blob/master/metrics/docker-flow-monitor-proxy.yml) start.
+
+```bash
 curl -o monitor.yml \
     https://raw.githubusercontent.com/vfarcic/docker-flow-stacks/master/metrics/docker-flow-monitor-proxy.yml
 ```
+
+The stack is as follows.
 
 ```
 version: "3"
@@ -200,24 +218,40 @@ networks:
     external: true
 ```
 
-* NOTE: Swarm listeners can be combined
+This time we added a few additional environment variables. They will be used instead the Prometheus startup arguments. We are specifying the route prefix (`/monitor`) as well as the full external URL.
+
+We also used the environment variables `com.df.*` that will tell the proxy how to reconfigure itself so that Prometheus is available through the path `/monitor`.
+
+TODO: Link to environment variables documentation.
+
+The second service is [Docker Flow Swarm Listener](http://swarmlistener.dockerflow.com/) that will listen to Swarm events and send reconfigure and remove requests to the monitor. You'll see its usage soon.
+
+Let us deploy the new version of the monitor stack.
 
 ```bash
 docker stack deploy -c monitor.yml monitor
+```
 
-docker stack ps monitor
+Please execute `docker stack ps monitor` to check the status of the stack. Once it's up-and-running, we can confirm that the monitor is indeed integrated with the proxy.
 
+```bash
 open "http://localhost/monitor"
 ```
 
 ![Prometheus integrated with Docker Flow Proxy](img/with-proxy.png)
 
+Now it's time to start exploring the exporters and their integration with *Docker Flow Monitor*.
+
 ## Integrating Docker Flow Monitor With Exporters
+
+We'll start by downloading the [exporters.yml](https://github.com/vfarcic/docker-flow-stacks/blob/master/metrics/exporters.yml) stack.
 
 ```bash
 curl -o exporters.yml \
     https://raw.githubusercontent.com/vfarcic/docker-flow-stacks/master/metrics/exporters.yml
 ```
+
+The stack is as follows.
 
 ```
 version: "3"
@@ -250,6 +284,24 @@ services:
         - com.df.notify=true
         - com.df.scrapePort=8080
 
+  node-exporter:
+    image: basi/node-exporter:${NODE_EXPORTER_TAG:-v1.13.0}
+    networks:
+      - monitor
+    environment:
+      - HOST_HOSTNAME=/etc/host_hostname
+    volumes:
+      - /proc:/host/proc
+      - /sys:/host/sys
+      - /:/rootfs
+      - /etc/hostname:/etc/host_hostname
+    deploy:
+      mode: global
+      labels:
+        - com.df.notify=true
+        - com.df.scrapePort=9100
+    command: '-collector.procfs /host/proc -collector.sysfs /host/proc -collector.filesystem.ignored-mount-points "^/(sys|proc|dev|host|etc)($$|/)" -collector.textfile.directory /etc/node-exporter/ -collectors.enabled="conntrack,diskstats,entropy,filefd,filesystem,loadavg,mdadm,meminfo,netdev,netstat,stat,textfile,time,vmstat,ipvs"'
+
 networks:
   monitor:
     external: true
@@ -257,11 +309,21 @@ networks:
     external: true
 ```
 
+As you can see, it contains `haproxy` and `node` exporters as well as `cadvisor`. The `haproxy-exporter` will provide metrics related to *Docker Flow Proxy* (it uses HAProxy in the background). `cadvisor` will provide the information about the containers inside our cluster. Finally, `node-exporter` collects server metrics. You'll notice that `cadvisor` and `node-exporter` are running in the `global mode`. A replica will run on each server so that we can obtain an accurate picture of the whole cluster.
+
+The important part of the stack definition are `com.df.notify` and `com.df.scrapePort` labels. The first one tells `swarm-listener` that it should notify the monitor when those services are created (or destroyed). The `scrapePort` is the port of the exporters.
+
+Let's deploy the stack and see it in action.
+
 ```bash
 docker stack deploy -c exporters.yml exporter
+```
 
-docker stack ps exporter
+Please wait until all the services in the stack and running. You can monitor their status with the `docker stack ps exporter` command.
 
+Once the `exporters` stack is up-and-running, we can confirm that they were added to the `monitor` config.
+
+```bash
 open "http://localhost/monitor/config"
 ```
 

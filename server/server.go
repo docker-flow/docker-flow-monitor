@@ -83,6 +83,8 @@ func (s *Serve) EmptyHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Serve) ReconfigureHandler(w http.ResponseWriter, req *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
 	logPrintf("Processing " + req.URL.Path)
 	req.ParseForm()
 	scrape := s.getScrape(req)
@@ -116,8 +118,6 @@ func (s *Serve) RemoveHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Serve) WriteConfig() {
-	mu.Lock()
-	defer mu.Unlock()
 	fs.MkdirAll("/etc/prometheus", 0755)
 	gc := s.GetGlobalConfig()
 	sc := s.GetScrapeConfig()

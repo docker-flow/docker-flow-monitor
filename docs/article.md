@@ -395,53 +395,90 @@ TODO: Screenshot
 
 ## Integrating Docker Flow Monitor With Alerts
 
-TODO: Continue
+Monitoring systems are not meant to be a substitute for Netflix. They are not meant to be watched. Instead, they should collect data and, if certain conditions are met, create alerts.
+
+Let us create the first alert. We'll update our `go-demo_main` service by adding a few labels.
 
 ```bash
 docker service update \
     --label-add com.df.alertName=mem \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 20000000' \
     go-demo_main
+```
 
+> Normally, you should have labels defined inside your stack file. However, since we'll do quite a few iterations with different values, we'll updating the service instead modifying the stack file.
+
+
+The label `com.df.alertName` is the name of the alert. It will be prefixed with the name of the service stripped from underscores and dashes (`godemomem`). That way, unique alert name is guaranteed.
+
+The second label (`com.df.alertIf`) is more important. If defines the expression. Translated to plain words, it take the memory usage limited to the `go-demo_main` service and checked whether it is bigger than 20MB (20000000 bytes). An alert will be launched if the expressions is true.
+
+Let's take a look at the configuration.
+
+```bash
 open "http://localhost/monitor/config"
 ```
 
+As you can see, `alert.rules` file was added to the `rule_files` section.
+
 ![Configuration with alert rules](img/config-with-alert-rules.png)
+
+Let us explore the rules we created by now.
 
 ```bash
 open "http://localhost/monitor/rules"
 ```
 
+The expression we specified with the `com.df.alertIf` label reached *Docker Flow Monitor*.
+
 ![Rules with go-demo memory usage](img/rules-go-demo-memory.png)
+
+Finally, let's take a look at the alerts.
 
 ```bash
 open "http://localhost/monitor/alerts"
 ```
 
-Click `godemomainmem`
+The *godemomainmem* alert is green meaning that none of the `go-demo_main` containers are using over 20MB of memory. Please click the *godemomainmem* link to expand the alert definition.
 
 ![Alerts with go-demo memory usage](img/alerts-go-demo-memory.png)
 
+The alert is green meaning that the service uses less than 20MB of memory. If we'd like to see how much memory it actually uses we need to go back to the graph screen.
+
 ```bash
 open "http://localhost/monitor/graph"
+```
 
-# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
+Once inside the graph screen, please type the expression that follows and press the *Execute* button.
 
+```
+container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
+```
+
+The exact value will vary from one case to another. No matter which one you got, it should be below 20MB.
+
+Let's change the alert so that it is triggered when `go-demo_main` service uses more than 1MB.
+
+```bash
 docker service update \
     --label-add com.df.alertName=mem \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 1000000' \
     go-demo_main
 ```
 
-NOTE: Add labels to the stack, not ad-hoc commands.
+Since we are updating the same service and using the same `alertName`, the previous alert definition was overwritten with the new one.
+
+Let's go back to the alerts screen.
 
 ```bash
 open "http://localhost/monitor/alerts"
 ```
 
-Click `godemomainmem`
+This time, the alert is read meaning that the condition is fulfilled. Our service is using more than 1MB of memory. Please click the *godemomainmem* link to expand the alert and see more details.
 
 ![Alerts with go-demo memory usage in firing state](img/alerts-go-demo-memory-firing.png)
+
+TODO: Continue
 
 ```bash
 docker service update \

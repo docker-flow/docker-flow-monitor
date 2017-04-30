@@ -478,40 +478,94 @@ This time, the alert is read meaning that the condition is fulfilled. Our servic
 
 ![Alerts with go-demo memory usage in firing state](img/alerts-go-demo-memory-firing.png)
 
-TODO: Continue
+While hard-coding limits inside the `alertIf` label works well, we should have limits defined on service level as well. We could, for example, update our service with the `--limit-memory` and `--reserve-memory` flags.
 
 ```bash
 docker service update \
     --limit-memory 20mb \
     --reserve-memory 10mb \
     go-demo
+```
 
+From now on, Docker Swarm will have more information how to schedule the service by trying to place each replica to a node that has 10MB available. Moreover, memory of each of those replicas is now limited to 20MB. In other words, we expect the service to use 10MB but would accept up to 20MB.
+
+Let's take a look at the graph screen.
+
+```bash
 open "http://localhost/monitor/graph"
+```
 
-# container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"}
-# container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+Please type the expression that follows and press the *Execute* button.
 
-docker service update \
-    --label-add com.df.alertName=memlimit \
-    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.1' \
-    go-demo
+```
+container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+```
 
-open "http://localhost/monitor/alerts"
+As you can see, memory metric is clearly set to 20MB. Soon, we'll use those metrics to our benefit.
 
+TODO: Screenshot
+
+Next we'll check the metrics of the "real" memory usage of the service.
+
+Please type the expression that follows and press the *Execute* button.
+
+```
+container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+```
+
+Memory consumption will vary from one case to another. In my case it ranges from TODO to TODO MB.
+
+TODO: Screenshot
+
+If we go back to the `alertIf` label we specified, there is a clear duplication of data. It has the memory limit set to the same value as the `--limit-memory` argument. Duplication is not a good idea because it increases the chances of an error and complicates future updates that need to be performed in multiple places.
+
+A better definition of the `alertIf` statement is as follows.
+
+```bash
 docker service update \
     --label-add com.df.alertName=memlimit \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8' \
     go-demo
+```
 
-open "http://localhost/monitor/alerts"
+This time we defined that the `memlimit` alert should be triggered if memory usage is higher than 80% of the memory limit. That way, if, at some later stage, we change the value of the `--limit-memory` argument, the alert will continue working properly.
 
-docker service update \
-    --label-add com.df.alertName=memlimit \
-    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8' \
-    --label-add com.df.alertFor='1m' \
-    go-demo
+Let's confirm that *Docker Flow Swarm Listener* sent the notification and that *Docker Flow Monitor* was reconfigured accordingly.
 
+```bash
 open "http://localhost/monitor/alerts"
 ```
 
-NOTE: Rules can be added to exporters as well
+Please click the TODO link to see the new definition of the alert.
+
+## Defining Multiple Alerts For A Service
+
+In many cases one alert per service is not enough. We need to be able to define multiple alerts. *Docker Flow Monitor* allows us that by adding index to labels. We can, for example, define labels `com.df.alertName.1`, `com.df.alertName.2`, and `com.df.alertName.3`. As a result, *Docker Flow Monitor* would create three alerts.
+
+Let's see it in action.
+
+TODO: Continue
+
+```bash
+docker service create \
+    --name node-exporter \
+    --mode global \
+    --network monitor \
+    --mount "type=bind,source=/proc,target=/host/proc" \
+    --mount "type=bind,source=/sys,target=/host/sys" \
+    --mount "type=bind,source=/,target=/rootfs" \
+    --mount "type=bind,source=/etc/hostname,target=/etc/host_hostname" \
+    -e HOST_HOSTNAME=/etc/host_hostname \
+    --label com.df.notify=true \
+    --label com.df.scrapePort=9100 \
+    --label com.df.alertName.1=memload \
+    --label com.df.alertIf.1='(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8' \
+    --label com.df.alertName.2=diskload \
+    --label com.df.alertIf.2='(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8' \
+    basi/node-exporter:v1.13.0 \
+    -collector.procfs /host/proc \
+    -collector.sysfs /host/proc \
+    -collector.filesystem.ignored-mount-points "^/(sys|proc|dev|host|etc)($|/)" \
+    -collector.textfile.directory /etc/node-exporter/ \
+    -collectors.enabled="conntrack,diskstats,entropy,filefd,filesystem,loadavg,mdadm,meminfo,netdev,netstat,stat,textfile,time,vmstat,ipvs"
+```

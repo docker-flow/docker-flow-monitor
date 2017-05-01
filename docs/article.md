@@ -10,8 +10,6 @@ How to we adapt the system so that it takes the new service into account? How do
 
 Unless you are writing everything yourself (in which case you must be Google), your system consists of a mixture of services written by you and services written and maintained by others. You probably use a third party proxy (hopefully that's [Docker Flow Proxy](http://proxy.dockerflow.com/)). You might have chosen the ELK stack for centralized logging. How about monitoring? It could be Prometheus. No matter the choices you made, you are not in control of the architecture of the whole system. Heck, you're probably not even in control of all the services your wrote.
 
-TODO: Diagram
-
 Most of the third party services are not designed to work in a highly dynamic cluster. When you deployed that first release of the service, you might have had to configure the proxy manually. You might have had to add a few parsing rules to your LogStash config. Your Prometheus targets had to be updated. New alerting rules had to be added. And so on, and so forth. Even if all those tasks are automated, the CD pipeline would have to become too big and the process would be too flaky.
 
 > Most third-party services were designed in an era when clusters were a collection of static servers. Only a handful of those were designed to work well with containers and even fewer were adapted to work with schedulers (e.g. Swarm, k8s, Mesos/Marathon).
@@ -36,22 +34,31 @@ Before we move into a brave new world, let's explore how would we do a tradition
 
 ## Setting Up Prometheus
 
-Let's start by creating a Prometheus service. We'll start small and move slowly toward a more robust solution.
-
-> If you are a Windows user, please run all the examples from *Git Bash* (installed through *Git*).
+We'll start by cloning [vfarcic/docker-flow-monitor](https://github.com/vfarcic/docker-flow-monitor) repository. It contains all the scripts and Docker stacks we'll use throughout this article.
 
 ```bash
-# TODO: Create a cluster
+git clone https://github.com/vfarcic/docker-flow-monitor.git
+
+cd docker-flow-monitor
 ```
 
-We'll start by downloading the Docker Stack file [prometheus.yml](https://github.com/vfarcic/docker-flow-stacks/blob/master/metrics/prometheus.yml) that provides a very basic definition of a Prometheus service.
+Before we create a Prometheus service, we need to have a cluster. We'll create three nodes using Docker Machine. Feel free to skip the commands that follow if you already have a working Swarm cluster.
+
+> If you are a Windows user, please run all the examples from *Git Bash* (installed through *Git*) or any other Bash you might have.
 
 ```bash
-curl -o monitor.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-stacks/master/metrics/prometheus.yml
+chmod +x scripts/dm-swarm.sh
+
+./scripts/dm-swarm.sh
+
+eval $(docker-machine env swarm-1)
 ```
 
-The stack is as follows.
+The `dm-swarm.sh` scripts created the nodes and joined them into a Swarm cluster.
+
+Now we can create the first Prometheus service. We'll start small and move slowly toward a more robust solution.
+
+We'll start with the stack defined in `stacks/prometheus.yml`. It is as follows.
 
 ```
 version: "3"
@@ -69,17 +76,17 @@ As you can see, it is as simple as it can get. It specifies the image and the po
 Let's deploy the stack.
 
 ```bash
-docker stack deploy -c monitor.yml monitor
+docker stack deploy -c stacks/prometheus.yml monitor
 ```
 
 Please wait a few moments until the image is pulled and deployed. You can monitor the status by executing the `docker stack ps monitor` command.
 
-> If you're a windows user, Git Bash might not be able to use the `open` command. If that's the case, open the addresses from the commands that follow directly in your browser of choice.
-
 Let's confirm that Prometheus service is indeed up-and-running.
 
+> If you're a windows user, Git Bash might not be able to use the `open` command. If that's the case, when you see the `open`, open the addresses from those commands directly in your browser of choice.
+
 ```bash
-open "http://localhost:9090"
+open "http://$(docker-machine ip swarm-1):9090"
 ```
 
 You should see the Prometheus Graph screen.
@@ -87,12 +94,12 @@ You should see the Prometheus Graph screen.
 Let's take a look at the configuration.
 
 ```bash
-open "http://localhost:9090/config"
+open "http://$(docker-machine ip swarm-1):9090/config"
 ```
 
-TODO: Screenshot
-
 You should see the default config that does not define much more than intervals and internal scraping. In its current state, Prometheus is not very useful.
+
+![Prometheus with default configuration](img/prometheus-default-config.png)
 
 We should start fine tuning it. There are quite a few ways we can do that.
 
@@ -110,7 +117,7 @@ Deploying *Docker Flow Monitor* is easy (almost all Docker services are). We'll 
 docker network create -d overlay monitor
 ```
 
-Now we can download the stack.
+Now we can download the *Docker Flow Monitor* stack.
 
 ```bash
 curl -o monitor.yml \
@@ -124,7 +131,7 @@ version: "3"
 
 services:
 
-  prometheus:
+  monitor:
     image: vfarcic/docker-flow-monitor:${TAG:-latest}
     environment:
       - GLOBAL_SCRAPE_INTERVAL=10s
@@ -139,7 +146,11 @@ TODO: Link to env. vars. docs.
 Now we're ready to deploy the stack.
 
 ```bash
-docker stack deploy -c monitor.yml monitor
+docker stack rm monitor
+
+docker stack deploy \
+    -c stacks/docker-flow-monitor.yml \
+    monitor
 ```
 
 Please wait a few moments until Swarm pulls the image and starts the service. You can monitor the status by executing the `docker stack ps monitor` command.
@@ -147,7 +158,7 @@ Please wait a few moments until Swarm pulls the image and starts the service. Yo
 Once the service is running, we can confirm that the environment variable indeed generated the configuration.
 
 ```bash
-open "http://localhost:9090/config"
+open "http://$(docker-machine ip swarm-1):9090/config"
 ```
 
 ![Configuration defined through environment variables](img/env-to-config.png)
@@ -159,22 +170,14 @@ Having a port opened (other than `80` and `443`) is generally not a good idea. I
 ```bash
 docker network create -d overlay proxy
 
-curl -o proxy.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-stacks/master/proxy/docker-flow-proxy.yml
-
-docker stack deploy -c proxy.yml proxy
+docker stack deploy -c stacks/docker-flow-proxy.yml proxy
 ```
 
-We create the `proxy` network, downloaded the [docker-flow-proxy.yml](https://github.com/vfarcic/docker-flow-stacks/blob/master/proxy/docker-flow-proxy.yml) stack, and deployed it.
+We created the `proxy` network and deployed the `docker-flow-proxy.yml` stack. We won't go into details how *Docker Flow Proxy* works. The essence is that it will configure itself with each service that has specific labels. Please visit [Docker Flow Proxy documentation](http://proxy.dockerflow.com/) for more information and examples.
 
-With the proxy up and runnin, we should redeploy our monitor. This time it will not expose port `9090`.
+With the proxy up and running, we should redeploy our monitor. This time it will not expose port `9090`.
 
-We'll start by downloading the [docker-flow-monitor-proxy.yml](https://github.com/vfarcic/docker-flow-stacks/blob/master/metrics/docker-flow-monitor-proxy.yml) start.
-
-```bash
-curl -o monitor.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-stacks/master/metrics/docker-flow-monitor-proxy.yml
-```
+We'll replace the current monitor stack with a new one. The major difference is that, this time, we'll define startup arguments as well as the labels that will allow the proxy to reconfigure itself.
 
 The stack is as follows.
 
@@ -183,15 +186,15 @@ version: "3"
 
 services:
 
-  prometheus:
+  monitor:
     image: vfarcic/docker-flow-monitor:${TAG:-latest}
     environment:
       - GLOBAL_SCRAPE_INTERVAL=10s
       - ARG_WEB_ROUTE-PREFIX=/monitor
       - ARG_WEB_EXTERNAL-URL=http://${DOMAIN:-localhost}/monitor
-    network:
+    networks:
       - proxy
-      - default
+      - monitor
     deploy:
       labels:
         - com.df.notify=true
@@ -203,7 +206,7 @@ services:
   swarm-listener:
     image: vfarcic/docker-flow-swarm-listener
     networks:
-      - proxy
+      - monitor
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -214,8 +217,8 @@ services:
         constraints: [node.role == manager]
 
 networks:
-  default:
-    external: false
+  monitor:
+    external: true
   proxy:
     external: true
 ```
@@ -231,13 +234,20 @@ The second service is [Docker Flow Swarm Listener](http://swarmlistener.dockerfl
 Let us deploy the new version of the monitor stack.
 
 ```bash
-docker stack deploy -c monitor.yml monitor
+docker stack rm monitor
+
+DOMAIN=$(docker-machine ip swarm-1) \
+    docker stack deploy \
+    -c stacks/docker-flow-monitor-proxy.yml \
+    monitor
 ```
+
+In the "real-world" situation, you should use your domain (e.g. `monitor.acme.com`) and would not need `ARG_WEB_ROUTE-PREFIX` and `com.df.servicePath` set to `/monitor`. However, since we do not have a domain for this exercise, we used the IP of `swarm-1` instead.
 
 Please execute `docker stack ps monitor` to check the status of the stack. Once it's up-and-running, we can confirm that the monitor is indeed integrated with the proxy.
 
 ```bash
-open "http://localhost/monitor"
+open "http://$(docker-machine ip swarm-1)/monitor"
 ```
 
 ![Prometheus integrated with Docker Flow Proxy](img/with-proxy.png)
@@ -246,12 +256,9 @@ Now it's time to start exploring the exporters and their integration with *Docke
 
 ## Integrating Docker Flow Monitor With Exporters
 
-We'll start by downloading the [exporters.yml](https://github.com/vfarcic/docker-flow-stacks/blob/master/metrics/exporters.yml) stack.
+TODO: Continue
 
-```bash
-curl -o exporters.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-stacks/master/metrics/exporters.yml
-```
+Now we can deploy a few exporters. They will provide data Prometheus can scrape and put into its database.
 
 The stack is as follows.
 
@@ -311,22 +318,26 @@ networks:
     external: true
 ```
 
-As you can see, it contains `haproxy` and `node` exporters as well as `cadvisor`. The `haproxy-exporter` will provide metrics related to *Docker Flow Proxy* (it uses HAProxy in the background). `cadvisor` will provide the information about the containers inside our cluster. Finally, `node-exporter` collects server metrics. You'll notice that `cadvisor` and `node-exporter` are running in the `global mode`. A replica will run on each server so that we can obtain an accurate picture of the whole cluster.
+As you can see, the stack definition contains `haproxy` and `node` exporters as well as `cadvisor`. The `haproxy-exporter` will provide metrics related to *Docker Flow Proxy* (it uses HAProxy in the background). `cadvisor` will provide the information about the containers inside our cluster. Finally, `node-exporter` collects server metrics. You'll notice that `cadvisor` and `node-exporter` are running in the `global mode`. A replica will run on each server so that we can obtain an accurate picture of the whole cluster.
 
 The important part of the stack definition are `com.df.notify` and `com.df.scrapePort` labels. The first one tells `swarm-listener` that it should notify the monitor when those services are created (or destroyed). The `scrapePort` is the port of the exporters.
 
 Let's deploy the stack and see it in action.
 
 ```bash
-docker stack deploy -c exporters.yml exporter
+docker stack deploy \
+    -c stacks/exporters.yml \
+    exporter
 ```
 
 Please wait until all the services in the stack and running. You can monitor their status with the `docker stack ps exporter` command.
 
 Once the `exporters` stack is up-and-running, we can confirm that they were added to the `monitor` config.
 
+TODO: Continue
+
 ```bash
-open "http://localhost/monitor/config"
+open "http://$(docker-machine ip swarm-1)/monitor/config"
 ```
 
 ![Configuration with exporters](img/exporters.png)
@@ -334,22 +345,21 @@ open "http://localhost/monitor/config"
 We can also confirm that all the targets are indeed working.
 
 ```bash
-open "http://localhost/monitor/targets"
+open "http://$(docker-machine ip swarm-1)/monitor/targets"
 ```
 
-TODO: Targets screenshot
+As you can see, we have three targets. Two of them (`exporter_cadvisor` and `exporter_node-exporter`) are running as global services. As a result, each has three endpoints, one on each node. The last target is `exporter_ha-proxy`. Since we did not run it globally nor specified multiple replicas, in has only one endpoint.
+
+![Targets and endpoints](img/targets.png)
 
 If we used the "official" Prometheus image. Setting up those targets would require update to the config file and reload of the service. On top of that, we'd need to persist the configuration. Instead, we let Swarm Listener notify the Monitor that there are new services that should, in this case, generate new scraping targets. Instead splitting the initial information into multiple locations, we specified scraping info as service labels.
 
 Now that targets are configured and scraping data, we should generate some traffic that would let us see the metrics in action.
 
-We'll deploy the [go-demo stack](https://github.com/vfarcic/go-demo/blob/master/docker-compose-stack.yml). It contains a service with an API and a corresponding database.
+We'll deploy the go-demo stack. It contains a service with an API and a corresponding database. We'll use it as a demo service that will allow us to explore some of the metrics we can use.
 
 ```bash
-curl -o go-demo.yml \
-    https://raw.githubusercontent.com/vfarcic/go-demo/master/docker-compose-stack.yml
-
-docker stack deploy -c go-demo.yml go-demo
+docker stack deploy -c stacks/go-demo.yml go-demo
 ```
 
 As before, we should wait a few moments for the service to become operational. Please execute `docker stack ps go-demo` to confirm that all the replicas are running.
@@ -357,14 +367,14 @@ As before, we should wait a few moments for the service to become operational. P
 Now that the demo service is running, we can explore some of the metrics we have at our disposal.
 
 ```bash
-open "http://localhost/monitor/graph"
+open "http://$(docker-machine ip swarm-1)/monitor/graph"
 ```
 
 Please type `haproxy_backend_connections_total` in the *Expression* field and press the *Execute* button. The result should be zero connections. Let's spice it up by creating a bit of traffic.
 
 ```bash
 for ((n=0;n<200;n++)); do
-    curl "http://localhost/demo/hello"
+    curl "http://$(docker-machine ip swarm-1)/demo/hello"
 done
 ```
 
@@ -378,8 +388,7 @@ We could display the data as a graph by clicking the *Graph* tab. I recommend us
 
 How about memory usage? We have the data through `cadvisor` scraping so we might just as well use it.
 
-Please type `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}` in the expression field and click
-the *Execute* button.
+Please type `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}` in the expression field and click the *Execute* button.
 
 The result is memory usage limited to the Docker service `go-demo_main`. Depending on the view, you should see three values in *Console* or three lines in the *Graph* tab. They represent memory usage of the three replicas of the `go-demo_main` service.
 
@@ -391,7 +400,7 @@ Please type `sum by (instance) (node_memory_MemFree)` in the expression field an
 
 The result is representation of free memory for each of the nodes of the cluster.
 
-TODO: Screenshot
+![Graph with available memory](img/graph-memory.png)
 
 ## Integrating Docker Flow Monitor With Alerts
 
@@ -406,7 +415,7 @@ docker service update \
     go-demo_main
 ```
 
-> Normally, you should have labels defined inside your stack file. However, since we'll do quite a few iterations with different values, we'll updating the service instead modifying the stack file.
+> Normally, you should have labels defined inside your stack file. However, since we'll do quite a few iterations with different values, we'll be updating the service instead modifying the stack file.
 
 
 The label `com.df.alertName` is the name of the alert. It will be prefixed with the name of the service stripped from underscores and dashes (`godemomem`). That way, unique alert name is guaranteed.
@@ -416,7 +425,7 @@ The second label (`com.df.alertIf`) is more important. If defines the expression
 Let's take a look at the configuration.
 
 ```bash
-open "http://localhost/monitor/config"
+open "http://$(docker-machine ip swarm-1)/monitor/config"
 ```
 
 As you can see, `alert.rules` file was added to the `rule_files` section.
@@ -426,7 +435,7 @@ As you can see, `alert.rules` file was added to the `rule_files` section.
 Let us explore the rules we created by now.
 
 ```bash
-open "http://localhost/monitor/rules"
+open "http://$(docker-machine ip swarm-1)/monitor/rules"
 ```
 
 The expression we specified with the `com.df.alertIf` label reached *Docker Flow Monitor*.
@@ -436,7 +445,7 @@ The expression we specified with the `com.df.alertIf` label reached *Docker Flow
 Finally, let's take a look at the alerts.
 
 ```bash
-open "http://localhost/monitor/alerts"
+open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
 The *godemomainmem* alert is green meaning that none of the `go-demo_main` containers are using over 20MB of memory. Please click the *godemomainmem* link to expand the alert definition.
@@ -446,7 +455,7 @@ The *godemomainmem* alert is green meaning that none of the `go-demo_main` conta
 The alert is green meaning that the service uses less than 20MB of memory. If we'd like to see how much memory it actually uses we need to go back to the graph screen.
 
 ```bash
-open "http://localhost/monitor/graph"
+open "http://$(docker-machine ip swarm-1)/monitor/graph"
 ```
 
 Once inside the graph screen, please type the expression that follows and press the *Execute* button.
@@ -471,10 +480,10 @@ Since we are updating the same service and using the same `alertName`, the previ
 Let's go back to the alerts screen.
 
 ```bash
-open "http://localhost/monitor/alerts"
+open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
-This time, the alert is read meaning that the condition is fulfilled. Our service is using more than 1MB of memory. Please click the *godemomainmem* link to expand the alert and see more details.
+This time, the alert is read meaning that the condition is fulfilled. If it is still green, please wait for a few moments and refresh your screen. Our service is using more than 1MB of memory. Please click the *godemomainmem* link to expand the alert and see more details.
 
 ![Alerts with go-demo memory usage in firing state](img/alerts-go-demo-memory-firing.png)
 
@@ -484,7 +493,7 @@ While hard-coding limits inside the `alertIf` label works well, we should have l
 docker service update \
     --limit-memory 20mb \
     --reserve-memory 10mb \
-    go-demo
+    go-demo_main
 ```
 
 From now on, Docker Swarm will have more information how to schedule the service by trying to place each replica to a node that has 10MB available. Moreover, memory of each of those replicas is now limited to 20MB. In other words, we expect the service to use 10MB but would accept up to 20MB.
@@ -492,30 +501,30 @@ From now on, Docker Swarm will have more information how to schedule the service
 Let's take a look at the graph screen.
 
 ```bash
-open "http://localhost/monitor/graph"
+open "http://$(docker-machine ip swarm-1)/monitor/graph"
 ```
 
 Please type the expression that follows and press the *Execute* button.
 
 ```
-container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
 ```
 
 As you can see, memory metric is clearly set to 20MB. Soon, we'll use those metrics to our benefit.
 
-TODO: Screenshot
+![go-demo memory limit](img/graph-memory-limit.png)
 
 Next we'll check the metrics of the "real" memory usage of the service.
 
 Please type the expression that follows and press the *Execute* button.
 
 ```
-container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}
+container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
 ```
 
-Memory consumption will vary from one case to another. In my case it ranges from TODO to TODO MB.
+Memory consumption will vary from one case to another. In my case it ranges from 1MB to 3.5MB.
 
-TODO: Screenshot
+![go-demo memory usage](img/graph-memory-usage.png)
 
 If we go back to the `alertIf` label we specified, there is a clear duplication of data. It has the memory limit set to the same value as the `--limit-memory` argument. Duplication is not a good idea because it increases the chances of an error and complicates future updates that need to be performed in multiple places.
 
@@ -525,7 +534,7 @@ A better definition of the `alertIf` statement is as follows.
 docker service update \
     --label-add com.df.alertName=memlimit \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8' \
-    go-demo
+    go-demo_main
 ```
 
 This time we defined that the `memlimit` alert should be triggered if memory usage is higher than 80% of the memory limit. That way, if, at some later stage, we change the value of the `--limit-memory` argument, the alert will continue working properly.
@@ -533,7 +542,7 @@ This time we defined that the `memlimit` alert should be triggered if memory usa
 Let's confirm that *Docker Flow Swarm Listener* sent the notification and that *Docker Flow Monitor* was reconfigured accordingly.
 
 ```bash
-open "http://localhost/monitor/alerts"
+open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
 Please click the TODO link to see the new definition of the alert.

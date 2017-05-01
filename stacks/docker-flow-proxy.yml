@@ -18,6 +18,8 @@ services:
       - LISTENER_ADDRESS=swarm-listener
       - MODE=swarm
       - CONNECTION_MODE=${CONNECTION_MODE:-http-server-close}
+      - STATS_USER=admin
+      - STATS_PASS=admin
     deploy:
       replicas: 3
 

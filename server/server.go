@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"io/ioutil"
+	"strconv"
 )
 
 var decoder = schema.NewDecoder()
@@ -208,7 +209,7 @@ func (s *Serve) InitialConfig() error {
 		logPrintf("Requesting services from Docker Flow Swarm Listener")
 		addr := os.Getenv("LISTENER_ADDRESS")
 		if !strings.HasPrefix(addr, "http") {
-			addr = fmt.Sprintf("http://%s:8080")
+			addr = fmt.Sprintf("http://%s:8080", addr)
 		}
 		addr = fmt.Sprintf("%s/v1/docker-flow-swarm-listener/get-services", addr)
 		resp, err := http.Get(addr)
@@ -216,25 +217,55 @@ func (s *Serve) InitialConfig() error {
 			return err
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
-		scrapes := []Scrape{}
-		json.Unmarshal(body, &scrapes)
-		for _, scrape := range scrapes {
-			s.Scrapes[scrape.ServiceName] = scrape
-		}
-		alerts := []Alert{}
-		json.Unmarshal(body, &alerts)
-		for _, alert := range alerts {
-			s.Alerts[alert.AlertName] = alert
+		logPrintf("Processing: %s", string(body))
+		data := []map[string]string{}
+		json.Unmarshal(body, &data)
+		for _, row := range data {
+			scrape := Scrape{}
+			if port, err := strconv.Atoi(row["scrapePort"]); err == nil {
+				scrape.ScrapePort = port
+			}
+			scrape.ServiceName = row["serviceName"]
+			if s.isValidScrape(&scrape) {
+				s.Scrapes[scrape.ServiceName] = scrape
+			}
+
+			if alert, err := s.getAlertFromMap(row, ""); err == nil {
+				s.Alerts[alert.AlertNameFormatted] = alert
+			}
+			for i:=1; i <= 10; i++ {
+				suffix := fmt.Sprintf(".%d", i)
+				if alert, err := s.getAlertFromMap(row, suffix); err == nil {
+					s.Alerts[alert.AlertNameFormatted] = alert
+				} else {
+					break
+				}
+			}
 		}
 	}
 	return nil
+}
+
+func (s *Serve) getAlertFromMap(data map[string]string, suffix string) (Alert, error) {
+	if _, ok := data["alertName" + suffix]; ok {
+		alert := Alert{}
+		alert.AlertFor = data["alertFor" + suffix]
+		alert.AlertIf = data["alertIf" + suffix]
+		alert.AlertName = data["alertName" + suffix]
+		alert.ServiceName = data["serviceName"]
+		alert.AlertNameFormatted = s.getAlertNameFormatted(alert.ServiceName, alert.AlertName)
+		if s.isValidAlert(&alert) {
+			return alert, nil
+		}
+	}
+	return Alert{}, fmt.Errorf("Not a valid alert")
 }
 
 func (s *Serve) getAlerts(req *http.Request) []Alert {
 	alerts := []Alert{}
 	alertDecode := Alert{}
 	decoder.Decode(&alertDecode, req.Form)
-	if len(alertDecode.AlertName) > 0 {
+	if s.isValidAlert(&alertDecode) {
 		alertDecode.AlertNameFormatted = s.getAlertNameFormatted(alertDecode.ServiceName, alertDecode.AlertName)
 		s.Alerts[alertDecode.AlertNameFormatted] = alertDecode
 		alerts = append(alerts, alertDecode)
@@ -242,9 +273,6 @@ func (s *Serve) getAlerts(req *http.Request) []Alert {
 	}
 	for i:=1; i <= 10; i++ {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
-		if len(alertName) == 0 {
-			break
-		}
 		alert := Alert{
 			AlertNameFormatted: s.getAlertNameFormatted(alertDecode.ServiceName, alertName),
 			ServiceName: alertDecode.ServiceName,
@@ -252,10 +280,17 @@ func (s *Serve) getAlerts(req *http.Request) []Alert {
 			AlertIf: req.URL.Query().Get(fmt.Sprintf("alertIf.%d", i)),
 			AlertFor: req.URL.Query().Get(fmt.Sprintf("alertFor.%d", i)),
 		}
+		if !s.isValidAlert(&alert) {
+			break
+		}
 		s.Alerts[alert.AlertNameFormatted] = alert
 		alerts = append(alerts, alert)
 	}
 	return alerts
+}
+
+func (s *Serve) isValidAlert(alert *Alert) bool {
+	return len(alert.AlertName) > 0 && len(alert.AlertIf) > 0
 }
 
 func (s *Serve) deleteAlerts(serviceName string) []Alert {
@@ -282,11 +317,15 @@ func (s *Serve) getNameFormatted(name string) string {
 func (s *Serve) getScrape(req *http.Request) Scrape {
 	scrape := Scrape{}
 	decoder.Decode(&scrape, req.Form)
-	if len(scrape.ServiceName) > 0 && scrape.ScrapePort > 0 {
+	if s.isValidScrape(&scrape) {
 		s.Scrapes[scrape.ServiceName] = scrape
 		logPrintf("Adding scrape " + scrape.ServiceName)
 	}
 	return scrape
+}
+
+func (s *Serve) isValidScrape(scrape *Scrape) bool {
+	return len(scrape.ServiceName) > 0 && scrape.ScrapePort > 0
 }
 
 func (s *Serve) reloadPrometheus() error {
@@ -294,7 +333,11 @@ func (s *Serve) reloadPrometheus() error {
 	cmd := exec.Command("pkill", "-HUP", "prometheus")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmdRun(cmd)
+	err := cmdRun(cmd)
+	if err != nil {
+		logPrintf(err.Error())
+	}
+	return err
 }
 
 func (s *Serve) getResponse(alerts *[]Alert, scrape *Scrape, err error, statusCode int) Response {

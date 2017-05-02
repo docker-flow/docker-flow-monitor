@@ -899,14 +899,51 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
 
 func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 	expected := map[string]Alert{
-		"alert-1": Alert{AlertName: "alert-1", AlertIf: "if-1", AlertFor: "for-1"},
-		"alert-2": Alert{AlertName: "alert-2", AlertIf: "if-2", AlertFor: "for-2"},
+		"myservicealert1": Alert{
+			AlertName: "alert-1",
+			AlertIf: "if-1",
+			AlertFor: "for-1",
+			ServiceName: "my-service",
+			AlertNameFormatted: "myservicealert1",
+		},
+		"myservicealert21": Alert{
+			AlertName: "alert-21",
+			AlertIf: "if-21",
+			AlertFor: "for-21",
+			ServiceName: "my-service",
+			AlertNameFormatted: "myservicealert21",
+		},
+		"myservicealert22": Alert{
+			AlertName: "alert-22",
+			AlertIf: "if-22",
+			AlertFor: "for-22",
+			ServiceName: "my-service",
+			AlertNameFormatted: "myservicealert22",
+		},
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		resp := []map[string]string{}
-		resp = append(resp, map[string]string{"alertName": "alert-1", "alertIf": "if-1", "alertFor": "for-1"})
-		resp = append(resp, map[string]string{"alertName": "alert-2", "alertIf": "if-2", "alertFor": "for-2"})
+		// Is Not included since alertIf is missing
+		resp = append(resp, map[string]string{
+			"serviceName": "my-service-without-if",
+			"alertName": "alert-without-if",
+		})
+		resp = append(resp, map[string]string{
+			"serviceName": "my-service",
+			"alertName": "alert-1",
+			"alertIf": "if-1",
+			"alertFor": "for-1",
+		})
+		resp = append(resp, map[string]string{
+			"serviceName": "my-service",
+			"alertName.1": "alert-21",
+			"alertIf.1": "if-21",
+			"alertFor.1": "for-21",
+			"alertName.2": "alert-22",
+			"alertIf.2": "if-22",
+			"alertFor.2": "for-22",
+		})
 		js, _ := json.Marshal(resp)
 		w.Write(js)
 	}))

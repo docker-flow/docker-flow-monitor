@@ -1,27 +1,5 @@
 # DO NOT USE THIS PROJECT. I'M ONLY PLAYING AROUND (FOR NOW)
 
-## Removing Alerts and Scrapes
-
-```bash
-docker service update \
-    --env-add DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove,http://proxy:8080/v1/docker-flow-proxy/remove \
-    swarm-listener
-
-docker service rm node-exporter
-
-open "http://localhost/monitor/config"
-
-open "http://localhost/monitor/rules"
-```
-
-## Failover
-
-```bash
-docker service update \
-    --env-add LISTENER_ADDRESS=swarm-listener \
-    monitor
-```
-
 ## Alert Manager
 
 ```bash
@@ -43,7 +21,7 @@ docker service create --name alert-manager \
     --mount "type=bind,source=$PWD/alertmanager.yml,target=/etc/alertmanager/config.yml" \
     prom/alertmanager
 
-curl -H "Content-Type: application/json" -d '[{"labels":{"alertname":"TestAlert1"}}]' localhost:9093/api/v1/alerts
+curl -H "Content-Type: application/json" -d '[{"labels":{"alertname":"TestAlert1"}}]' $(docker-machine ip swarm-1):9093/api/v1/alerts
 
 docker service update \
     --publish-rm 9093:9093 \

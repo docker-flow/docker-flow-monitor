@@ -5,6 +5,7 @@ services:
   monitor:
     image: vfarcic/docker-flow-monitor:${TAG:-latest}
     environment:
+      - LISTENER_ADDRESS=swarm-listener
       - GLOBAL_SCRAPE_INTERVAL=10s
       - ARG_WEB_ROUTE-PREFIX=/monitor
       - ARG_WEB_EXTERNAL-URL=http://${DOMAIN:-localhost}/monitor

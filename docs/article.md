@@ -117,13 +117,6 @@ Deploying *Docker Flow Monitor* is easy (almost all Docker services are). We'll 
 docker network create -d overlay monitor
 ```
 
-Now we can download the *Docker Flow Monitor* stack.
-
-```bash
-curl -o monitor.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-stacks/master/metrics/docker-flow-monitor.yml
-```
-
 The stack is as follows.
 
 ```
@@ -256,8 +249,6 @@ Now it's time to start exploring the exporters and their integration with *Docke
 
 ## Integrating Docker Flow Monitor With Exporters
 
-TODO: Continue
-
 Now we can deploy a few exporters. They will provide data Prometheus can scrape and put into its database.
 
 The stack is as follows.
@@ -370,7 +361,7 @@ Now that the demo service is running, we can explore some of the metrics we have
 open "http://$(docker-machine ip swarm-1)/monitor/graph"
 ```
 
-Please type `haproxy_backend_connections_total` in the *Expression* field and press the *Execute* button. The result should be zero connections. Let's spice it up by creating a bit of traffic.
+Please type `haproxy_backend_connections_total` in the *Expression* field and press the *Execute* button. The result should be zero connections on the backend `go-demo_main-be8080`. Let's spice it up by creating a bit of traffic.
 
 ```bash
 for ((n=0;n<200;n++)); do
@@ -483,7 +474,11 @@ Let's go back to the alerts screen.
 open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
-This time, the alert is read meaning that the condition is fulfilled. If it is still green, please wait for a few moments and refresh your screen. Our service is using more than 1MB of memory. Please click the *godemomainmem* link to expand the alert and see more details.
+This time, the alert is read meaning that the condition is fulfilled. If it is still green, please wait for a few moments and refresh your screen.
+
+Our service is using more than 1MB of memory and, therefore, the alert if statement is fulfilled, and the alert is red.
+
+Please click the *godemomainmem* link to expand the alert and see more details.
 
 ![Alerts with go-demo memory usage in firing state](img/alerts-go-demo-memory-firing.png)
 
@@ -510,7 +505,7 @@ Please type the expression that follows and press the *Execute* button.
 container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}
 ```
 
-As you can see, memory metric is clearly set to 20MB. Soon, we'll use those metrics to our benefit.
+As you can see, memory metric for containers before the last update is set to 0MB, while the limit for the newly created replicas is set to 20MB. Soon, we'll use those metrics to our benefit.
 
 ![go-demo memory limit](img/graph-memory-limit.png)
 
@@ -545,7 +540,9 @@ Let's confirm that *Docker Flow Swarm Listener* sent the notification and that *
 open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
-Please click the TODO link to see the new definition of the alert.
+Please click the *godemomainmemlimit* link to see the new definition of the alert.
+
+![go-demo alert based on memory limit and usage](img/alert-memory-limit-usage.png)
 
 ## Defining Multiple Alerts For A Service
 
@@ -556,25 +553,51 @@ Let's see it in action.
 TODO: Continue
 
 ```bash
-docker service create \
-    --name node-exporter \
-    --mode global \
-    --network monitor \
-    --mount "type=bind,source=/proc,target=/host/proc" \
-    --mount "type=bind,source=/sys,target=/host/sys" \
-    --mount "type=bind,source=/,target=/rootfs" \
-    --mount "type=bind,source=/etc/hostname,target=/etc/host_hostname" \
-    -e HOST_HOSTNAME=/etc/host_hostname \
-    --label com.df.notify=true \
-    --label com.df.scrapePort=9100 \
-    --label com.df.alertName.1=memload \
-    --label com.df.alertIf.1='(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8' \
-    --label com.df.alertName.2=diskload \
-    --label com.df.alertIf.2='(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8' \
-    basi/node-exporter:v1.13.0 \
-    -collector.procfs /host/proc \
-    -collector.sysfs /host/proc \
-    -collector.filesystem.ignored-mount-points "^/(sys|proc|dev|host|etc)($|/)" \
-    -collector.textfile.directory /etc/node-exporter/ \
-    -collectors.enabled="conntrack,diskstats,entropy,filefd,filesystem,loadavg,mdadm,meminfo,netdev,netstat,stat,textfile,time,vmstat,ipvs"
+docker service update \
+    --label-add com.df.alertName.1=memload \
+    --label-add com.df.alertIf.1='(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8' \
+    --label-add com.df.alertName.2=diskload \
+    --label-add com.df.alertIf.2='(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8' \
+    exporter_node-exporter
+```
+
+![Node exporter alerts](img/alerts-node-exporter.png)
+
+## Failover
+
+TODO: Continue
+
+```
+LISTENER_ADDRESS=swarm-listener
+```
+
+```bash
+docker stack rm monitor
+
+DOMAIN=$(docker-machine ip swarm-1) \
+    docker stack deploy \
+    -c stacks/docker-flow-monitor-proxy.yml \
+    monitor
+```
+
+## Removing Alerts
+
+```
+...
+    environment:
+      - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
+      - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove
+...
+```
+
+```bash
+docker service rm exporter_node-exporter
+
+open "http://$(docker-machine ip swarm-1)/monitor/config"
+```
+
+![Configuration without node-exporter](img/config-without-node-exporter.png)
+
+```bash
+open "http://$(docker-machine ip swarm-1)/monitor/rules"
 ```

@@ -221,15 +221,9 @@ func (s *Serve) InitialConfig() error {
 		data := []map[string]string{}
 		json.Unmarshal(body, &data)
 		for _, row := range data {
-			scrape := Scrape{}
-			if port, err := strconv.Atoi(row["scrapePort"]); err == nil {
-				scrape.ScrapePort = port
-			}
-			scrape.ServiceName = row["serviceName"]
-			if s.isValidScrape(&scrape) {
+			if scrape, err := s.getScrapeFromMap(row); err == nil {
 				s.Scrapes[scrape.ServiceName] = scrape
 			}
-
 			if alert, err := s.getAlertFromMap(row, ""); err == nil {
 				s.Alerts[alert.AlertNameFormatted] = alert
 			}
@@ -244,6 +238,18 @@ func (s *Serve) InitialConfig() error {
 		}
 	}
 	return nil
+}
+
+func (s *Serve) getScrapeFromMap(data map[string]string) (Scrape, error) {
+	scrape := Scrape{}
+	if port, err := strconv.Atoi(data["scrapePort"]); err == nil {
+		scrape.ScrapePort = port
+	}
+	scrape.ServiceName = data["serviceName"]
+	if s.isValidScrape(&scrape) {
+		return scrape, nil
+	}
+	return Scrape{}, fmt.Errorf("Not a valid scrape")
 }
 
 func (s *Serve) getAlertFromMap(data map[string]string, suffix string) (Alert, error) {

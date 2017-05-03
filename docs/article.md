@@ -240,10 +240,12 @@ In the "real-world" situation, you should use your domain (e.g. `monitor.acme.co
 Please execute `docker stack ps monitor` to check the status of the stack. Once it's up-and-running, we can confirm that the monitor is indeed integrated with the proxy.
 
 ```bash
-open "http://$(docker-machine ip swarm-1)/monitor"
+open "http://$(docker-machine ip swarm-1)/monitor/flags"
 ```
 
-![Prometheus integrated with Docker Flow Proxy](img/with-proxy.png)
+By opening the *flags* screen, not only that we confirmed that the integration with *Docker Flow Proxy* worked but also that the arguments we specified as environment variables are properly propagated. You can observe that through the values of the `web.external-url` and `web.route-prefix` flags.
+
+![Prometheus flags screen with values passed through environment variables](img/flags-web.png)
 
 Now it's time to start exploring the exporters and their integration with *Docker Flow Monitor*.
 
@@ -325,8 +327,6 @@ Please wait until all the services in the stack and running. You can monitor the
 
 Once the `exporters` stack is up-and-running, we can confirm that they were added to the `monitor` config.
 
-TODO: Continue
-
 ```bash
 open "http://$(docker-machine ip swarm-1)/monitor/config"
 ```
@@ -361,7 +361,7 @@ Now that the demo service is running, we can explore some of the metrics we have
 open "http://$(docker-machine ip swarm-1)/monitor/graph"
 ```
 
-Please type `haproxy_backend_connections_total` in the *Expression* field and press the *Execute* button. The result should be zero connections on the backend `go-demo_main-be8080`. Let's spice it up by creating a bit of traffic.
+Please wait a few moments for metrics to start coming in and type `haproxy_backend_connections_total` in the *Expression* field and press the *Execute* button. The result should be zero connections on the backend `go-demo_main-be8080`. Let's spice it up by creating a bit of traffic.
 
 ```bash
 for ((n=0;n<200;n++)); do
@@ -559,13 +559,13 @@ docker service update \
     --label-add com.df.alertName.2=diskload \
     --label-add com.df.alertIf.2='(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8' \
     exporter_node-exporter
+
+open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
 ![Node exporter alerts](img/alerts-node-exporter.png)
 
 ## Failover
-
-TODO: Continue
 
 ```
 LISTENER_ADDRESS=swarm-listener
@@ -578,6 +578,16 @@ DOMAIN=$(docker-machine ip swarm-1) \
     docker stack deploy \
     -c stacks/docker-flow-monitor-proxy.yml \
     monitor
+
+# Data is lost.
+
+open "http://$(docker-machine ip swarm-1)/monitor"
+
+open "http://$(docker-machine ip swarm-1)/monitor/config"
+
+open "http://$(docker-machine ip swarm-1)/monitor/rules"
+
+open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
 ## Removing Alerts
@@ -600,4 +610,78 @@ open "http://$(docker-machine ip swarm-1)/monitor/config"
 
 ```bash
 open "http://$(docker-machine ip swarm-1)/monitor/rules"
+
+docker stack deploy \
+    -c stacks/exporters-with-labels.yml \
+    exporter
+
+open "http://$(docker-machine ip swarm-1)/monitor/config"
+
+open "http://$(docker-machine ip swarm-1)/monitor/rules"
+```
+
+## Alert Manager
+
+```bash
+# TODO: Change the image to use df-monitor SlackID.
+```
+
+```
+version: "3"
+
+services:
+
+  alert-manager:
+    image: vfarcic/alert-manager:demo
+    ports:
+      - 9093:9093
+    networks:
+      - monitor
+
+networks:
+  monitor:
+    external: true
+```
+
+```bash
+# Note: Ports published only for demo purposes
+
+docker stack deploy \
+    -c stacks/alert-manager-demo.yml \
+    alert-manager
+
+docker stack ps alert-manager
+
+curl -H "Content-Type: application/json" -d '[{"labels":{"alertname":"TestAlert1"}}]' $(docker-machine ip swarm-1):9093/api/v1/alerts
+
+docker stack rm alert-manager
+
+DOMAIN=$(docker-machine ip swarm-1) \
+    docker stack deploy \
+    -c stacks/docker-flow-monitor-full.yml \
+    monitor
+
+open "http://$(docker-machine ip swarm-1)/monitor/flags"
+```
+
+![Prometheus flags screen with values passed through environment variables](img/flags-alert-manager.png)
+
+```bash
+docker service update \
+    --label-add com.df.alertName=memlimit \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 0.1' \
+    go-demo_main
+
+open "http://$(docker-machine ip swarm-1)/monitor/alerts"
+
+NOTE: Alert is red, Slack receives a *FIRING* message
+
+docker service update \
+    --label-add com.df.alertName=memlimit \
+    --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 0.8' \
+    go-demo_main
+
+open "http://$(docker-machine ip swarm-1)/monitor/alerts"
+
+NOTE: All alerts are green, Slack receives a *RESOLVED* message
 ```

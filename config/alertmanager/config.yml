@@ -1,0 +1,10 @@
+route:
+  receiver: "slack"
+  repeat_interval: 1h
+
+receivers:
+    - name: "slack"
+      slack_configs:
+          - send_resolved: true
+            text: "Something horrible happened! Run for your lives!"
+            api_url: "https://hooks.slack.com/services/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"

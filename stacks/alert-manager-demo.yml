@@ -1,0 +1,14 @@
+version: "3"
+
+services:
+
+  alert-manager:
+    image: vfarcic/alert-manager:demo
+    ports:
+      - 9093:9093
+    networks:
+      - monitor
+
+networks:
+  monitor:
+    external: true

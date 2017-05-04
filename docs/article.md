@@ -132,9 +132,7 @@ services:
       - 9090:9090
 ```
 
-The environment variable `GLOBAL_SCRAPE_INTERVAL` shows the first improvement over the "original" Prometheus service. It allows us to define entries of its configuration as environment variables. This, in itself, is not a big improvement. More powerful additions will be presented later on.
-
-TODO: Link to env. vars. docs.
+The environment variable `GLOBAL_SCRAPE_INTERVAL` shows the first improvement over the "original" Prometheus service. It allows us to define entries of its configuration as environment variables. This, in itself, is not a big improvement. More powerful additions will be presented later on. Please visit [TODO](TODO) for more information about environment variables that can be used as configuration.
 
 Now we're ready to deploy the stack.
 
@@ -216,11 +214,9 @@ networks:
     external: true
 ```
 
-This time we added a few additional environment variables. They will be used instead the Prometheus startup arguments. We are specifying the route prefix (`/monitor`) as well as the full external URL.
+This time we added a few additional environment variables. They will be used instead the Prometheus startup arguments. We are specifying the route prefix (`ARG_WEB_ROUTE-PREFIX`) as well as the full external URL (`ARG_WEB_EXTERNAL-URL`). Please visit [TODO](TODO) for more information about environment variables that can be used as startup arguments.
 
 We also used the environment variables `com.df.*` that will tell the proxy how to reconfigure itself so that Prometheus is available through the path `/monitor`.
-
-TODO: Link to environment variables documentation.
 
 The second service is [Docker Flow Swarm Listener](http://swarmlistener.dockerflow.com/) that will listen to Swarm events and send reconfigure and remove requests to the monitor. You'll see its usage soon.
 
@@ -550,7 +546,7 @@ In many cases one alert per service is not enough. We need to be able to define 
 
 Let's see it in action.
 
-TODO: Continue
+We'll update the `node-exporter` service in the `exporter` stack so that it registers two alerts.
 
 ```bash
 docker service update \
@@ -559,17 +555,25 @@ docker service update \
     --label-add com.df.alertName.2=diskload \
     --label-add com.df.alertIf.2='(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8' \
     exporter_node-exporter
+```
 
+This time, `alertName` and `alertIf` labels got an index suffix (e.g. `.1` and `.2`). The first one (`memload`) will create an alert if memory usage is over 80% of the total available memory. The second alert will create an alert if disk usage is over 80%.
+
+Let's explore the *alerts* screen.
+
+```bash
 open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
+
+As you can see, two new alerts were registered.
 
 ![Node exporter alerts](img/alerts-node-exporter.png)
 
 ## Failover
 
-```
-LISTENER_ADDRESS=swarm-listener
-```
+What happens if our monitoring solution fails. After all, everything fails sooner or later. Since we're running it as a Swarm service, Docker will reschedule failed services or, to be more precise, failed replicas of a service. But, what happens with our changes to the configuration?
+
+Let's simulate a failure and see the result.
 
 ```bash
 docker stack rm monitor
@@ -578,19 +582,75 @@ DOMAIN=$(docker-machine ip swarm-1) \
     docker stack deploy \
     -c stacks/docker-flow-monitor-proxy.yml \
     monitor
+```
 
-# Data is lost.
+We removed the whole stack and deployed it again. This is probably not the best way to simulate a failure but it is probably the simplest one. Otherwise, we'd need to find out on which node the container was running, SSH into that node, and issue `docker container rm [CONTAINER_ID]`. We'll stick with simplicity.
 
+Let's open the home screen.
+
+```bash
 open "http://$(docker-machine ip swarm-1)/monitor"
+```
 
+It works. Swarm deployed the service for us. There's no surprise there. That's what Swarm does.
+
+Let's see the config screen.
+
+```bash
 open "http://$(docker-machine ip swarm-1)/monitor/config"
+```
 
+The configuration is there. Most of it is also not a surprise since we are specifying the stack's configuration and startup arguments through environment variables. The part that is not defined in the stack are alert rules. And, yet, they are part of the config.
+
+Let's check the rules screen.
+
+```bash
 open "http://$(docker-machine ip swarm-1)/monitor/rules"
+```
 
+Rules are there as well. How about alerts?
+
+```bash
 open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
+Alerts are defined as well.
+
+How did that happen? How did we recuperate the information for all the services in the cluster? The answer lies in the environment variable `LISTENER_ADDRESS=swarm-listener` defined in the `monitor` stack.
+
+When *Docker Flow Monitor* was initialized, it contacted `swarm-listener` which, through service labels, returned all the information. *Docker Flow Monitor*, in turn, used that information to recreate everything Prometheus needs and restored its previous state.
+
+> **Word of caution**
+>
+> The fact that *Docker Flow Monitor* restored the Prometheus configuration state does not mean that it restored its data. You might, or might not need the data. Prometheus will start scraping exporters as soon as it is initialized and you might not need historical values. If that's the case, you're all set. If, on the other hand, you do need historical data, please mount the `/prometheus` directory on a network drive.
+
 ## Removing Alerts
+
+When a service is removed, all the configuration entries and alerts created through its labels will be removed as well.
+
+Let's try it out.
+
+```bash
+docker service rm exporter_node-exporter
+```
+
+We removed the `node-exporter` service defined in the `exporter` stack. Now, let's open the *config* screen.
+
+```bash
+open "http://$(docker-machine ip swarm-1)/monitor/config"
+```
+
+As you can see, the configuration related to the `node-exporter` is gone with the service.
+
+![Configuration without node-exporter](img/config-without-node-exporter.png)
+
+Similarly, the alerts related with the `node-exporters` are gone as well. We can confirm that by opening the *rules* screen.
+
+```bash
+open "http://$(docker-machine ip swarm-1)/monitor/rules"
+```
+
+The key elements that allow addition and removal of the configuration entries and alert rules are the environment variable `DF_NOTIFY_*_SERVICE_URL` defined in the `stacks/exporters.yml` file.
 
 ```
 ...
@@ -600,21 +660,19 @@ open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ...
 ```
 
-```bash
-docker service rm exporter_node-exporter
+If the environment variable `DF_NOTIFY_CREATE_SERVICE_URL` is specified, *Docker Flow Swarm Listener* will send a notification to the specified addresses (multiple values can be separated with comma). In this case, it sends a service created notification to `http://monitor:8080/v1/docker-flow-monitor/reconfigure`. Similarly, if `DF_NOTIFY_REMOVE_SERVICE_URL` is set, it'll send service removed notifications. On the other hand, *Docker Flow Monitor* (`monitor` service) has a an API that listens to those notifications and updates Prometheus accordingly.
 
-open "http://$(docker-machine ip swarm-1)/monitor/config"
-```
-
-![Configuration without node-exporter](img/config-without-node-exporter.png)
+Before we move on, let's recreate the `node-exporter` service we removed. We're still not done with it.
 
 ```bash
-open "http://$(docker-machine ip swarm-1)/monitor/rules"
-
 docker stack deploy \
     -c stacks/exporters-with-labels.yml \
     exporter
+```
 
+We can confirm that the `monitor` is reconfigured by opening the *config* and *rules* screens and confirming that `node-exporter` entries are there.
+
+```bash
 open "http://$(docker-machine ip swarm-1)/monitor/config"
 
 open "http://$(docker-machine ip swarm-1)/monitor/rules"
@@ -622,9 +680,40 @@ open "http://$(docker-machine ip swarm-1)/monitor/rules"
 
 ## Alert Manager
 
+While alerts by themselves are great, they are not very useful unless you're planning to spend all your time in front of the *alerts* screen. There are much better things to stare at. For example, you can watch Netflix instead. It is much more entertaining than Prometheus alerts screen. However, before you start watching Netflix during your working hours, we need to find a wy that you do get notified when an alert is fired.
+
+Where should we send alert messages? Slack is probably a good candidate to start with.
+
+I already created an image based on [prom/alertmanager](https://hub.docker.com/r/prom/alertmanager/). Dockerfile is as follows.
+
 ```bash
-# TODO: Change the image to use df-monitor SlackID.
+FROM prom/alertmanager
+
+COPY config.yml /etc/alertmanager/config.yml
 ```
+
+There's not much mystery there. It extends the official Prometheus AlertManager image and adds a custom config.yml file. Configuration is as follows.
+
+```
+route:
+  receiver: "slack"
+  repeat_interval: 1h
+
+receivers:
+    - name: "slack"
+      slack_configs:
+          - send_resolved: true
+            text: "Something horrible happened! Run for your lives!"
+            api_url: "https://hooks.slack.com/services/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"
+```
+
+The configuration defines `route` with `slack` as the receiver of the alerts. In the `receivers` section we specified that we want resolved notifications (besides alerts), creative text, and the Slack API URL. As a result, alerts will be posted to the *df-monitor-tests* channel in DevOps20 team slack. Please sign up through the [DevOps20 Registration page](http://slack.devops20toolkit.com/) and make sure you join the *df-monitor-tests* channel. This configuration should be more than enough for demo purposes. Later on you should create your own Docker image customized for your own needs.
+
+Please consult [alerting documentation](https://prometheus.io/docs/alerting/configuration/) for more information about Alert Manager configuration options.
+
+The image we'll use is already built and available from [vfarcic/alert-manager:demo](https://hub.docker.com/r/vfarcic/alert-manager/tags).
+
+Next, we'll take a quick look at the *alert-manager-demo.yml* stack.
 
 ```
 version: "3"
@@ -643,45 +732,118 @@ networks:
     external: true
 ```
 
-```bash
-# Note: Ports published only for demo purposes
+The stack is very straighforward. The only thing worth noting is that we are exposing the port `9093` only for demo purposes. Later on, when we integrate it with *Docker Flow Monitor*, they will communicate through the `monitor` network without the need to expose any ports. We need the port `9093` to demonstrate manual triggering of alerts through Alert Manager. We'll get rid of it later on.
 
+Let's deploy the stack.
+
+```bash
 docker stack deploy \
     -c stacks/alert-manager-demo.yml \
     alert-manager
+```
 
-docker stack ps alert-manager
+Please wait a few moments until the service is deployed. You can monitor the status through the `docker stack ps alert-manager` command.
 
-curl -H "Content-Type: application/json" -d '[{"labels":{"alertname":"TestAlert1"}}]' $(docker-machine ip swarm-1):9093/api/v1/alerts
+Now we can send a manual request to the *Alert Manager*.
 
+```bash
+curl -H "Content-Type: application/json" \
+    -d '[{"labels":{"alertname":"My Fancy Alert"}}]' \
+    $(docker-machine ip swarm-1):9093/api/v1/alerts
+```
+
+Before you execute the request, please change the *My Fancy Alert* name to something else. That way you'll be able to recognize your alert from those submitted by other readers of this tutorial.
+
+Please open *df-monitor-tests* channel in *DevOps20* Slack team and observe that a new notification was posted.
+
+Now that we confirmed that `alert-manager` works when triggered manually, we'll remove the stack and deploy the version integrated with *Docker Flow Monitor*.
+
+```bash
 docker stack rm alert-manager
+```
 
+We'll deploy the `docker-flow-monitor-full.yml` stack. It container `monitor` and `swarm-listener` services we're already familiar with and adds `alert-manager`. The only change to the `monitor` service is the addition of the environment variable `ARG_ALERTMANAGER_URL=http://alert-manager:9093`. It defines the address and the port of the `alert-manager`.
+
+The definition of the `alert-manager` service is as follows.
+
+```
+  alert-manager:
+    image: vfarcic/alert-manager:demo
+    networks:
+      - monitor
+```
+
+As you can see, it is the same as the one we deployed earlier except that the ports are removed.
+
+Let's deploy the new stack.
+
+```bash
 DOMAIN=$(docker-machine ip swarm-1) \
     docker stack deploy \
     -c stacks/docker-flow-monitor-full.yml \
     monitor
+```
 
+We should confirm that the `alert-manager` is correctly configured through the environment variable `ARG_ALERTMANAGER_URL`.
+
+```bash
 open "http://$(docker-machine ip swarm-1)/monitor/flags"
 ```
 
+As you can see from the *flags* screen, the *alertmanager.url* is now part of the Prometheus configuration.
+
 ![Prometheus flags screen with values passed through environment variables](img/flags-alert-manager.png)
+
+Let us generate an alert.
 
 ```bash
 docker service update \
     --label-add com.df.alertName=memlimit \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 0.1' \
     go-demo_main
+```
 
+We updated the `main` service from the `go-demo` stack by adding the `alertIf` label. It defines `memlimit` alert that will be triggered if the service exceeds 10% of the memory limit. In other words, it will almost certainly fire the alert.
+
+Let's open the alerts screen.
+
+```bash
 open "http://$(docker-machine ip swarm-1)/monitor/alerts"
+```
 
-NOTE: Alert is red, Slack receives a *FIRING* message
+As you can see, the alert is red (if it isn't, wait a few moments and refresh your screen). Since we configured the *Alert Manager*, the alert was already sent to it and, from there, forwarded to Slack. Please open the *df-monitor-tests* channel in *DevOps20* Slack team and observe that a new notification was posted.
 
+We'll restore the `go-demo` alert to it's original state (used memory over 80%).
+
+```bash
 docker service update \
     --label-add com.df.alertName=memlimit \
     --label-add com.df.alertIf='container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 0.8' \
     go-demo_main
+```
 
+A few moments later, we can observe that the alert is gree again.
+
+```bash
 open "http://$(docker-machine ip swarm-1)/monitor/alerts"
+```
 
-NOTE: All alerts are green, Slack receives a *RESOLVED* message
+Since we specified `send_resolved: true` in the `alert-manager` config, we go another notification. This time the message states that the issue is resolved.
+
+The only thing left is to create your own Alert Manager image. If you choose to send alert to Slack (there are many other destinations you can choose from) you'll need Webhook URL. The instructions for obtaining it are as follows.
+
+Please login to your Team Slack channel, open the settings menu by clicking the team name, and select *Apps & integrations*.
+
+![Team setting Slack menu](img/slack-team-setting.png)
+
+You will be presented with the *App Directory* screen. Click the *Manage* link located in the top-right corner of the screen followed with the *Custom Integrations* item in the left-hand menu. Select *Incomming WebHooks* and click the *Add Configuration* button. Select the channel where alerts will be posted and click the *Add Incomming WebHooks integration* button. Copy the *Webhook URL*. We'll need it soon.
+
+We are, finally, done with a very basic introduction to *Docker Flow Monitor* and friends. What you saw here is only the tip of the iceberg. Stay tuned. Much more is coming.
+
+## Cleanup
+
+Before you leave, please remove the Docker machines we created and free the resources.
+
+```bash
+docker-machine rm -f swarm-1 swarm-2 swarm-3
 ```

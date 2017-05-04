@@ -1,4 +1,5 @@
 * Publish docs
+* Launch DFM in AWS
 * Update README
 * Publish a blog post
 * Add to the book

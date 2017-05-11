@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/afero"
 	"os"
 	"net/http/httptest"
-	"os/exec"
 	"net/url"
+	"../prometheus"
 )
 
 type ServerTestSuite struct {
@@ -28,9 +28,7 @@ func TestServerUnitTestSuite(t *testing.T) {
 	logPrintf = func(format string, v ...interface{}) {}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer testServer.Close()
-	prometheusAddrOrig := prometheusAddr
-	defer func() { prometheusAddr = prometheusAddrOrig }()
-	prometheusAddr = testServer.URL
+	// TODO: Remove
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
 	os.Setenv("ARG_CONFIG_FILE", "/etc/prometheus/prometheus.yml")
 	os.Setenv("ARG_STORAGE_LOCAL_PATH", "/prometheus")
@@ -96,14 +94,14 @@ func (s *ServerTestSuite) Test_Execute_WritesConfig() {
 global:
   scrape_interval: 5s
 `
-	fsOrig := fs
-	defer func() { fs = fsOrig }()
-	fs = afero.NewMemMapFs()
+	fsOrig := prometheus.FS
+	defer func() { prometheus.FS = fsOrig }()
+	prometheus.FS = afero.NewMemMapFs()
 
 	serve := New()
 	serve.Execute()
 
-	actual, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
+	actual, _ := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(expected, string(actual))
 }
 
@@ -161,9 +159,9 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_SetsContentHeaderToJson() {
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_SetsStatusCodeTo200() {
 	actual := 0
-	cmdRunOrig := cmdRun
-	defer func() { cmdRun = cmdRunOrig }()
-	cmdRun = func(cmd *exec.Cmd) error {
+	reloadOrig := prometheus.Reload
+	defer func() { prometheus.Reload = reloadOrig }()
+	prometheus.Reload = func() error {
 		return nil
 	}
 	rwMock := ResponseWriterMock{
@@ -181,7 +179,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_SetsStatusCodeTo200() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
-	expected := Alert{
+	expected := prometheus.Alert{
 		ServiceName: "my-service",
 		AlertName: "my-alert",
 		AlertIf: "a>b",
@@ -205,7 +203,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
-	expected := Alert{
+	expected := prometheus.Alert{
 		ServiceName: "my-service",
 		AlertName: "my-alert",
 		AlertIf: "a>b",
@@ -223,11 +221,11 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
 	req, _ := http.NewRequest("GET", addr, nil)
 
 	serve := New()
-	serve.Alerts["myservicesomeotheralert"] = Alert{
+	serve.Alerts["myservicesomeotheralert"] = prometheus.Alert{
 		ServiceName: "my-service",
 		AlertName: "some-other-alert",
 	}
-	serve.Alerts["anotherservicemyalert"] = Alert{
+	serve.Alerts["anotherservicemyalert"] = prometheus.Alert{
 		ServiceName: "another-service",
 		AlertName: "my-alert",
 	}
@@ -238,9 +236,9 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
-	expected := []Alert{}
+	expected := []prometheus.Alert{}
 	for i:=1; i <=2; i++ {
-		expected = append(expected, Alert{
+		expected = append(expected, prometheus.Alert{
 			ServiceName: "my-service",
 			AlertName: fmt.Sprintf("my-alert-%d", i),
 			AlertIf: fmt.Sprintf("my-if-%d", i),
@@ -272,7 +270,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrape() {
-	expected := Scrape{
+	expected := prometheus.Scrape{
 		ServiceName: "my-service",
 		ScrapePort: 1234,
 	}
@@ -311,7 +309,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddScrape_WhenScrapePor
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
-	expected := Alert{
+	expected := prometheus.Alert{
 		AlertName: "my-alert",
 		AlertIf: "my-if",
 		AlertFor: "my-for",
@@ -333,21 +331,21 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
-	cmdRunOrig := cmdRun
-	defer func() { cmdRun = cmdRunOrig }()
-	cmdRun = func(cmd *exec.Cmd) error {
+	reloadOrig := prometheus.Reload
+	defer func() { prometheus.Reload = reloadOrig }()
+	prometheus.Reload = func() error {
 		return nil
 	}
 	expected := Response{
 		Status: http.StatusOK,
-		Alerts: []Alert{Alert{
+		Alerts: []prometheus.Alert{prometheus.Alert{
 			ServiceName: "my-service",
 			AlertName: "myalert",
 			AlertIf: "my-if",
 			AlertFor: "my-for",
 			AlertNameFormatted: "myservicemyalert",
 		}},
-		Scrape: Scrape{
+		Scrape: prometheus.Scrape{
 			ServiceName: "my-service",
 			ScrapePort: 1234,
 		},
@@ -393,23 +391,23 @@ rule_files:
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234&alertName=my-alert&alertIf=my-if&alertFor=my-for"
 	req, _ := http.NewRequest("GET", addr, nil)
-	fsOrig := fs
-	defer func() { fs = fsOrig }()
-	fs = afero.NewMemMapFs()
+	fsOrig := prometheus.FS
+	defer func() { prometheus.FS = fsOrig }()
+	prometheus.FS = afero.NewMemMapFs()
 
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	actual, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
+	actual, _ := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(expected, string(actual))
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_SendsReloadRequestToPrometheus() {
-	cmdRunOrig := cmdRun
-	defer func() { cmdRun = cmdRunOrig }()
-	actualArgs := [][]string{}
-	cmdRun = func(cmd *exec.Cmd) error {
-		actualArgs = append(actualArgs, cmd.Args)
+	reloadOrig := prometheus.Reload
+	defer func() { prometheus.Reload = reloadOrig }()
+	called := false
+	prometheus.Reload = func() error {
+		called = true
 		return nil
 	}
 	rwMock := ResponseWriterMock{}
@@ -419,7 +417,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_SendsReloadRequestToPrometheus
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Contains(actualArgs, []string{"pkill", "-HUP", "prometheus"})
+	s.True(called)
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsNokWhenPrometheusReloadFails() {
@@ -432,9 +430,6 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsNokWhenPrometheusReload
 	}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
 	req, _ := http.NewRequest("GET", addr, nil)
-	prometheusAddrOrig := prometheusAddr
-	defer func() { prometheusAddr = prometheusAddrOrig }()
-	prometheusAddr = "this-url-does-not-exist"
 
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
@@ -488,8 +483,8 @@ func (s *ServerTestSuite) Test_RemoveHandler_RemovesScrape() {
 	req, _ := http.NewRequest("DELETE", addr, nil)
 
 	serve := New()
-	serve.Scrapes["my-service-1"] = Scrape{ServiceName: "my-service-1", ScrapePort: 1111}
-	serve.Scrapes["my-service-2"] = Scrape{ServiceName: "my-service-2", ScrapePort: 2222}
+	serve.Scrapes["my-service-1"] = prometheus.Scrape{ServiceName: "my-service-1", ScrapePort: 1111}
+	serve.Scrapes["my-service-2"] = prometheus.Scrape{ServiceName: "my-service-2", ScrapePort: 2222}
 	serve.RemoveHandler(rwMock, req)
 
 	s.Len(serve.Scrapes, 1)
@@ -501,26 +496,26 @@ func (s *ServerTestSuite) Test_RemoveHandler_RemovesAlerts() {
 	req, _ := http.NewRequest("DELETE", addr, nil)
 
 	serve := New()
-	serve.Alerts["myservice1alert1"] = Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
-	serve.Alerts["myservice1alert2"] = Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
-	serve.Alerts["myservice2alert1"] = Alert{ServiceName: "my-service-2", AlertName: "my-alert-1"}
+	serve.Alerts["myservice1alert1"] = prometheus.Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
+	serve.Alerts["myservice1alert2"] = prometheus.Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
+	serve.Alerts["myservice2alert1"] = prometheus.Alert{ServiceName: "my-service-2", AlertName: "my-alert-1"}
 	serve.RemoveHandler(rwMock, req)
 
 	s.Len(serve.Alerts, 1)
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
-	cmdRunOrig := cmdRun
-	defer func() { cmdRun = cmdRunOrig }()
-	cmdRun = func(cmd *exec.Cmd) error {
+	reloadOrig := prometheus.Reload
+	defer func() { prometheus.Reload = reloadOrig }()
+	prometheus.Reload = func() error {
 		return nil
 	}
 	expected := Response{
 		Status: http.StatusOK,
-		Alerts: []Alert{
-			Alert{ServiceName: "my-service", AlertName: "my-alert"},
+		Alerts: []prometheus.Alert{
+			prometheus.Alert{ServiceName: "my-service", AlertName: "my-alert"},
 		},
-		Scrape: Scrape{
+		Scrape: prometheus.Scrape{
 			ServiceName: "my-service",
 			ScrapePort: 1234,
 		},
@@ -559,14 +554,14 @@ scrape_configs:
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
 	req, _ := http.NewRequest("GET", addr, nil)
-	fsOrig := fs
-	defer func() { fs = fsOrig }()
-	fs = afero.NewMemMapFs()
+	fsOrig := prometheus.FS
+	defer func() { prometheus.FS = fsOrig }()
+	prometheus.FS = afero.NewMemMapFs()
 
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	actual, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
+	actual, _ := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(expectedAfterGet, string(actual))
 
 	expectedAfterDelete := `
@@ -578,16 +573,16 @@ global:
 
 	serve.RemoveHandler(rwMock, req)
 
-	actual, _ = afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
+	actual, _ = afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(expectedAfterDelete, string(actual))
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_SendsReloadRequestToPrometheus() {
-	cmdRunOrig := cmdRun
-	defer func() { cmdRun = cmdRunOrig }()
-	actualArgs := [][]string{}
-	cmdRun = func(cmd *exec.Cmd) error {
-		actualArgs = append(actualArgs, cmd.Args)
+	called := false
+	reloadOrig := prometheus.Reload
+	defer func() { prometheus.Reload = reloadOrig }()
+	prometheus.Reload = func() error {
+		called = true
 		return nil
 	}
 	rwMock := ResponseWriterMock{}
@@ -596,14 +591,11 @@ func (s *ServerTestSuite) Test_RemoveHandler_SendsReloadRequestToPrometheus() {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))
 	defer testServer.Close()
-	prometheusAddrOrig := prometheusAddr
-	defer func() { prometheusAddr = prometheusAddrOrig }()
-	prometheusAddr = testServer.URL
 
 	serve := New()
 	serve.RemoveHandler(rwMock, req)
 
-	s.Contains(actualArgs, []string{"pkill", "-HUP", "prometheus"})
+	s.True(called)
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_ReturnsNokWhenPrometheusReloadFails() {
@@ -645,198 +637,6 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsStatusCodeFromPrometheus() {
 	s.Equal(http.StatusInternalServerError, actualStatus)
 }
 
-// WriteConfig
-
-func (s *ServerTestSuite) Test_WriteConfig_WritesConfig() {
-	fsOrig := fs
-	defer func() { fs = fsOrig }()
-	fs = afero.NewMemMapFs()
-	serve := New()
-	serve.Scrapes = map[string]Scrape {
-		"service-1": Scrape{ ServiceName: "service-1", ScrapePort: 1234 },
-		"service-2": Scrape{ ServiceName: "service-2", ScrapePort: 5678 },
-	}
-	gc := serve.GetGlobalConfig()
-	sc := serve.GetScrapeConfig()
-	expected := fmt.Sprintf(`%s
-%s`,
-		gc,
-		sc,
-	)
-
-	serve.WriteConfig()
-
-	actual, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
-	s.Equal(expected, string(actual))
-}
-
-func (s *ServerTestSuite) Test_WriteConfig_WritesAlerts() {
-	fsOrig := fs
-	defer func() { fs = fsOrig }()
-	fs = afero.NewMemMapFs()
-	serve := New()
-	serve.Alerts["myalert"] = Alert{
-		ServiceName: "my-service",
-		AlertName: "alert-name",
-		AlertNameFormatted: "myservicealertname",
-		AlertIf: "a>b",
-	}
-	gc := serve.GetGlobalConfig()
-	expectedConfig := fmt.Sprintf(`%s
-
-rule_files:
-  - 'alert.rules'
-`,
-		gc,
-	)
-	expectedAlerts := serve.GetAlertConfig()
-
-	serve.WriteConfig()
-
-	actualConfig, _ := afero.ReadFile(fs, "/etc/prometheus/prometheus.yml")
-	s.Equal(expectedConfig, string(actualConfig))
-	actualAlerts, _ := afero.ReadFile(fs, "/etc/prometheus/alert.rules")
-	s.Equal(expectedAlerts, string(actualAlerts))
-}
-
-// GetGlobalConfig
-
-func (s *ServerTestSuite) Test_GlobalConfig_ReturnsConfigWithData() {
-	scrapeIntervalOrig := os.Getenv("GLOBAL_SCRAPE_INTERVAL")
-	defer func() { os.Setenv("GLOBAL_SCRAPE_INTERVAL", scrapeIntervalOrig) }()
-	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "123s")
-	serve := New()
-	expected := `
-global:
-  scrape_interval: 123s`
-
-	actual := serve.GetGlobalConfig()
-	s.Equal(expected, actual)
-}
-
-// GetScrapeConfig
-
-func (s *ServerTestSuite) Test_GetScrapeConfig_ReturnsConfigWithData() {
-	serve := New()
-	expected := `
-scrape_configs:
-  - job_name: "service-1"
-    dns_sd_configs:
-      - names: ["tasks.service-1"]
-        type: A
-        port: 1234
-  - job_name: "service-2"
-    dns_sd_configs:
-      - names: ["tasks.service-2"]
-        type: A
-        port: 5678
-`
-	serve.Scrapes = map[string]Scrape {
-		"service-1": Scrape{ ServiceName: "service-1", ScrapePort: 1234 },
-		"service-2": Scrape{ ServiceName: "service-2", ScrapePort: 5678 },
-	}
-
-	actual := serve.GetScrapeConfig()
-
-	s.Equal(expected, actual)
-}
-
-func (s *ServerTestSuite) Test_GetScrapeConfig_ReturnsEmptyString_WhenNoData() {
-	serve := New()
-
-	actual := serve.GetScrapeConfig()
-
-	s.Empty(actual)
-}
-
-// GetAlertConfig
-
-func (s *ServerTestSuite) Test_GetAlertConfig_ReturnsConfigWithData() {
-	serve := New()
-	expected := ""
-	for _, i := range []int{1, 2} {
-		expected += fmt.Sprintf(`
-ALERT alertNameFormatted%d
-  IF alert-if-%d
-  FOR alert-for-%d
-`, i, i, i)
-		serve.Alerts[fmt.Sprintf("alert-name-%d", i)] = Alert{
-			AlertNameFormatted: fmt.Sprintf("alertNameFormatted%d", i),
-			ServiceName: fmt.Sprintf("my-service-%d", i),
-			AlertName: fmt.Sprintf("alert-name-%d", i),
-			AlertIf: fmt.Sprintf("alert-if-%d", i),
-			AlertFor: fmt.Sprintf("alert-for-%d", i),
-		}
-	}
-
-	actual := serve.GetAlertConfig()
-
-	s.Equal(expected, actual)
-}
-
-// RunPrometheus
-
-func (s *ServerTestSuite) Test_RunPrometheus_ExecutesPrometheus() {
-	cmdRunOrig := cmdRun
-	defer func() { cmdRun = cmdRunOrig }()
-	actualArgs := []string{}
-	cmdRun = func(cmd *exec.Cmd) error {
-		actualArgs = cmd.Args
-		return nil
-	}
-
-	serve := New()
-	serve.RunPrometheus()
-
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles"}, actualArgs)
-}
-
-func (s *ServerTestSuite) Test_RunPrometheus_AddsRoutePrefix() {
-	cmdRunOrig := cmdRun
-	defer func() {
-		cmdRun = cmdRunOrig
-		os.Unsetenv("ARG_WEB_ROUTE-PREFIX")
-	}()
-	os.Setenv("ARG_WEB_ROUTE-PREFIX", "/something")
-	actualArgs := []string{}
-	cmdRun = func(cmd *exec.Cmd) error {
-		actualArgs = cmd.Args
-		return nil
-	}
-
-	serve := New()
-	serve.RunPrometheus()
-
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.route-prefix=/something"}, actualArgs)
-}
-
-func (s *ServerTestSuite) Test_RunPrometheus_AddsExternalUrl() {
-	cmdRunOrig := cmdRun
-	defer func() {
-		cmdRun = cmdRunOrig
-		os.Unsetenv("ARG_WEB_EXTERNAL-URL")
-	}()
-	os.Setenv("ARG_WEB_EXTERNAL-URL", "/something")
-	actualArgs := []string{}
-	cmdRun = func(cmd *exec.Cmd) error {
-		actualArgs = cmd.Args
-		return nil
-	}
-
-	serve := New()
-	serve.RunPrometheus()
-
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.external-url=/something"}, actualArgs)
-}
-
-func (s *ServerTestSuite) Test_RunPrometheus_ReturnsError() {
-	serve := New()
-	// Assumes that `prometheus` does not exist
-	err := serve.RunPrometheus()
-
-	s.Error(err)
-}
-
 // InitialConfig
 
 func (s *ServerTestSuite) Test_InitialConfig_RequestsDataFromSwarmListener() {
@@ -875,9 +675,9 @@ func (s *ServerTestSuite) Test_InitialConfig_DoesNotSendRequest_WhenListenerAddr
 }
 
 func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
-	expected := map[string]Scrape{
-		"service-1": Scrape{ServiceName: "service-1", ScrapePort: 1111},
-		"service-2": Scrape{ServiceName: "service-2", ScrapePort: 2222},
+	expected := map[string]prometheus.Scrape{
+		"service-1": prometheus.Scrape{ServiceName: "service-1", ScrapePort: 1111},
+		"service-2": prometheus.Scrape{ServiceName: "service-2", ScrapePort: 2222},
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -898,22 +698,22 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
 }
 
 func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
-	expected := map[string]Alert{
-		"myservicealert1": Alert{
+	expected := map[string]prometheus.Alert{
+		"myservicealert1": prometheus.Alert{
 			AlertName: "alert-1",
 			AlertIf: "if-1",
 			AlertFor: "for-1",
 			ServiceName: "my-service",
 			AlertNameFormatted: "myservicealert1",
 		},
-		"myservicealert21": Alert{
+		"myservicealert21": prometheus.Alert{
 			AlertName: "alert-21",
 			AlertIf: "if-21",
 			AlertFor: "for-21",
 			ServiceName: "my-service",
 			AlertNameFormatted: "myservicealert21",
 		},
-		"myservicealert22": Alert{
+		"myservicealert22": prometheus.Alert{
 			AlertName: "alert-22",
 			AlertIf: "if-22",
 			AlertFor: "for-22",

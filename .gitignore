@@ -3,3 +3,4 @@
 /docker-flow-monitor
 /alertmanager.yml
 /tmp
+/*.pem

@@ -25,6 +25,22 @@ services:
       placement:
         constraints: [node.role == manager]
 
+  docs:
+    image: vfarcic/docker-flow-monitor-docs:${TAG:-latest}
+    networks:
+      - proxy
+    deploy:
+      labels:
+        - com.df.distribute=true
+        - com.df.notify=true
+        - com.df.port=80
+        - com.df.serviceDomain=monitor.dockerflow.com
+        - com.df.servicePath=/
+      replicas: 2
+      resources:
+        reservations:
+          memory: 50M
+
 networks:
   monitor:
     external: true

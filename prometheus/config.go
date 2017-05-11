@@ -2,7 +2,6 @@ package prometheus
 
 import (
 	"os"
-	"fmt"
 	"text/template"
 	"bytes"
 	"github.com/spf13/afero"
@@ -42,21 +41,12 @@ func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
 	gc := GetGlobalConfig()
 	sc := GetScrapeConfig(scrapes)
 	ruleFiles := ""
-	// TODO: Move to WriteAlerts
 	if len(alerts) > 0 {
 		logPrintf("Writing to alert.rules")
-		ruleFiles = `
-rule_files:
-  - 'alert.rules'
-`
+		ruleFiles = "\nrule_files:\n  - 'alert.rules'\n"
 		afero.WriteFile(FS, "/etc/prometheus/alert.rules", []byte(GetAlertConfig(alerts)), 0644)
 	}
-	config := fmt.Sprintf(`%s
-%s%s`,
-		gc,
-		sc,
-		ruleFiles,
-	)
+	config := gc + "\n" + sc + ruleFiles
 	logPrintf("Writing to prometheus.yml")
 	afero.WriteFile(FS, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }

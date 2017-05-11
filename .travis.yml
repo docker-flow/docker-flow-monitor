@@ -19,8 +19,8 @@ script:
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker run -t -v $PWD:/docs cilerler/mkdocs bash -c "pip install pygments && pip install pymdown-extensions && mkdocs build"; fi'
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker build -t vfarcic/docker-flow-monitor-docs -f Dockerfile.docs .; fi'
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker tag vfarcic/docker-flow-monitor-docs vfarcic/docker-flow-monitor-docs:${VERSION}; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker push vfarcic/docker-flow-proxy-monitor:${VERSION}; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker push vfarcic/docker-flow-proxy-monitor; fi'
+  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker push vfarcic/docker-flow-monitor-docs:${VERSION}; fi'
+  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker push vfarcic/docker-flow-monitor-docs; fi'
 
 branches:
   only:

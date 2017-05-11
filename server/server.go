@@ -189,21 +189,6 @@ ALERT {{.AlertNameFormatted}}
 	return b.String()
 }
 
-func (s *Serve) RunPrometheus() error {
-	logPrintf("Starting Prometheus")
-	cmdString := "prometheus"
-	for _, e := range os.Environ() {
-		if key, value := s.getArgFromEnv(e, "ARG"); len(key) > 0 {
-			key = strings.Replace(key, "_", ".", -1)
-			cmdString = fmt.Sprintf("%s -%s=%s", cmdString, key, value)
-		}
-	}
-	cmd := exec.Command("/bin/sh", "-c", cmdString)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmdRun(cmd)
-}
-
 func (s *Serve) InitialConfig() error {
 	if len(os.Getenv("LISTENER_ADDRESS")) > 0 {
 		logPrintf("Requesting services from Docker Flow Swarm Listener")
@@ -357,16 +342,4 @@ func (s *Serve) getResponse(alerts *[]Alert, scrape *Scrape, err error, statusCo
 		resp.Status = http.StatusInternalServerError
 	}
 	return resp
-}
-
-func (s *Serve) getArgFromEnv(env, prefix string) (key, value string) {
-	if strings.HasPrefix(env, prefix + "_") {
-		values := strings.Split(env, "=")
-		key = values[0]
-		key = strings.TrimLeft(key, prefix)
-		key = strings.ToLower(key)
-		key = strings.Replace(key, "_", "", 1)
-		value = values[1]
-	}
-	return key, value
 }

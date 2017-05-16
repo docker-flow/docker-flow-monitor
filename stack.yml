@@ -5,13 +5,20 @@ services:
   monitor:
     image: vfarcic/docker-flow-monitor:${TAG:-latest}
     networks:
+      - proxy
       - monitor
     ports:
       - 9090:9090
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - SCRAPE_INTERVAL=10
+      - ARG_WEB_EXTERNAL-URL=http://prometheus.dockerflow.com
+    deploy:
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.serviceDomain=prometheus.dockerflow.com
+        - com.df.port=9090
+        - com.df.usersPassEncrypted=true
+        - com.df.usersSecret=vfarcic
 
   swarm-listener:
     image: vfarcic/docker-flow-swarm-listener

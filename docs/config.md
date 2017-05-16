@@ -7,9 +7,9 @@
 !!! tip
 	The *Docker Flow Monitor* container can be configured through environment variables
 
-The environment variables used to configure *Docker Flow Monitor* are divided into three groups distinguished by variable prefixes.
+The environment variables that can be used to configure *Docker Flow Monitor* are divided into two groups distinguished by variable name prefixes.
 
-### ARG variables
+### ARG Variables
 
 Environment variables prefixed will `ARG_` are used instead Prometheus startup arguments.
 
@@ -34,7 +34,7 @@ ARG_WEB_CONSOLE_LIBRARIES=/usr/share/prometheus/console_libraries
 ARG_WEB_CONSOLE_TEMPLATES=/usr/share/prometheus/consoles
 ```
 
-### GLOBAL variables
+### GLOBAL Variables
 
 Environment variables prefixed with `GLOBAL_` are used instead Prometheus global entries in the configuration.
 
@@ -50,4 +50,4 @@ global:
   scrape_interval: 10s
 ```
 
-Please consult [Prometheus configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.
+Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.

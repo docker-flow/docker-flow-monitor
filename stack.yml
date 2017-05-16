@@ -28,7 +28,7 @@ services:
   docs:
     image: vfarcic/docker-flow-monitor-docs:${TAG:-latest}
     networks:
-      - monitor
+      - proxy
     deploy:
       labels:
         - com.df.distribute=true
@@ -43,4 +43,6 @@ services:
 
 networks:
   monitor:
+    external: true
+  proxy:
     external: true

@@ -48,6 +48,50 @@ services:
         reservations:
           memory: 50M
 
+  ha-proxy:
+    image: quay.io/prometheus/haproxy-exporter:${HA_PROXY_TAG:-latest}
+    networks:
+      - proxy
+      - monitor
+    deploy:
+      labels:
+        - com.df.notify=true
+        - com.df.scrapePort=9101
+    command: -haproxy.scrape-uri="http://admin:admin@proxy/admin?stats;csv"
+
+  cadvisor:
+    image: google/cadvisor:${CADVISOR_TAG:-latest}
+    networks:
+      - monitor
+    volumes:
+      - /:/rootfs
+      - /var/run:/var/run
+      - /sys:/sys
+      - /var/lib/docker:/var/lib/docker
+    deploy:
+      mode: global
+      labels:
+        - com.df.notify=true
+        - com.df.scrapePort=8080
+
+  node-exporter:
+    image: basi/node-exporter:${NODE_EXPORTER_TAG:-v1.13.0}
+    networks:
+      - monitor
+    environment:
+      - HOST_HOSTNAME=/etc/host_hostname
+    volumes:
+      - /proc:/host/proc
+      - /sys:/host/sys
+      - /:/rootfs
+      - /etc/hostname:/etc/host_hostname
+    deploy:
+      mode: global
+      labels:
+        - com.df.notify=true
+        - com.df.scrapePort=9100
+    command: '-collector.procfs /host/proc -collector.sysfs /host/sys -collector.filesystem.ignored-mount-points "^/(sys|proc|dev|host|etc)($$|/)" -collector.textfile.directory /etc/node-exporter/ -collectors.enabled="conntrack,diskstats,entropy,filefd,filesystem,loadavg,mdadm,meminfo,netdev,netstat,stat,textfile,time,vmstat,ipvs"'
+
 networks:
   monitor:
     external: true

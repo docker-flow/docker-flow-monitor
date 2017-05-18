@@ -17,7 +17,7 @@ Query parameters that follow should be added to the base address **[MONITOR_IP]:
 |scrapePort     |The port through which metrics are exposed.                                               |Yes     |
 |serviceName    |The name of the service that exports metrics.                                             |Yes     |
 
-## Alert Parameters
+### Alert Parameters
 
 > Defines Prometheus alerts
 
@@ -27,6 +27,8 @@ Query parameters that follow should be added to the base address **[MONITOR_IP]:
 |alertIf        |This parameter is translated to Prometheus alert *IF* statement. It is an expression that will be evaluated and, if it returns *true*, an alert will be fired.|Yes|
 |alertName      |The name of the alert. It is combined with the `serviceName` thus producing an unique identifier.|Yes|
 |serviceName    |The name of the service. It is combined with the `alertName` thus producing an unique identifier.|Yes|
+
+Please visit [Alerting Overview](https://prometheus.io/docs/alerting/overview/) for more information about the rules for defining Prometheus alerts.
 
 ## Remove
 

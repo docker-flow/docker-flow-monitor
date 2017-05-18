@@ -2,6 +2,7 @@ site_name: Docker Flow Monitor
 pages:
   - Home: index.md
   - Configuration: config.md
+  - Usage: usage.md
   - About:
     - Release Notes: release-notes.md
     - License: license.md

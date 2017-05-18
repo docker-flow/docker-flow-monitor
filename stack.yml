@@ -48,17 +48,6 @@ services:
         reservations:
           memory: 50M
 
-  ha-proxy:
-    image: quay.io/prometheus/haproxy-exporter:${HA_PROXY_TAG:-latest}
-    networks:
-      - proxy
-      - monitor
-    deploy:
-      labels:
-        - com.df.notify=true
-        - com.df.scrapePort=9101
-    command: -haproxy.scrape-uri="http://admin:admin@proxy/admin?stats;csv"
-
   cadvisor:
     image: google/cadvisor:${CADVISOR_TAG:-latest}
     networks:

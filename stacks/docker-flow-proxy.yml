@@ -20,8 +20,6 @@ services:
       - CONNECTION_MODE=${CONNECTION_MODE:-http-server-close}
       - STATS_USER=admin
       - STATS_PASS=admin
-    deploy:
-      replicas: 3
 
   swarm-listener:
     image: vfarcic/docker-flow-swarm-listener

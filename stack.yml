@@ -19,7 +19,6 @@ services:
         - com.df.port=9090
         - com.df.usersPassEncrypted=true
         - com.df.usersSecret=vfarcic
-    deploy:
       resources:
         reservations:
           memory: 1500M

@@ -2,64 +2,21 @@ version: "3"
 
 services:
 
-  monitor:
-    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+  ha-proxy:
+    image: quay.io/prometheus/haproxy-exporter:${HA_PROXY_TAG:-latest}
     networks:
       - proxy
       - monitor
-    ports:
-      - 9090:9090
-    environment:
-      - ARG_WEB_EXTERNAL-URL=http://prometheus.dockerflow.com
     deploy:
       labels:
         - com.df.notify=true
-        - com.df.distribute=true
-        - com.df.serviceDomain=prometheus.dockerflow.com
-        - com.df.port=9090
-        - com.df.usersPassEncrypted=true
-        - com.df.usersSecret=vfarcic
-    deploy:
+        - com.df.scrapePort=9101
       resources:
         reservations:
-          memory: 1500M
-        limits:
-          memory: 3000M
-
-  swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
-    networks:
-      - monitor
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
-    deploy:
-      placement:
-        constraints: [node.role == manager]
-      resources:
-        reservations:
-          memory: 10M
-        limits:
           memory: 20M
-
-  docs:
-    image: vfarcic/docker-flow-monitor-docs:${TAG:-latest}
-    networks:
-      - proxy
-    deploy:
-      labels:
-        - com.df.distribute=true
-        - com.df.notify=true
-        - com.df.port=80
-        - com.df.serviceDomain=monitor.dockerflow.com
-        - com.df.servicePath=/
-      replicas: 2
-      resources:
-        reservations:
-          memory: 10M
         limits:
-          memory: 20M
+          memory: 50M
+    command: -haproxy.scrape-uri="http://admin:admin@proxy/admin?stats;csv"
 
   cadvisor:
     image: google/cadvisor:${CADVISOR_TAG:-latest}
@@ -77,9 +34,9 @@ services:
         - com.df.scrapePort=8080
       resources:
         reservations:
-          memory: 40M
+          memory: 30M
         limits:
-          memory: 80M
+          memory: 50M
 
   node-exporter:
     image: basi/node-exporter:${NODE_EXPORTER_TAG:-v1.13.0}
@@ -101,7 +58,7 @@ services:
         reservations:
           memory: 20M
         limits:
-          memory: 40M
+          memory: 50M
     command: '-collector.procfs /host/proc -collector.sysfs /host/sys -collector.filesystem.ignored-mount-points "^/(sys|proc|dev|host|etc)($$|/)" -collector.textfile.directory /etc/node-exporter/ -collectors.enabled="conntrack,diskstats,entropy,filefd,filesystem,loadavg,mdadm,meminfo,netdev,netstat,stat,textfile,time,vmstat,ipvs"'
 
 networks:

@@ -1,0 +1,40 @@
+version: '3'
+
+services:
+
+  main:
+    image: vfarcic/go-demo${TAG}
+    environment:
+      - DB=db
+    networks:
+      - proxy
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.servicePath=/demo
+        - com.df.port=8080
+      resources:
+        reservations:
+          memory: 5M
+        limits:
+          memory: 10M
+
+  db:
+    image: mongo
+    networks:
+      - proxy
+    deploy:
+      resources:
+        reservations:
+          memory: 40M
+        limits:
+          memory: 80M
+
+networks:
+  proxy:
+    external: true

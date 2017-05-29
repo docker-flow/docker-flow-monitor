@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-var logPrintf = log.Printf
+var LogPrintf = log.Printf
 var FS = afero.NewOsFs()
 
 func getArgFromEnv(env, prefix string) (key, value string) {

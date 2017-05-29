@@ -152,7 +152,7 @@ func (s *Serve) getAlertFromMap(data map[string]string, suffix string) (promethe
 		alert.AlertIf = data["alertIf" + suffix]
 		alert.AlertName = data["alertName" + suffix]
 		alert.ServiceName = data["serviceName"]
-		alert.AlertNameFormatted = s.getAlertNameFormatted(alert.ServiceName, alert.AlertName)
+		s.formatAlert(&alert)
 		if s.isValidAlert(&alert) {
 			return alert, nil
 		}
@@ -165,7 +165,7 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 	alertDecode := prometheus.Alert{}
 	decoder.Decode(&alertDecode, req.Form)
 	if s.isValidAlert(&alertDecode) {
-		alertDecode.AlertNameFormatted = s.getAlertNameFormatted(alertDecode.ServiceName, alertDecode.AlertName)
+		s.formatAlert(&alertDecode)
 		s.Alerts[alertDecode.AlertNameFormatted] = alertDecode
 		alerts = append(alerts, alertDecode)
 		logPrintf("Adding alert %s for the service %s", alertDecode.AlertName, alertDecode.ServiceName)
@@ -173,12 +173,12 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 	for i:=1; i <= 10; i++ {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
 		alert := prometheus.Alert{
-			AlertNameFormatted: s.getAlertNameFormatted(alertDecode.ServiceName, alertName),
 			ServiceName: alertDecode.ServiceName,
 			AlertName: alertName,
 			AlertIf: req.URL.Query().Get(fmt.Sprintf("alertIf.%d", i)),
 			AlertFor: req.URL.Query().Get(fmt.Sprintf("alertFor.%d", i)),
 		}
+		s.formatAlert(&alert)
 		if !s.isValidAlert(&alert) {
 			break
 		}
@@ -187,6 +187,42 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 	}
 	return alerts
 }
+
+type alertIfShortcut struct {
+	expanded string
+	shortcut string
+}
+
+var alertIfShortcutData = []alertIfShortcut{
+	{
+		`container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"} > `,
+		`@service_mem_limit:`,
+	}, {
+		`(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > `,
+		`@node_mem_limit:`,
+	}, {
+		`(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > `,
+		`@node_fs_limit:`,
+	},
+}
+
+func (s *Serve) formatAlert(alert *prometheus.Alert) {
+	alert.AlertNameFormatted = s.getNameFormatted(fmt.Sprintf("%s%s", alert.ServiceName, alert.AlertName))
+	if strings.HasPrefix(alert.AlertIf, "@") {
+		for _, data := range alertIfShortcutData {
+			alert.AlertIf = strings.Replace(
+				alert.AlertIf,
+				data.shortcut,
+				strings.Replace(data.expanded, "[SERVICE_NAME]", alert.ServiceName, -1),
+				-1,
+			)
+		}
+	}
+}
+
+//func (s *Serve) getAlertIfFormatted() string {
+//	return `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 0.8`
+//}
 
 func (s *Serve) isValidAlert(alert *prometheus.Alert) bool {
 	return len(alert.AlertName) > 0 && len(alert.AlertIf) > 0
@@ -202,10 +238,6 @@ func (s *Serve) deleteAlerts(serviceName string) []prometheus.Alert {
 		}
 	}
 	return alerts
-}
-
-func (s *Serve) getAlertNameFormatted(serviceName, alertName string) string {
-	return s.getNameFormatted(fmt.Sprintf("%s%s", serviceName, alertName))
 }
 
 func (s *Serve) getNameFormatted(name string) string {

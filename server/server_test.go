@@ -24,11 +24,14 @@ func (s *ServerTestSuite) SetupTest() {
 func TestServerUnitTestSuite(t *testing.T) {
 	s := new(ServerTestSuite)
 	logPrintlnOrig := logPrintf
-	defer func() { logPrintf = logPrintlnOrig }()
+	defer func() {
+		logPrintf = logPrintlnOrig
+		prometheus.LogPrintf = logPrintlnOrig
+	}()
 	logPrintf = func(format string, v ...interface{}) {}
+	prometheus.LogPrintf = func(format string, v ...interface{}) {}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer testServer.Close()
-	// TODO: Remove
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
 	os.Setenv("ARG_CONFIG_FILE", "/etc/prometheus/prometheus.yml")
 	os.Setenv("ARG_STORAGE_LOCAL_PATH", "/prometheus")
@@ -200,6 +203,40 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 	serve.ReconfigureHandler(rwMock, req)
 
 	s.Equal(expected, serve.Alerts[expected.AlertNameFormatted])
+}
+
+func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
+	testData := []struct{
+		expected string
+		shortcut string
+	}{
+		{ `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`, `@service_mem_limit:0.8`},
+		{ `(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8`, `@node_mem_limit:0.8` },
+		{ `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8`, `@node_fs_limit:0.8` },
+	}
+	for _, data := range testData {
+		expected := prometheus.Alert{
+			ServiceName: "my-service",
+			AlertName: "my-alert",
+			AlertIf: data.expected,
+			AlertFor: "my-for",
+			AlertNameFormatted: "myservicemyalert",
+		}
+		rwMock := ResponseWriterMock{}
+		addr := fmt.Sprintf(
+			"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s",
+			expected.ServiceName,
+			expected.AlertName,
+			data.shortcut,
+			expected.AlertFor,
+		)
+		req, _ := http.NewRequest("GET", addr, nil)
+
+		serve := New()
+		serve.ReconfigureHandler(rwMock, req)
+
+		s.Equal(expected, serve.Alerts[expected.AlertNameFormatted])
+	}
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
@@ -532,7 +569,7 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
 
 	serve := New()
 	serve.Scrapes[expected.Scrape.ServiceName] = expected.Scrape
-	alertKey := serve.getAlertNameFormatted(expected.Alerts[0].ServiceName, expected.Alerts[0].AlertName)
+	alertKey := serve.getNameFormatted(fmt.Sprintf("%s%s", expected.Alerts[0].ServiceName, expected.Alerts[0].AlertName))
 	serve.Alerts[alertKey] = expected.Alerts[0]
 	serve.RemoveHandler(rwMock, req)
 
@@ -659,7 +696,7 @@ func (s *ServerTestSuite) Test_InitialConfig_RequestsDataFromSwarmListener() {
 
 func (s *ServerTestSuite) Test_InitialConfig_ReturnsError_WhenAddressIsInvalid() {
 	defer func() { os.Unsetenv("LISTENER_ADDRESS") }()
-	os.Setenv("LISTENER_ADDRESS", "127.0.0.1")
+	os.Setenv("LISTENER_ADDRESS", "123.456.789.0")
 
 	serve := New()
 	err := serve.InitialConfig()

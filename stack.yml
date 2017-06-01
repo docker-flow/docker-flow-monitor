@@ -19,6 +19,9 @@ services:
         - com.df.port=9090
         - com.df.usersPassEncrypted=true
         - com.df.usersSecret=vfarcic
+        - com.df.alertName=memlimit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=30s
       resources:
         reservations:
           memory: 2500M
@@ -34,6 +37,10 @@ services:
     environment:
       - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
     deploy:
+      labels:
+        - com.df.alertName=memlimit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=30s
       placement:
         constraints: [node.role == manager]
       resources:
@@ -53,6 +60,9 @@ services:
         - com.df.port=80
         - com.df.serviceDomain=monitor.dockerflow.com
         - com.df.servicePath=/
+        - com.df.alertName=memlimit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=30s
       replicas: 2
       resources:
         reservations:
@@ -74,6 +84,9 @@ services:
       labels:
         - com.df.notify=true
         - com.df.scrapePort=8080
+        - com.df.alertName=memlimit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=30s
       resources:
         reservations:
           memory: 40M
@@ -96,6 +109,15 @@ services:
       labels:
         - com.df.notify=true
         - com.df.scrapePort=9100
+        - com.df.alertName.1=memload
+        - com.df.alertIf.1=@node_mem_limit:0.8
+        - com.df.alertFor.1=30s
+        - com.df.alertName.2=diskload
+        - com.df.alertIf.2=@node_fs_limit:0.8
+        - com.df.alertFor.2=30s
+        - com.df.alertName.3=memlimit
+        - com.df.alertIf.3=@service_mem_limit:0.8
+        - com.df.alertFor.3=30s
       resources:
         reservations:
           memory: 20M

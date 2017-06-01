@@ -10,7 +10,8 @@ Query parameters that follow should be added to the base address **[MONITOR_IP]:
 
 ### Scrape Parameters
 
-> Defines Prometheus scrape targets
+!!! tip
+    Defines Prometheus scrape targets
 
 |Query          |Description                                                                               |Required|
 |---------------|------------------------------------------------------------------------------------------|--------|
@@ -19,7 +20,8 @@ Query parameters that follow should be added to the base address **[MONITOR_IP]:
 
 ### Alert Parameters
 
-> Defines Prometheus alerts
+!!! tip
+    Defines Prometheus alerts
 
 |Query          |Description                                                                               |Required|
 |---------------|------------------------------------------------------------------------------------------|--------|
@@ -34,20 +36,26 @@ Please visit [Alerting Overview](https://prometheus.io/docs/alerting/overview/) 
 
 ### AlertIf Parameter Shortcuts
 
-> Allows short specification of commonly used `alertIf` parameters
+!!! tip
+    Allows short specification of commonly used `alertIf` parameters
 
-|Shortcut|Description|
-|@node_fs_limit:[PERCENTAGE]|Whether node file system usage is over specified percentage of the total available file system size.<br>Requirements: `node-exporter` metrics<br>[PERCENTAGE] must be specified as a decimal value (e.g. `0.8` equals `80%`).Example: `@node_fs_limit:0.8` would be expanded to `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8`.|
-|@node_mem_limit:[PERCENTAGE]|Whether node memory usage is over specified percentage of the total node memory.<br>Requirements: `node-exporter` metrics<br>[PERCENTAGE] must be specified as a decimal value (e.g. `0.8` equals `80%`).Example: `@node_mem_limit:0.8` would be expanded to `(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8`.|
-|@service_mem_limit:[PERCENTAGE]|Whether service memory usage is over specified percentage of the service memory limit.<br>Requirements: `cAdvisor` metrics and service memory limit specified as service resource.<br>[PERCENTAGE] must be specified as a decimal value (e.g. `0.8` equals `80%`).Example: If `serviceName` is set to `my-service`, `@service_mem_limit:0.8` would be expanded to `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`.|
+|Shortcut                          |Description                                                    |
+|----------------------------------|---------------------------------------------------------------|
+|@node_fs_limit:[PERCENTAGE]       |Whether node file system usage is over specified percentage of the total available file system size.<br>**Requirements:** `node-exporter` metrics<br>[PERCENTAGE] must be specified as a decimal value (e.g. `0.8` equals `80%`).<br>**Example:** `@node_fs_limit:0.8` would be expanded to `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8`.|
+|@node_mem_limit:[PERCENTAGE]      |Whether node memory usage is over specified percentage of the total node memory.<br>**Requirements:** `node-exporter` metrics<br>[PERCENTAGE] must be specified as a decimal value (e.g. `0.8` equals `80%`).<br>**Example:** `@node_mem_limit:0.8` would be expanded to `(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8`.|
+|@service_mem_limit:[PERCENTAGE]   |Whether service memory usage is over specified percentage of the service memory limit.<br>**Requirements:** `cAdvisor` metrics and service memory limit specified as service resource.<br>[PERCENTAGE] must be specified as a decimal value (e.g. `0.8` equals `80%`).<br>**Example:** If `serviceName` is set to `my-service`, `@service_mem_limit:0.8` would be expanded to `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`.|
+
+!!! note
+    I hope that the number of shortcuts will grow with time thanks to community contributions. Please create [an issue](https://github.com/vfarcic/docker-flow-monitor/issues) with the `alertIf` statement and the suggested shortcut and I'll add it to the code as soon as possible.
 
 ## Remove
+
+!!! tip
+    Removes Prometheus scrapes and alerts
 
 *Remove* endpoint can be used to send request to *Docker Flow Monitor* with the goal of removing scrapes and alerts related to a service.
 
 Query parameters that follow should be added to the base address **[MONITOR_IP]:[MONITOR_PORT]/v1/docker-flow-monitor/remove**.
-
-> Removes Prometheus scrapes and alerts
 
 |Query          |Description                                                                               |Required|
 |---------------|------------------------------------------------------------------------------------------|--------|

@@ -3,7 +3,7 @@ version: "3"
 services:
 
   alert-manager:
-    image: vfarcic/alert-manager:demo
+    image: vfarcic/alert-manager:slack
     ports:
       - 9093:9093
     networks:

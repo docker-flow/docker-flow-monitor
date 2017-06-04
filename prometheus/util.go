@@ -14,7 +14,7 @@ func getArgFromEnv(env, prefix string) (key, value string) {
 	if strings.HasPrefix(env, prefix + "_") {
 		values := strings.Split(env, "=")
 		key = values[0]
-		key = strings.TrimLeft(key, prefix + "_")
+		key = strings.Replace(key, prefix + "_", "", 1)
 		key = strings.ToLower(key)
 		value = values[1]
 	}

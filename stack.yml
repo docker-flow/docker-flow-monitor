@@ -36,6 +36,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
+      - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove
     deploy:
       labels:
         - com.df.alertName=memlimit

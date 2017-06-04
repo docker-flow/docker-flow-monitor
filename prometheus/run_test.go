@@ -43,13 +43,15 @@ func (s *RunTestSuite) Test_Run_ExecutesPrometheus() {
 	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles"}, actualArgs)
 }
 
-func (s *RunTestSuite) Test_Run_AddsRoutePrefix() {
+func (s *RunTestSuite) Test_Run_AddsArguments() {
 	cmdRunOrig := cmdRun
 	defer func() {
 		cmdRun = cmdRunOrig
 		os.Unsetenv("ARG_WEB_ROUTE-PREFIX")
+		os.Unsetenv("ARG_ALERTMANAGER_URL")
 	}()
 	os.Setenv("ARG_WEB_ROUTE-PREFIX", "/something")
+	os.Setenv("ARG_ALERTMANAGER_URL", "alertmanager")
 	actualArgs := []string{}
 	cmdRun = func(cmd *exec.Cmd) error {
 		actualArgs = cmd.Args
@@ -58,7 +60,7 @@ func (s *RunTestSuite) Test_Run_AddsRoutePrefix() {
 
 	Run()
 
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.route-prefix=/something"}, actualArgs)
+	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.route-prefix=/something -alertmanager.url=alertmanager"}, actualArgs)
 }
 
 func (s *RunTestSuite) Test_Run_AddsExternalUrl() {

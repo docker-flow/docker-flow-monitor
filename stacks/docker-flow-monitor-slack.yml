@@ -20,9 +20,14 @@ services:
         - com.df.servicePath=/monitor
         - com.df.serviceDomain=${DOMAIN:-localhost}
         - com.df.port=9090
+      resources:
+        reservations:
+          memory: 500M
+        limits:
+          memory: 800M
 
   alert-manager:
-    image: vfarcic/alert-manager:demo
+    image: vfarcic/alert-manager:slack
     networks:
       - monitor
 
@@ -38,6 +43,11 @@ services:
     deploy:
       placement:
         constraints: [node.role == manager]
+      resources:
+        reservations:
+          memory: 5M
+        limits:
+          memory: 10M
 
 networks:
   monitor:

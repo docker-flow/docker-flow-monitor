@@ -153,7 +153,7 @@ The second service (`node-exporter`) defines more than scraping port. The defini
     ...
 ```
 
-This time, we added a few additional labels. `com.df.alertName.1` will tell Prometheus that is should create an alert called `memload`. The name of the alert is accompanied with the condition specified as `com.df.alertIf.1`. Multiple alerts can be specified by adding labels with incremental indexes. As the second alert, we used `com.df.alertName.2=diskload` to defined the name and `com.df.alertIf.2=@node_fs_limit:0.8` to define the condition. This time, we use one of the shortcuts instead writing the full syntax.
+This time, we added a few additional labels. `com.df.alertName.1` will tell Prometheus that it should create an alert called `memload`. The name of the alert is accompanied with the condition specified as `com.df.alertIf.1`. Multiple alerts can be defined by adding labels with incremental indexes. As the second alert, we used `com.df.alertName.2=diskload` to defined the name and `com.df.alertIf.2=@node_fs_limit:0.8` to define the condition. This time, we use one of the shortcuts instead writing the full syntax.
 
 Let's deploy the `exporter` stack.
 
@@ -221,9 +221,9 @@ It is up to you to configure [Alert Manager](https://hub.docker.com/r/prom/alert
 
 ## What Now?
 
-This was a very brief introduction to *Docker Flow Monitor*. Please consult documentation for any additional information you might need. Feel free to open [an issue](https://github.com/vfarcic/docker-flow-monitor/issues) if you need additional info, if you find a bug, or if you have a feature request.
+That was a very brief introduction to *Docker Flow Monitor*. Please consult the documentation for any additional information you might need. Feel free to open [an issue](https://github.com/vfarcic/docker-flow-monitor/issues) if you require additional info, if you find a bug, or if you have a feature request.
 
-Before you go, please remove the cluster we created created and free those resources for something else.
+Before you go, please remove the cluster we created and free those resources for something else.
 
 ```bash
 docker-machine rm -f swarm-1 swarm-2 swarm-3

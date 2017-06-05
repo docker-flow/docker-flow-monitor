@@ -14,7 +14,7 @@ docker network create -d overlay monitor
 
 DOMAIN=$(docker-machine ip swarm-1) \
     docker stack deploy \
-    -c stacks/docker-flow-monitor-am.yml \
+    -c stacks/docker-flow-monitor-slack.yml \
     monitor
 
 docker stack deploy \

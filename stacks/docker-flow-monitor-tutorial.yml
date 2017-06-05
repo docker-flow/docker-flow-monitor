@@ -1,0 +1,36 @@
+version: "3"
+
+services:
+
+  monitor:
+    image: vfarcic/docker-flow-monitor
+    environment:
+      - LISTENER_ADDRESS=swarm-listener
+      - GLOBAL_SCRAPE_INTERVAL=10s
+      - ARG_ALERTMANAGER_URL=http://alert-manager:9093
+    networks:
+      - monitor
+    ports:
+      - 9090:9090
+
+  alert-manager:
+    image: vfarcic/alert-manager:slack
+    networks:
+      - monitor
+
+  swarm-listener:
+    image: vfarcic/docker-flow-swarm-listener
+    networks:
+      - monitor
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
+      - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  monitor:
+    external: true

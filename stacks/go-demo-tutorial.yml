@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+
+  main:
+    image: vfarcic/go-demo
+    environment:
+      - DB=db
+    ports:
+      - 8080:8080
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.alertName=memlimit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=30s
+      resources:
+        reservations:
+          memory: 5M
+        limits:
+          memory: 10M
+
+  db:
+    image: mongo

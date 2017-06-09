@@ -21,7 +21,6 @@ services:
         - com.df.alertName=memlimit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=5s
-        - com.df.alertLabels=severity=high,receiver=system
       resources:
         reservations:
           memory: 5M

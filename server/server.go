@@ -65,7 +65,7 @@ func (s *Serve) EmptyHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Serve) ReconfigureHandler(w http.ResponseWriter, req *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
-	logPrintf("Processing " + req.URL.Path)
+	logPrintf("Processing " + req.URL.String())
 	req.ParseForm()
 	scrape := s.getScrape(req)
 	s.deleteAlerts(scrape.ServiceName)
@@ -183,7 +183,7 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 		s.formatAlert(&alertDecode)
 		s.Alerts[alertDecode.AlertNameFormatted] = alertDecode
 		alerts = append(alerts, alertDecode)
-		logPrintf("Adding alert %s for the service %s", alertDecode.AlertName, alertDecode.ServiceName)
+		logPrintf("Adding alert %s for the service %s\n", alertDecode.AlertName, alertDecode.ServiceName, alertDecode)
 	}
 	for i:=1; i <= 10; i++ {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
@@ -198,6 +198,7 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 			break
 		}
 		s.Alerts[alert.AlertNameFormatted] = alert
+		logPrintf("Adding alert %s for the service %s\n", alert.AlertName, alert.ServiceName, alert)
 		alerts = append(alerts, alert)
 	}
 	return alerts
@@ -265,7 +266,7 @@ func (s *Serve) getScrape(req *http.Request) prometheus.Scrape {
 	decoder.Decode(&scrape, req.Form)
 	if s.isValidScrape(&scrape) {
 		s.Scrapes[scrape.ServiceName] = scrape
-		logPrintf("Adding scrape " + scrape.ServiceName)
+		logPrintf("Adding scrape %s\n%v", scrape.ServiceName, scrape)
 	}
 	return scrape
 }

@@ -19,8 +19,10 @@ services:
         - com.df.servicePath=/demo
         - com.df.port=8080
         - com.df.alertName=memlimit
-        - com.df.alertIf=@service_mem_limit:0.8
-        - com.df.alertFor=5s
+        - com.df.alertIf=container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 0.8
+        - com.df.alertFor=30s
+        - com.df.alertLabels=severity=high,receiver=system
+        - com.df.alertAnnotations=summary=Service memory is high,description=Do something or start panicking
       resources:
         reservations:
           memory: 5M

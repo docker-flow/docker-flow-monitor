@@ -56,12 +56,10 @@ services:
         - com.df.scrapePort=9100
         - com.df.alertName.1=memload
         - com.df.alertIf.1=@node_mem_limit:0.8
-        - com.df.alertLabels.1=severity=high,receiver=system
         - com.df.alertFor.1=30s
         - com.df.alertName.2=diskload
         - com.df.alertIf.2=@node_fs_limit:0.8
         - com.df.alertFor.2=30s
-        - com.df.alertLabels.2=severity=high,receiver=system
       resources:
         reservations:
           memory: 20M

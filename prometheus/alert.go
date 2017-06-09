@@ -6,7 +6,6 @@ import (
 )
 
 func GetAlertConfig(alerts map[string]Alert) string {
-	// TODO: Add ANNOTATIONS
 	templateString := `{{range .}}
 ALERT {{.AlertNameFormatted}}
   IF {{.AlertIf}}{{if .AlertFor}}

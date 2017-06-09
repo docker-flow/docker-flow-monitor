@@ -148,8 +148,6 @@ func (s *Serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, err
 func (s *Serve) getAlertFromMap(data map[string]string, suffix string) (prometheus.Alert, error) {
 	if _, ok := data["alertName" + suffix]; ok {
 		alert := prometheus.Alert{}
-		println(data["alertName" + suffix])
-		println("ANNOTATIONS", data["alertAnnotations" + suffix])
 		alert.AlertAnnotations = s.getMapFromString(data["alertAnnotations" + suffix])
 		alert.AlertFor = data["alertFor" + suffix]
 		alert.AlertIf = data["alertIf" + suffix]
@@ -205,20 +203,28 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 }
 
 type alertIfShortcut struct {
-	expanded string
-	shortcut string
+	expanded    string
+	shortcut    string
+	annotations map[string]string
+	labels      map[string]string
 }
 
 var alertIfShortcutData = []alertIfShortcut{
 	{
-		`container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"} > `,
+		`container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"} > [VALUE]`,
 		`@service_mem_limit:`,
+		map[string]string{"summary": "Memory of the service [SERVICE_NAME] is over [VALUE]"},
+		map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
 	}, {
-		`(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > `,
+		`(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > [VALUE]`,
 		`@node_mem_limit:`,
+		map[string]string{"summary": "Memory of a node is over [VALUE]"},
+		map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
 	}, {
-		`(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > `,
+		`(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > [VALUE]`,
 		`@node_fs_limit:`,
+		map[string]string{"summary": "Disk usage of a node is over [VALUE]"},
+		map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
 	},
 }
 
@@ -226,19 +232,34 @@ func (s *Serve) formatAlert(alert *prometheus.Alert) {
 	alert.AlertNameFormatted = s.getNameFormatted(fmt.Sprintf("%s%s", alert.ServiceName, alert.AlertName))
 	if strings.HasPrefix(alert.AlertIf, "@") {
 		for _, data := range alertIfShortcutData {
-			alert.AlertIf = strings.Replace(
-				alert.AlertIf,
-				data.shortcut,
-				strings.Replace(data.expanded, "[SERVICE_NAME]", alert.ServiceName, -1),
-				-1,
-			)
+			if strings.HasPrefix(alert.AlertIf, data.shortcut) {
+				value := strings.Split(alert.AlertIf, ":")[1]
+				alert.AlertIf = s.replaceTags(data.expanded, alert.ServiceName, value)
+				if alert.AlertAnnotations == nil {
+					alert.AlertAnnotations = map[string]string{}
+				}
+				for k, v := range data.annotations {
+					alert.AlertAnnotations[k] = s.replaceTags(v, alert.ServiceName, value)
+				}
+				if alert.AlertLabels == nil {
+					alert.AlertLabels= map[string]string{}
+				}
+				for k, v := range data.labels {
+					alert.AlertLabels[k] = s.replaceTags(v, alert.ServiceName, value)
+				}
+			}
 		}
 	}
 }
 
-//func (s *Serve) getAlertIfFormatted() string {
-//	return `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 0.8`
-//}
+// TODO: Change to template
+func (s *Serve) replaceTags(tag, serviceName, value string) string {
+	replaced := strings.Replace(tag, "[SERVICE_NAME]", serviceName, -1)
+	println(replaced)
+	replaced = strings.Replace(replaced, "[VALUE]", value, -1)
+	println(replaced)
+	return replaced
+}
 
 func (s *Serve) isValidAlert(alert *prometheus.Alert) bool {
 	return len(alert.AlertName) > 0 && len(alert.AlertIf) > 0

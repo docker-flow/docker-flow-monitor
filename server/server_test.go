@@ -209,18 +209,35 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 	testData := []struct{
 		expected string
 		shortcut string
+		annotations map[string]string
+		labels map[string]string
 	}{
-		{ `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`, `@service_mem_limit:0.8`},
-		{ `(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8`, `@node_mem_limit:0.8` },
-		{ `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8`, `@node_fs_limit:0.8` },
+		{
+			`container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
+			`@service_mem_limit:0.8`,
+			map[string]string{"summary": "Memory of the service my-service is over 0.8"},
+			map[string]string{"receiver": "system", "service": "my-service"},
+		}, {
+			`(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8`,
+			`@node_mem_limit:0.8`,
+			map[string]string{"summary": "Memory of a node is over 0.8"},
+			map[string]string{"receiver": "system", "service": "my-service"},
+		}, {
+			`(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8`,
+			`@node_fs_limit:0.8`,
+			map[string]string{"summary": "Disk usage of a node is over 0.8"},
+			map[string]string{"receiver": "system", "service": "my-service"},
+		},
 	}
 	for _, data := range testData {
 		expected := prometheus.Alert{
-			ServiceName: "my-service",
-			AlertName: "my-alert",
-			AlertIf: data.expected,
-			AlertFor: "my-for",
+			AlertAnnotations:   data.annotations,
+			AlertFor:           "my-for",
+			AlertIf:            data.expected,
+			AlertLabels:        data.labels,
+			AlertName:          "my-alert",
 			AlertNameFormatted: "myservicemyalert",
+			ServiceName:        "my-service",
 		}
 		rwMock := ResponseWriterMock{}
 		addr := fmt.Sprintf(

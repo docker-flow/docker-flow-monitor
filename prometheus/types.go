@@ -1,11 +1,13 @@
 package prometheus
 
 type Alert struct {
-	AlertName string `json:"alertName"`
+	AlertAnnotations   map[string]string `json:"alertAnnotations,omitempty"`
+	AlertFor           string `json:"alertFor,omitempty"`
+	AlertIf            string `json:"alertIf,omitempty"`
+	AlertLabels        map[string]string `json:"alertLabels,omitempty"`
+	AlertName          string `json:"alertName"`
 	AlertNameFormatted string
-	AlertFor string `json:"alertFor,omitempty"`
-	AlertIf   string `json:"alertIf,omitempty"`
-	ServiceName string `json:"serviceName"`
+	ServiceName        string `json:"serviceName"`
 }
 
 type Scrape struct {

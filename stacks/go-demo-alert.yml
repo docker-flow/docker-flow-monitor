@@ -20,7 +20,7 @@ services:
         - com.df.port=8080
         - com.df.alertName=memlimit
         - com.df.alertIf=@service_mem_limit:0.8
-        - com.df.alertFor=30s
+        - com.df.alertFor=5s
       resources:
         reservations:
           memory: 5M

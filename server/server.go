@@ -148,8 +148,12 @@ func (s *Serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, err
 func (s *Serve) getAlertFromMap(data map[string]string, suffix string) (prometheus.Alert, error) {
 	if _, ok := data["alertName" + suffix]; ok {
 		alert := prometheus.Alert{}
+		println(data["alertName" + suffix])
+		println("ANNOTATIONS", data["alertAnnotations" + suffix])
+		alert.AlertAnnotations = s.getMapFromString(data["alertAnnotations" + suffix])
 		alert.AlertFor = data["alertFor" + suffix]
 		alert.AlertIf = data["alertIf" + suffix]
+		alert.AlertLabels = s.getMapFromString(data["alertLabels" + suffix])
 		alert.AlertName = data["alertName" + suffix]
 		alert.ServiceName = data["serviceName"]
 		s.formatAlert(&alert)
@@ -158,6 +162,17 @@ func (s *Serve) getAlertFromMap(data map[string]string, suffix string) (promethe
 		}
 	}
 	return prometheus.Alert{}, fmt.Errorf("Not a valid alert")
+}
+
+func (s *Serve) getMapFromString(value string) map[string]string {
+	mappedValue := map[string]string{}
+	if len(value) > 0 {
+		for _, label := range strings.Split(value, ",") {
+			values := strings.Split(label, "=")
+			mappedValue[values[0]] = values[1]
+		}
+	}
+	return mappedValue
 }
 
 func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {

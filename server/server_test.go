@@ -737,24 +737,36 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
 func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 	expected := map[string]prometheus.Alert{
 		"myservicealert1": prometheus.Alert{
-			AlertName: "alert-1",
-			AlertIf: "if-1",
-			AlertFor: "for-1",
-			ServiceName: "my-service",
+			AlertAnnotations: map[string]string{},
+			AlertName:        "alert-1",
+			AlertIf:          "if-1",
+			AlertFor:         "for-1",
+			AlertLabels:      map[string]string{
+				"label-1-1": "value-1-1",
+				"label-1-2": "value-1-2",
+			},
+			ServiceName:        "my-service",
 			AlertNameFormatted: "myservicealert1",
 		},
 		"myservicealert21": prometheus.Alert{
-			AlertName: "alert-21",
-			AlertIf: "if-21",
-			AlertFor: "for-21",
-			ServiceName: "my-service",
+			AlertAnnotations:   map[string]string{},
+			AlertFor:           "for-21",
+			AlertIf:            "if-21",
+			AlertLabels:        map[string]string{},
+			AlertName:          "alert-21",
+			ServiceName:        "my-service",
 			AlertNameFormatted: "myservicealert21",
 		},
 		"myservicealert22": prometheus.Alert{
-			AlertName: "alert-22",
-			AlertIf: "if-22",
-			AlertFor: "for-22",
-			ServiceName: "my-service",
+			AlertAnnotations: map[string]string{
+				"annotation-22-1": "value-22-1",
+				"annotation-22-2": "value-22-2",
+			},
+			AlertFor:           "for-22",
+			AlertIf:            "if-22",
+			AlertLabels:        map[string]string{},
+			AlertName:          "alert-22",
+			ServiceName:        "my-service",
 			AlertNameFormatted: "myservicealert22",
 		},
 	}
@@ -771,6 +783,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 			"alertName": "alert-1",
 			"alertIf": "if-1",
 			"alertFor": "for-1",
+			"alertLabels": "label-1-1=value-1-1,label-1-2=value-1-2",
 		})
 		resp = append(resp, map[string]string{
 			"serviceName": "my-service",
@@ -778,6 +791,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 			"alertIf.1": "if-21",
 			"alertFor.1": "for-21",
 			"alertName.2": "alert-22",
+			"alertAnnotations.2": "annotation-22-1=value-22-1,annotation-22-2=value-22-2",
 			"alertIf.2": "if-22",
 			"alertFor.2": "for-22",
 		})

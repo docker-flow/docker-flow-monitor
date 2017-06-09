@@ -1,3 +1,0 @@
-FROM prom/alertmanager
-
-COPY config-slack.yml /etc/alertmanager/config.yml

@@ -1,0 +1,17 @@
+version: '3.1'
+
+services:
+
+  main:
+    image: vfarcic/jenkins:devops22
+    ports:
+      - 8080:8080
+    secrets:
+      - jenkins-user
+      - jenkins-pass
+
+secrets:
+  jenkins-user:
+    external: true
+  jenkins-pass:
+    external: true

@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+
+  main:
+    image: jenkinsci/jenkins:${TAG:-lts-alpine}
+    ports:
+      - "50000:50000"
+    environment:
+      - JAVA_OPTS="-Djenkins.install.runSetupWizard=false"
+    networks:
+      - proxy
+    deploy:
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.servicePath=/jenkins
+        - com.df.port=8080
+    secrets:
+      - jenkins-user
+      - jenkins-pass
+
+networks:
+  proxy:
+    external: true
+
+secrets:
+  jenkins-user:
+    external: true
+  jenkins-pass:
+    external: true

@@ -25,10 +25,12 @@ Query parameters that follow should be added to the base address **[MONITOR_IP]:
 
 |Query          |Description                                                                               |Required|
 |---------------|------------------------------------------------------------------------------------------|--------|
-|alertFor       |This parameter is translated to Prometheus alert *FOR* statement. It causes Prometheus to wait for a certain duration between first encountering a new expression output vector element (like an instance with a high HTTP error rate) and counting an alert as firing for this element. Elements that are active, but not firing yet, are in pending state. This parameter expects a number with time suffix (e.g. `s` for seconds, `m` for minutes).<br>Example: `30s`, `5m`|No|
-|alertIf        |This parameter is translated to Prometheus alert *IF* statement. It is an expression that will be evaluated and, if it returns *true*, an alert will be fired.<br>Example: `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8`|Yes|
-|alertName      |The name of the alert. It is combined with the `serviceName` thus producing an unique identifier.<br>Example: `memoryAlert`|Yes|
-|serviceName    |The name of the service. It is combined with the `alertName` thus producing an unique identifier.<br>Example: `go-demo`|Yes|
+|alertAnnotations|This parameter is translated to Prometheus alert `ANNOTATIONS` statement. Annotations are used to store longer additional information.<br>**Example:** `summary=Service memory is high,description=Do something or start panicking`|No|
+|alertFor       |This parameter is translated to Prometheus alert `FOR` statement. It causes Prometheus to wait for a certain duration between first encountering a new expression output vector element (like an instance with a high HTTP error rate) and counting an alert as firing for this element. Elements that are active, but not firing yet, are in pending state. This parameter expects a number with time suffix (e.g. `s` for seconds, `m` for minutes).<br>**Example:** `30s`|No|
+|alertIf        |This parameter is translated to Prometheus alert `IF` statement. It is an expression that will be evaluated and, if it returns *true*, an alert will be fired.<br>Example: `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo"} > 0.8`|Yes|
+|alertLabels    |This parameter is translated to Prometheus alert `LABELS` statement. It allows specifying a set of additional labels to be attached to the alert. Multiple labels can be separated with comma (`,`).<br>**Example:** `severity=high,receiver=system`|No|
+|alertName      |The name of the alert. It is combined with the `serviceName` thus producing an unique identifier.<br>**Example:** `memoryAlert`|Yes|
+|serviceName    |The name of the service. It is combined with the `alertName` thus producing an unique identifier.<br>**Example:** `go-demo`|Yes|
 
 Those parameters can be indexed so that multiple alerts can be defined for a service. Indexing is sequential and starts from 1. An example of indexed `alertName` could be `alertName.1=memload` and `alertName.2=diskload`.
 

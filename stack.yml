@@ -11,6 +11,7 @@ services:
       - 9090:9090
     environment:
       - ARG_WEB_EXTERNAL-URL=http://prometheus.dockerflow.com
+      - LISTENER_ADDRESS=swarm-listener
     deploy:
       labels:
         - com.df.notify=true

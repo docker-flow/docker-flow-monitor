@@ -37,6 +37,27 @@ global:
 	s.Equal(expected, actual)
 }
 
+func (s *ConfigTestSuite) Test_GlobalConfig_AllowsNestedEntries() {
+	scrapeIntervalOrig := os.Getenv("GLOBAL_SCRAPE_INTERVAL")
+	defer func() {
+		os.Setenv("GLOBAL_SCRAPE_INTERVAL", scrapeIntervalOrig)
+		os.Unsetenv("GLOBAL_EXTERNAL_LABELS-CLUSTER")
+		os.Unsetenv("GLOBAL_EXTERNAL_LABELS-TYPE")
+	}()
+	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "123s")
+	os.Setenv("GLOBAL_EXTERNAL_LABELS-CLUSTER", "swarm")
+	os.Setenv("GLOBAL_EXTERNAL_LABELS-TYPE", "production")
+	expected := `
+global:
+  scrape_interval: 123s
+  external_labels:
+    cluster: swarm
+    type: production`
+
+	actual := GetGlobalConfig()
+	s.Equal(expected, actual)
+}
+
 // GetScrapeConfig
 
 func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigWithData() {

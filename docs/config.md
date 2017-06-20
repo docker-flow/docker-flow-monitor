@@ -50,4 +50,13 @@ global:
   scrape_interval: 10s
 ```
 
+Nested values can be specified by separating them with `-`. For example, if environment variables `GLOBAL_EXTERNAL_LABELS-CLUSTER=swarm` and `GLOBAL_EXTERNAL_LABELS-TYPE=production` are defined, the resulting Prometheus configuration would be as follows.
+
+```
+global:
+  external_labels:
+    cluster: swarm
+    type: production
+```
+
 Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.

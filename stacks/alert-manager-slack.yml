@@ -3,12 +3,19 @@ version: "3"
 services:
 
   alert-manager:
-    image: vfarcic/alert-manager:slack
+    image: prom/alertmanager
     ports:
       - 9093:9093
     networks:
       - monitor
+    secrets:
+      - alert_manager_config
+    command: -config.file=/run/secrets/alert_manager_config -storage.path=/alertmanager
 
 networks:
   monitor:
+    external: true
+
+secrets:
+  alert_manager_config:
     external: true

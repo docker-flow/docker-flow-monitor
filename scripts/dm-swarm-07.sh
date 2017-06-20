@@ -37,5 +37,7 @@ docker stack deploy \
     exporter
 
 docker stack deploy \
-    -c stacks/go-demo-alert.yml \
+    -c stacks/go-demo-scale.yml \
     go-demo
+
+docker stack deploy -c stacks/jenkins.yml jenkins

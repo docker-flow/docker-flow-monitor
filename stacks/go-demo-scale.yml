@@ -18,6 +18,11 @@ services:
         - com.df.distribute=true
         - com.df.servicePath=/demo
         - com.df.port=8080
+        - com.df.alertName=memlimit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=5s
+        - com.df.scaleMin=2
+        - com.df.scaleMax=4
       resources:
         reservations:
           memory: 5M

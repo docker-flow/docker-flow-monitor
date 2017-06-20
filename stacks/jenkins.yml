@@ -1,15 +1,16 @@
-version: '3'
+version: '3.1'
 
 services:
 
-  main:
-    image: jenkinsci/jenkins:${TAG:-lts-alpine}
+  master:
+    image: vfarcic/jenkins
     ports:
-      - "50000:50000"
+      - 50000:50000
     environment:
-      - JAVA_OPTS="-Djenkins.install.runSetupWizard=false"
+      - JENKINS_OPTS="--prefix=/jenkins"
     networks:
       - proxy
+      - default
     deploy:
       labels:
         - com.df.notify=true
@@ -20,9 +21,28 @@ services:
       - jenkins-user
       - jenkins-pass
 
+  agent:
+    image: vfarcic/jenkins-swarm-agent
+    environment:
+      - USER_NAME_SECRET=/run/secrets/${JENKINS_USER_SECRET:-jenkins-user}
+      - PASSWORD_SECRET=/run/secrets/${JENKINS_PASS_SECRET:-jenkins-pass}
+      - COMMAND_OPTIONS=-master http://master:8080/jenkins -labels 'prod' -executors 4
+    networks:
+      - default
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    secrets:
+      - jenkins-user
+      - jenkins-pass
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
 networks:
   proxy:
     external: true
+  default:
+    external: false
 
 secrets:
   jenkins-user:

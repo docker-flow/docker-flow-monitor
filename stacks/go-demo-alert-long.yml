@@ -3,7 +3,7 @@ version: '3'
 services:
 
   main:
-    image: vfarcic/go-demo${TAG}
+    image: vfarcic/go-demo
     environment:
       - DB=db
     networks:

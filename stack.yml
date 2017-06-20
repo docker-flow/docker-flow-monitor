@@ -1,4 +1,4 @@
-version: "3"
+version: "3.1"
 
 services:
 
@@ -7,11 +7,10 @@ services:
     networks:
       - proxy
       - monitor
-    ports:
-      - 9090:9090
     environment:
       - ARG_WEB_EXTERNAL-URL=http://prometheus.dockerflow.com
       - LISTENER_ADDRESS=swarm-listener
+      - ARG_ALERTMANAGER_URL=http://alert-manager:9093
     deploy:
       labels:
         - com.df.notify=true

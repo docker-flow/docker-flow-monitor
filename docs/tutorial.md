@@ -28,7 +28,7 @@ Now that the cluster is up-and-running, we can deploy the *Docker Flow Monitor* 
 
 ## Deploying Docker Flow Monitor
 
-We'll deploy [stacks/docker-flow-monitor-slack.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-slack.yml) stack that contains an example combination of parameters. The stack is as follows.
+We'll deploy [stacks/docker-flow-monitor-tutorial.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-tutorial.yml) stack that contains an example combination of parameters. The stack is as follows.
 
 The stack contains three services; `monitor`, `alert-manager`, and `swarm-listener`. We'll go through each separately.
 

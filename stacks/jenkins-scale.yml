@@ -3,7 +3,7 @@ version: '3.1'
 services:
 
   master:
-    image: vfarcic/jenkins
+    image: vfarcic/jenkins:scale
     ports:
       - 50000:50000
     environment:

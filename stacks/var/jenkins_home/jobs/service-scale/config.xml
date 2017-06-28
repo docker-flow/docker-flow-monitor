@@ -1,0 +1,82 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.11.1">
+  <actions>
+    <io.jenkins.blueocean.service.embedded.BlueOceanUrlAction plugin="blueocean-rest-impl@1.1.2">
+      <blueOceanUrlObject class="io.jenkins.blueocean.service.embedded.BlueOceanUrlObjectImpl">
+        <mappedUrl>blue/organizations/jenkins/service-scale</mappedUrl>
+      </blueOceanUrlObject>
+    </io.jenkins.blueocean.service.embedded.BlueOceanUrlAction>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.1.7">
+      <jobProperties/>
+      <triggers/>
+      <parameters>
+        <string>service</string>
+        <string>scale</string>
+      </parameters>
+    </org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction>
+  </actions>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers/>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.36">
+    <script>pipeline {
+  agent {
+    label &quot;prod&quot;
+  }
+  parameters {
+    string(
+      name: &quot;service&quot;,
+      defaultValue: &quot;&quot;,
+      description: &quot;The name of the service that should be scaled&quot;
+    )
+    string(
+      name: &quot;scale&quot;,
+      defaultValue: &quot;&quot;,
+      description: &quot;Number of replicas to add or remove.&quot;
+    )
+  }
+  stages {
+    stage(&quot;Scale&quot;) {
+      steps {
+        script {
+          def inspectOut = sh(
+            script: &quot;docker service inspect $service&quot;,
+            returnStdout: true
+          )
+          def inspectJson = readJSON text: inspectOut.trim()
+          def currentReplicas = inspectJson[0].Spec.Mode.Replicated.Replicas
+          def newReplicas = currentReplicas + scale.toInteger()
+          def minReplicas = inspectJson[0].Spec.Labels[&quot;com.df.scaleMin&quot;].toInteger()
+          def maxReplicas = inspectJson[0].Spec.Labels[&quot;com.df.scaleMax&quot;].toInteger()
+          if (newReplicas &gt; maxReplicas) {
+            error &quot;$service is already scaled to the maximum number of $maxReplicas replicas&quot;
+          } else if (newReplicas &lt; minReplicas) {
+            error &quot;$service is already descaled to the minimum number of $minReplicas replicas&quot;
+          } else {
+            sh &quot;docker service scale $service=$newReplicas&quot;
+            echo &quot;$service was scaled from $currentReplicas to $newReplicas replicas&quot;
+          }
+        }
+      }
+    }
+  }
+  post {
+    failure {
+      slackSend(
+        color: &quot;danger&quot;,
+        message: &quot;&quot;&quot;$service could not be scaled.
+Please check Jenkins logs for the job ${env.JOB_NAME} #${env.BUILD_NUMBER}
+${env.BUILD_URL}console&quot;&quot;&quot;
+      )
+    }
+  }
+}</script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

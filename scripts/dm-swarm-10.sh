@@ -40,4 +40,10 @@ docker stack deploy \
     -c stacks/go-demo-scale.yml \
     go-demo
 
-docker stack deploy -c stacks/jenkins.yml jenkins
+echo "admin" | docker secret create jenkins-user -
+
+echo "admin" | docker secret create jenkins-pass -
+
+SLACK_IP=$(ping -c 1 devops20.slack.com \
+    | awk -F'[()]' '/PING/{print $2}') \
+    docker stack deploy -c stacks/jenkins-scale.yml jenkins

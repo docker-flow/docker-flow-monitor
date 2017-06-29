@@ -17,6 +17,11 @@ services:
         - com.df.distribute=true
         - com.df.servicePath=/jenkins
         - com.df.port=8080
+      resources:
+        reservations:
+          memory: 600M
+        limits:
+          memory: 800M
     extra_hosts:
       - "${SLACK_HOST:-devops20.slack.com}:${SLACK_IP:-54.192.78.227}"
     secrets:
@@ -39,6 +44,11 @@ services:
     deploy:
       placement:
         constraints: [node.role == manager]
+      resources:
+        reservations:
+          memory: 150M
+        limits:
+          memory: 300M
 
 networks:
   proxy:

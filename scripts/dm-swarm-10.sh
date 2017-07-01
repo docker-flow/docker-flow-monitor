@@ -14,17 +14,25 @@ docker network create -d overlay monitor
 
 echo "route:
   group_by: [service]
-  receiver: 'slack'
   repeat_interval: 1h
+  receiver: 'slack'
+  routes:
+  - match:
+      service: 'go-demo_main'
+    receiver: 'jenkins-go-demo_main'
 
 receivers:
   - name: 'slack'
     slack_configs:
       - send_resolved: true
-        title: '{{ .GroupLabels.service }} service is in danger!'
+        title: '[{{ .Status | toUpper }}] {{ .GroupLabels.service }} service is in danger!'
         title_link: 'http://$(docker-machine ip swarm-1)/monitor/alerts'
         text: '{{ .CommonAnnotations.summary}}'
         api_url: 'https://hooks.slack.com/services/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'
+  - name: 'jenkins-go-demo_main'
+    webhook_configs:
+      - send_resolved: false
+        url: 'http://$(docker-machine ip swarm-1)/jenkins/job/service-scale/buildWithParameters?token=DevOps22&service=go-demo_main&scale=1'
 " | docker secret create alert_manager_config -
 
 DOMAIN=$(docker-machine ip swarm-1) \

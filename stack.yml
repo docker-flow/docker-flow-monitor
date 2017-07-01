@@ -17,7 +17,7 @@ services:
         - com.df.distribute=true
         - com.df.serviceDomain=prometheus.dockerflow.com
         - com.df.port=9090
-        - com.df.usersPassEncrypted=true
+        - com.df.usersPassEncrypted=false
         - com.df.usersSecret=vfarcic
         - com.df.alertName=memlimit
         - com.df.alertIf=@service_mem_limit:0.8

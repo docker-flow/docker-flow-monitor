@@ -3,9 +3,14 @@ package prometheus
 import (
 	"os/exec"
 	"os"
+	"sync"
 )
 
+var mu = &sync.Mutex{}
+
 var Reload = func() error {
+	mu.Lock()
+	defer mu.Unlock()
 	LogPrintf("Reloading Prometheus")
 	cmd := exec.Command("pkill", "-HUP", "prometheus")
 	cmd.Stdout = os.Stdout

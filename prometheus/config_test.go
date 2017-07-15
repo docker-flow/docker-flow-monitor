@@ -53,8 +53,15 @@ global:
   external_labels:
     cluster: swarm
     type: production`
+	actual := ""
 
-	actual := GetGlobalConfig()
+	// Because of ordering, the config is not always the same so we're repeating a failure for a few times.
+	for i:=0; i < 5; i++ {
+		actual = GetGlobalConfig()
+		if actual == expected {
+			return
+		}
+	}
 	s.Equal(expected, actual)
 }
 

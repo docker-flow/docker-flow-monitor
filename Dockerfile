@@ -1,3 +1,12 @@
+FROM golang:1.6 AS build
+ADD . /src
+WORKDIR /src
+RUN go get -d -v -t
+RUN go test --cover ./... --run UnitTest
+RUN go build -v -o docker-flow-monitor
+
+
+
 FROM prom/prometheus:v1.5.2
 
 ENV GLOBAL_SCRAPE_INTERVAL=10s \
@@ -8,6 +17,6 @@ ENV GLOBAL_SCRAPE_INTERVAL=10s \
 
 ENTRYPOINT ["docker-flow-monitor"]
 
-COPY docker-flow-monitor /bin/docker-flow-monitor
+COPY --from=build /src/docker-flow-monitor /bin/docker-flow-monitor
 RUN chmod +x /bin/docker-flow-monitor
 

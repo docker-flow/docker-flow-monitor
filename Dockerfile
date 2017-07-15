@@ -1,6 +1,7 @@
 FROM golang:1.6 AS build
 ADD . /src
 WORKDIR /src
+RUN go get -t github.com/stretchr/testify/suite
 RUN go get -d -v -t
 RUN go test --cover ./... --run UnitTest
 RUN go build -v -o docker-flow-monitor

@@ -19,6 +19,7 @@ var Reload = func() error {
 	if err != nil {
 		LogPrintf(err.Error())
 	}
+	LogPrintf("Prometheus was reloaded")
 	return err
 }
 

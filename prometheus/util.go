@@ -22,5 +22,6 @@ func getArgFromEnv(env, prefix string) (key, value string) {
 }
 
 var cmdRun = func(cmd *exec.Cmd) error {
+	LogPrintf(strings.Join(cmd.Args, " "))
 	return cmd.Run()
 }

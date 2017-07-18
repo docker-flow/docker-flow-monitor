@@ -1,4 +1,4 @@
-FROM golang:1.6 AS build
+FROM golang:1.7 AS build
 ADD . /src
 WORKDIR /src
 RUN go get -t github.com/stretchr/testify/suite
@@ -16,8 +16,14 @@ ENV GLOBAL_SCRAPE_INTERVAL=10s \
     ARG_WEB_CONSOLE_LIBRARIES=/usr/share/prometheus/console_libraries \
     ARG_WEB_CONSOLE_TEMPLATES=/usr/share/prometheus/consoles
 
+EXPOSE 8080
+
 ENTRYPOINT ["docker-flow-monitor"]
+
+HEALTHCHECK --interval=5s CMD /bin/check.sh
 
 COPY --from=build /src/docker-flow-monitor /bin/docker-flow-monitor
 RUN chmod +x /bin/docker-flow-monitor
+COPY check.sh /bin/check.sh
+RUN chmod +x /bin/check.sh
 

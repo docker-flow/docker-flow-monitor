@@ -48,6 +48,8 @@ func (s *Serve) Execute() error {
 	r := mux.NewRouter().StrictSlash(true)
 	r.HandleFunc("/v1/docker-flow-monitor/reconfigure", s.ReconfigureHandler)
 	r.HandleFunc("/v1/docker-flow-monitor/remove", s.RemoveHandler)
+	r.HandleFunc("/v1/docker-flow-monitor/ping", s.PingHandler)
+	// TODO: Do we need catch all?
 	r.HandleFunc("/v1/docker-flow-monitor/", s.EmptyHandler)
 	logPrintf("Starting Docker Flow Monitor")
 	if err := httpListenAndServe(address, r); err != nil {
@@ -55,6 +57,11 @@ func (s *Serve) Execute() error {
 		return err
 	}
 	return nil
+}
+
+func (s *Serve) PingHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Serve) EmptyHandler(w http.ResponseWriter, req *http.Request) {

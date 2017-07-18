@@ -513,6 +513,40 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsStatusCodeFromPrometheu
 	s.Equal(http.StatusInternalServerError, actualStatus)
 }
 
+// PingHandler
+
+func (s *ServerTestSuite) Test_PingHandler_SetsContentHeaderToJson() {
+	actual := http.Header{}
+	rwMock := ResponseWriterMock{
+		HeaderMock: func() http.Header {
+			return actual
+		},
+	}
+	addr := "/v1/docker-flow-monitor/pingx"
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.PingHandler(rwMock, req)
+
+	s.Equal("application/json", actual.Get("Content-Type"))
+}
+
+func (s *ServerTestSuite) Test_PingHandler_SetsStatusCodeTo200() {
+	actual := 0
+	rwMock := ResponseWriterMock{
+		WriteHeaderMock: func(status int) {
+			actual = status
+		},
+	}
+	addr := "/v1/docker-flow-monitor/pingx"
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.PingHandler(rwMock, req)
+
+	s.Equal(200, actual)
+}
+
 // RemoveHandler
 
 func (s *ServerTestSuite) Test_RemoveHandler_SetsContentHeaderToJson() {

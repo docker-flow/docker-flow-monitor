@@ -33,11 +33,11 @@ pipeline {
       }
       steps {
         sh "docker tag vfarcic/docker-flow-monitor vfarcic/docker-flow-monitor:${currentBuild.displayName}"
-        sh "docker push vfarcic/docker-flow-monitor:${currentBuild.displayName}"
-        sh "docker push vfarcic/docker-flow-monitor"
+        sh "docker image push vfarcic/docker-flow-monitor:${currentBuild.displayName}"
+        sh "docker image push vfarcic/docker-flow-monitor"
         sh "docker tag vfarcic/docker-flow-monitor-docs vfarcic/docker-flow-monitor-docs:${currentBuild.displayName}"
-        sh "docker push vfarcic/docker-flow-monitor-docs:${currentBuild.displayName}"
-        sh "docker push vfarcic/docker-flow-monitor-docs"
+        sh "docker image push vfarcic/docker-flow-monitor-docs:${currentBuild.displayName}"
+        sh "docker image push vfarcic/docker-flow-monitor-docs"
       }
     }
     stage("deploy") {

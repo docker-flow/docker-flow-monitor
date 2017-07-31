@@ -188,14 +188,18 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 		AlertIf: "a>b",
 		AlertFor: "my-for",
 		AlertNameFormatted: "myservicemyalert",
+		AlertAnnotations: map[string]string{"a1": "v1", "a2": "v2"},
+		AlertLabels: map[string]string{"l1": "v1"},
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s",
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s&alertAnnotations=%s&alertLabels=%s",
 		expected.ServiceName,
 		expected.AlertName,
 		url.QueryEscape(expected.AlertIf),
 		expected.AlertFor,
+		url.QueryEscape("a1=v1,a2=v2"),
+		url.QueryEscape("l1=v1"),
 	)
 	req, _ := http.NewRequest("GET", addr, nil)
 
@@ -263,6 +267,8 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
 		AlertIf: "a>b",
 		AlertFor: "my-for",
 		AlertNameFormatted: "myservicemyalert",
+		AlertAnnotations: map[string]string{},
+		AlertLabels: map[string]string{},
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
@@ -298,11 +304,13 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 			AlertIf: fmt.Sprintf("my-if-%d", i),
 			AlertFor: fmt.Sprintf("my-for-%d", i),
 			AlertNameFormatted: fmt.Sprintf("myservicemyalert%d", i),
+			AlertAnnotations: map[string]string{"annotation": fmt.Sprintf("annotation-value-%d", i)},
+			AlertLabels: map[string]string{"label": fmt.Sprintf("label-value-%d", i)},
 		})
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?serviceName=%s&alertName.1=%s&alertIf.1=%s&alertFor.1=%s&alertName.2=%s&alertIf.2=%s&alertFor.2=%s",
+		"/v1/docker-flow-monitor?serviceName=%s&alertName.1=%s&alertIf.1=%s&alertFor.1=%s&alertName.2=%s&alertIf.2=%s&alertFor.2=%s&alertAnnotations.1=%s&alertAnnotations.2=%s&alertLabels.1=%s&alertLabels.2=%s",
 		expected[0].ServiceName,
 		expected[0].AlertName,
 		expected[0].AlertIf,
@@ -310,6 +318,10 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 		expected[1].AlertName,
 		expected[1].AlertIf,
 		expected[1].AlertFor,
+		url.QueryEscape("annotation=annotation-value-1"),
+		url.QueryEscape("annotation=annotation-value-2"),
+		url.QueryEscape("label=label-value-1"),
+		url.QueryEscape("label=label-value-2"),
 	)
 	req, _ := http.NewRequest("GET", addr, nil)
 
@@ -318,6 +330,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 
 	s.Equal(2, len(serve.Alerts))
 	s.Contains(serve.Alerts, expected[0].AlertNameFormatted)
+	s.Equal(expected[0].AlertLabels, serve.Alerts[expected[0].AlertNameFormatted].AlertLabels)
 	s.Contains(expected, serve.Alerts[expected[0].AlertNameFormatted])
 	s.Contains(serve.Alerts, expected[1].AlertNameFormatted)
 	s.Contains(expected, serve.Alerts[expected[1].AlertNameFormatted])
@@ -368,6 +381,8 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
 		AlertIf: "my-if",
 		AlertFor: "my-for",
 		AlertNameFormatted: "myalert",
+		AlertAnnotations: map[string]string{},
+		AlertLabels: map[string]string{},
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(

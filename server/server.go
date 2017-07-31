@@ -185,6 +185,8 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 	alertDecode := prometheus.Alert{}
 	decoder.Decode(&alertDecode, req.Form)
 	if s.isValidAlert(&alertDecode) {
+		alertDecode.AlertAnnotations = s.getMapFromString(req.URL.Query().Get("alertAnnotations"))
+		alertDecode.AlertLabels = s.getMapFromString(req.URL.Query().Get("alertLabels"))
 		s.formatAlert(&alertDecode)
 		s.Alerts[alertDecode.AlertNameFormatted] = alertDecode
 		alerts = append(alerts, alertDecode)
@@ -192,11 +194,15 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 	}
 	for i:=1; i <= 10; i++ {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
+		annotations := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertAnnotations.%d", i)))
+		labels := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertLabels.%d", i)))
 		alert := prometheus.Alert{
 			ServiceName: alertDecode.ServiceName,
 			AlertName: alertName,
 			AlertIf: req.URL.Query().Get(fmt.Sprintf("alertIf.%d", i)),
 			AlertFor: req.URL.Query().Get(fmt.Sprintf("alertFor.%d", i)),
+			AlertAnnotations: annotations,
+			AlertLabels: labels,
 		}
 		s.formatAlert(&alert)
 		if !s.isValidAlert(&alert) {
@@ -262,9 +268,7 @@ func (s *Serve) formatAlert(alert *prometheus.Alert) {
 // TODO: Change to template
 func (s *Serve) replaceTags(tag, serviceName, value string) string {
 	replaced := strings.Replace(tag, "[SERVICE_NAME]", serviceName, -1)
-	println(replaced)
 	replaced = strings.Replace(replaced, "[VALUE]", value, -1)
-	println(replaced)
 	return replaced
 }
 

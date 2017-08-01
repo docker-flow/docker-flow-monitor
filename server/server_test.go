@@ -231,6 +231,16 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 			`@node_fs_limit:0.8`,
 			map[string]string{"summary": "Disk usage of a node is over 0.8"},
 			map[string]string{"receiver": "system", "service": "my-service"},
+		}, {
+			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.9999`,
+			`@resp_time_above:0.1,5m,0.9999`,
+			map[string]string{"summary": "Response time of a service my-service is above 0.1"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "up"},
+		}, {
+			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.75`,
+			`@resp_time_below:0.025,5m,0.75`,
+			map[string]string{"summary": "Response time of a service my-service is below 0.025"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "down"},
 		},
 	}
 	for _, data := range testData {

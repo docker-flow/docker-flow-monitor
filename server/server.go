@@ -224,20 +224,30 @@ type alertIfShortcut struct {
 
 var alertIfShortcutData = []alertIfShortcut{
 	{
-		`container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"} > [VALUE]`,
-		`@service_mem_limit:`,
-		map[string]string{"summary": "Memory of the service [SERVICE_NAME] is over [VALUE]"},
-		map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
+		expanded:    `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"} > [VALUE]`,
+		shortcut:    `@service_mem_limit:`,
+		annotations: map[string]string{"summary": "Memory of the service [SERVICE_NAME] is over [VALUE]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
 	}, {
-		`(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > [VALUE]`,
-		`@node_mem_limit:`,
-		map[string]string{"summary": "Memory of a node is over [VALUE]"},
-		map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
+		expanded:    `(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > [VALUE]`,
+		shortcut:    `@node_mem_limit:`,
+		annotations: map[string]string{"summary": "Memory of a node is over [VALUE]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
 	}, {
-		`(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > [VALUE]`,
-		`@node_fs_limit:`,
-		map[string]string{"summary": "Disk usage of a node is over [VALUE]"},
-		map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
+		expanded:   `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > [VALUE]`,
+		shortcut:   `@node_fs_limit:`,
+		annotations: map[string]string{"summary": "Disk usage of a node is over [VALUE]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
+	}, {
+		expanded:    `sum(rate(http_server_resp_time_bucket{job="[SERVICE_NAME]", le="[VALUE_0]"}[[VALUE_1]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_1]])) < [VALUE_2]`,
+		shortcut:    `@resp_time_above:`,
+		annotations: map[string]string{"summary": "Response time of a service [SERVICE_NAME] is above [VALUE_0]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up"},
+	}, {
+		expanded:    `sum(rate(http_server_resp_time_bucket{job="[SERVICE_NAME]", le="[VALUE_0]"}[[VALUE_1]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_1]])) > [VALUE_2]`,
+		shortcut:    `@resp_time_below:`,
+		annotations: map[string]string{"summary": "Response time of a service [SERVICE_NAME] is below [VALUE_0]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "down"},
 	},
 }
 
@@ -269,6 +279,11 @@ func (s *Serve) formatAlert(alert *prometheus.Alert) {
 func (s *Serve) replaceTags(tag, serviceName, value string) string {
 	replaced := strings.Replace(tag, "[SERVICE_NAME]", serviceName, -1)
 	replaced = strings.Replace(replaced, "[VALUE]", value, -1)
+	values := strings.Split(value, ",")
+	for i, v := range values {
+		old := fmt.Sprintf("[VALUE_%d]", i)
+		replaced = strings.Replace(replaced, old, v, -1)
+	}
 	return replaced
 }
 

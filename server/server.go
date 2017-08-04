@@ -368,6 +368,7 @@ func (s *Serve) parseScrapeFromEnvMap(data map[string]string) ([]prometheus.Scra
 			scrapeFromEnv = append(scrapeFromEnv, prometheus.Scrape{
 				ScrapePort: scrapePort,
 				ServiceName: data[SERVICE_NAME + "_" + index],
+				ScrapeType: "static_configs",
 			})
 		}
 

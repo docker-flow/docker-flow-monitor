@@ -70,11 +70,14 @@ global:
 func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigWithData() {
 	expected := `
 scrape_configs:
+
   - job_name: "service-1"
     dns_sd_configs:
       - names: ["tasks.service-1"]
         type: A
         port: 1234
+
+
   - job_name: "service-2"
     dns_sd_configs:
       - names: ["tasks.service-2"]

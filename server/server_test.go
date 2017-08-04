@@ -433,6 +433,7 @@ global:
   scrape_interval: 5s
 
 scrape_configs:
+
   - job_name: "my-service"
     dns_sd_configs:
       - names: ["tasks.my-service"]
@@ -633,6 +634,7 @@ global:
   scrape_interval: 5s
 
 scrape_configs:
+
   - job_name: "my-service"
     dns_sd_configs:
       - names: ["tasks.my-service"]
@@ -789,7 +791,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapesFromEnv() {
 	 expected := map[string]prometheus.Scrape{
 		 "service-1": prometheus.Scrape{ServiceName: "service-1", ScrapePort: 1111},
 		 "service-2": prometheus.Scrape{ServiceName: "service-2", ScrapePort: 2222},
-		 "service-3": prometheus.Scrape{ServiceName: "service-3", ScrapePort: 3333},
+		 "service-3": prometheus.Scrape{ServiceName: "service-3", ScrapePort: 3333, ScrapeType: "static_configs"},
 	 }
 	 testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		 w.WriteHeader(http.StatusOK)

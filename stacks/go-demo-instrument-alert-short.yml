@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+
+  main:
+    image: vfarcic/go-demo
+    environment:
+      - DB=db
+    networks:
+      - proxy
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.servicePath=/demo
+        - com.df.port=8080
+        - com.df.scaleMin=2
+        - com.df.scaleMax=4
+        - com.df.scrapePort=8080
+        - com.df.alertName.1=memlimit
+        - com.df.alertIf.1=@service_mem_limit:0.8
+        - com.df.alertFor.1=5m
+        - com.df.alertName.2=resptimeabove
+        - com.df.alertIf.2=@resp_time_above:0.1,5m,0.99
+        - com.df.alertFor.2=1m
+        - com.df.alertName.3=resptimebelow
+        - com.df.alertIf.3=@resp_time_below:0.025,5m,0.75
+        - com.df.alertFor.3=1m
+      resources:
+        reservations:
+          memory: 5M
+        limits:
+          memory: 10M
+
+  db:
+    image: mongo
+    networks:
+      - proxy
+    deploy:
+      resources:
+        reservations:
+          memory: 40M
+        limits:
+          memory: 80M
+
+networks:
+  proxy:
+    external: true

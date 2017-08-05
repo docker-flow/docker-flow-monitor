@@ -31,18 +31,18 @@ func GetScrapeConfig(scrapes map[string]Scrape) string {
 	}
 	templateString := `
 scrape_configs:{{range .}}
-{{if .ScrapeType}}
+{{- if .ScrapeType}}
   - job_name: "{{.ServiceName}}"
     {{.ScrapeType}}:
       - targets:
-        - {{.ServiceName}}:{{.ScrapePort}}
-{{else}}
+        - {{.ServiceName}}:{{- .ScrapePort}}
+{{- else}}
   - job_name: "{{.ServiceName}}"
     dns_sd_configs:
       - names: ["tasks.{{.ServiceName}}"]
         type: A
         port: {{.ScrapePort}}{{end}}
-{{end -}}`
+{{end}}`
 	tmpl, _ := template.New("").Parse(templateString)
 	var b bytes.Buffer
 	tmpl.Execute(&b, scrapes)

@@ -433,7 +433,6 @@ global:
   scrape_interval: 5s
 
 scrape_configs:
-
   - job_name: "my-service"
     dns_sd_configs:
       - names: ["tasks.my-service"]
@@ -634,7 +633,6 @@ global:
   scrape_interval: 5s
 
 scrape_configs:
-
   - job_name: "my-service"
     dns_sd_configs:
       - names: ["tasks.my-service"]

@@ -8,6 +8,7 @@ services:
       - DB=db
     networks:
       - proxy
+      - monitor
     deploy:
       replicas: 3
       update_config:

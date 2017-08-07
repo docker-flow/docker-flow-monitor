@@ -60,3 +60,7 @@ global:
 ```
 
 Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.
+
+## Secrets
+
+Content of Docker secrets prefixed with the name `scrape_` is automatically added to the `scrape_configs` section of the configuration.

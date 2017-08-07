@@ -161,6 +161,8 @@ func (s *Serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, err
 		scrape.ScrapePort = port
 	}
 	scrape.ServiceName = data["serviceName"]
+	scrape.ScrapeType = data["scrapeType"]
+
 	if s.isValidScrape(&scrape) {
 		return scrape, nil
 	}

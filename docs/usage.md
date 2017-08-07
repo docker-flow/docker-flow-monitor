@@ -17,6 +17,7 @@ Query parameters that follow should be added to the base address **[MONITOR_IP]:
 |---------------|------------------------------------------------------------------------------------------|--------|
 |scrapePort     |The port through which metrics are exposed.                                               |Yes     |
 |serviceName    |The name of the service that exports metrics.                                             |Yes     |
+|scrapeType     |A set of targets and parameters describing how to scrape metrics.                         |No      |
 
 ### Alert Parameters
 

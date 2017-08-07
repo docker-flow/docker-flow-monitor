@@ -31,13 +31,12 @@ func GetScrapeConfig(scrapes map[string]Scrape) string {
 	}
 	templateString := `
 scrape_configs:{{range .}}
-{{- if .ScrapeType}}
   - job_name: "{{.ServiceName}}"
+{{- if .ScrapeType}}
     {{.ScrapeType}}:
       - targets:
         - {{.ServiceName}}:{{- .ScrapePort}}
 {{- else}}
-  - job_name: "{{.ServiceName}}"
     dns_sd_configs:
       - names: ["tasks.{{.ServiceName}}"]
         type: A

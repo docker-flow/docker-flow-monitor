@@ -342,6 +342,27 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrape() {
 	s.Equal(expected, serve.Scrapes[expected.ServiceName])
 }
 
+func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrapeType() {
+	 expected := prometheus.Scrape{
+		 ServiceName: "my-service",
+		 ScrapePort: 1234,
+		 ScrapeType: "static_configs",
+	 }
+	 rwMock := ResponseWriterMock{}
+	 addr := fmt.Sprintf(
+		 "/v1/docker-flow-monitor?serviceName=%s&scrapePort=%d&scrapeType=%s",
+		 expected.ServiceName,
+		 expected.ScrapePort,
+		 expected.ScrapeType,
+	 )
+	 req, _ := http.NewRequest("GET", addr, nil)
+
+	 serve := New()
+	 serve.ReconfigureHandler(rwMock, req)
+
+	 s.Equal(expected, serve.Scrapes[expected.ServiceName])
+ }
+
 func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddAlert_WhenAlertNameIsEmpty() {
 	rwMock := ResponseWriterMock{}
 	req, _ := http.NewRequest("GET", "/v1/docker-flow-monitor", nil)

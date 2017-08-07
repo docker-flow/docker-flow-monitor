@@ -19,6 +19,8 @@ Query parameters that follow should be added to the base address **[MONITOR_IP]:
 |serviceName    |The name of the service that exports metrics.                                             |Yes     |
 |scrapeType     |A set of targets and parameters describing how to scrape metrics.                         |No      |
 
+You can find more about scrapeType's on [Scrape Config](https://prometheus.io/docs/operating/configuration/#scrape_config)
+
 ### Alert Parameters
 
 !!! tip

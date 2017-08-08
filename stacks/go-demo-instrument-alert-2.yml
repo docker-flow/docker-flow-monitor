@@ -22,9 +22,12 @@ services:
         - com.df.alertName.1=memlimit
         - com.df.alertIf.1=@service_mem_limit:0.8
         - com.df.alertFor.1=5m
-        - com.df.alertName.2=resptime
+        - com.df.alertName.2=resptimeabove
         - com.df.alertIf.2=sum(rate(http_server_resp_time_bucket{job="go-demo_main", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="go-demo_main"}[5m])) < 0.99
         - com.df.alertLabels.2=scale=up,service=go-demo_main
+        - com.df.alertName.3=resptimebelow
+        - com.df.alertIf.3=sum(rate(http_server_resp_time_bucket{job="my-service", le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.75
+        - com.df.alertLabels.3=scale=down,service=go-demo_main
         - com.df.scrapePort=8080
         - com.df.scaleMin=2
         - com.df.scaleMax=4

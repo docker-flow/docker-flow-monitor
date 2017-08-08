@@ -2,14 +2,7 @@
 
 *Docker Flow Monitor* can be configured through Docker environment variables and/or by creating a new image based on `vfarcic/docker-flow-monitor`.
 
-## Environment Variables
-
-!!! tip
-	The *Docker Flow Monitor* container can be configured through environment variables
-
-The environment variables that can be used to configure *Docker Flow Monitor* are divided into two groups distinguished by variable name prefixes.
-
-### ARG Variables
+## Startup Arguments
 
 Environment variables prefixed will `ARG_` are used instead Prometheus startup arguments.
 
@@ -34,7 +27,7 @@ ARG_WEB_CONSOLE_LIBRARIES=/usr/share/prometheus/console_libraries
 ARG_WEB_CONSOLE_TEMPLATES=/usr/share/prometheus/consoles
 ```
 
-### GLOBAL Variables
+## Global Configuration
 
 Environment variables prefixed with `GLOBAL_` are used instead Prometheus global entries in the configuration.
 
@@ -76,6 +69,6 @@ curl `[IP_OF_ONE_OF_SWARM_NODES]:8080/v1/docker-flow-monitor/reconfigure?scrapeP
 
 Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.
 
-## Secrets
+## Scrapes
 
 Content of Docker secrets prefixed with the name `scrape_` is automatically added to the `scrape_configs` section of the configuration.

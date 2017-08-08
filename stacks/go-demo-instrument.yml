@@ -45,3 +45,5 @@ services:
 networks:
   proxy:
     external: true
+  monitor:
+    external: true

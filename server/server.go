@@ -258,13 +258,18 @@ var alertIfShortcutData = []alertIfShortcut{
 	}, {
 		expanded:    `sum(rate(http_server_resp_time_bucket{job="[SERVICE_NAME]", le="[VALUE_0]"}[[VALUE_1]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_1]])) < [VALUE_2]`,
 		shortcut:    `@resp_time_above:`,
-		annotations: map[string]string{"summary": "Response time of a service [SERVICE_NAME] is above [VALUE_0]"},
+		annotations: map[string]string{"summary": "Response time of the service [SERVICE_NAME] is above [VALUE_0]"},
 		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up"},
 	}, {
 		expanded:    `sum(rate(http_server_resp_time_bucket{job="[SERVICE_NAME]", le="[VALUE_0]"}[[VALUE_1]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_1]])) > [VALUE_2]`,
 		shortcut:    `@resp_time_below:`,
-		annotations: map[string]string{"summary": "Response time of a service [SERVICE_NAME] is below [VALUE_0]"},
+		annotations: map[string]string{"summary": "Response time of the service [SERVICE_NAME] is below [VALUE_0]"},
 		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "down"},
+	}, {
+		expanded:    `sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]", code=~"^5..$$"}[[VALUE_0]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_0]])) > [VALUE_1]`,
+		shortcut:    `@resp_time_server_error:`,
+		annotations: map[string]string{"summary": "Error rate of the service [SERVICE_NAME] is above [VALUE_1]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "type": "errors"},
 	},
 }
 

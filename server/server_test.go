@@ -1,4 +1,4 @@
-package server
+ package server
 
 import (
 	"github.com/stretchr/testify/suite"
@@ -364,6 +364,27 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrape() {
 
 	s.Equal(expected, serve.Scrapes[expected.ServiceName])
 }
+
+func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrapeType() {
+	 expected := prometheus.Scrape{
+		 ServiceName: "my-service",
+		 ScrapePort: 1234,
+		 ScrapeType: "static_configs",
+	 }
+	 rwMock := ResponseWriterMock{}
+	 addr := fmt.Sprintf(
+		 "/v1/docker-flow-monitor?serviceName=%s&scrapePort=%d&scrapeType=%s",
+		 expected.ServiceName,
+		 expected.ScrapePort,
+		 expected.ScrapeType,
+	 )
+	 req, _ := http.NewRequest("GET", addr, nil)
+
+	 serve := New()
+	 serve.ReconfigureHandler(rwMock, req)
+
+	 s.Equal(expected, serve.Scrapes[expected.ServiceName])
+ }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddAlert_WhenAlertNameIsEmpty() {
 	rwMock := ResponseWriterMock{}
@@ -810,6 +831,33 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
 	s.Equal(expected, serve.Scrapes)
 }
 
+func (s *ServerTestSuite) Test_InitialConfig_AddsScrapesFromEnv() {
+	 expected := map[string]prometheus.Scrape{
+		 "service-1": prometheus.Scrape{ServiceName: "service-1", ScrapePort: 1111},
+		 "service-2": prometheus.Scrape{ServiceName: "service-2", ScrapePort: 2222},
+		 "service-4": prometheus.Scrape{ServiceName: "service-4", ScrapePort: 4444, ScrapeType: "static_configs"},
+		 "service-3": prometheus.Scrape{ServiceName: "service-3", ScrapePort: 3333, ScrapeType: "static_configs"},
+	 }
+	 testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		 w.WriteHeader(http.StatusOK)
+		 resp := []map[string]string{}
+		 resp = append(resp, map[string]string{"scrapePort": "1111", "serviceName": "service-1"})
+		 resp = append(resp, map[string]string{"scrapePort": "2222", "serviceName": "service-2"})
+		 resp = append(resp, map[string]string{"scrapePort": "4444", "serviceName": "service-4", "scrapeType": "static_configs"})
+		 js, _ := json.Marshal(resp)
+		 w.Write(js)
+	 }))
+	 defer testServer.Close()
+	 defer func() { os.Unsetenv("LISTENER_ADDRESS") }()
+	 os.Setenv("LISTENER_ADDRESS", testServer.URL)
+	 os.Setenv("SCRAPE_PORT_1", "3333")
+	 os.Setenv("SERVICE_NAME_1", "service-3")
+
+	 serve := New()
+	 serve.InitialConfig()
+
+	 s.Equal(expected, serve.Scrapes)
+ }
 func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 	expected := map[string]prometheus.Alert{
 		"myservicealert1": prometheus.Alert{

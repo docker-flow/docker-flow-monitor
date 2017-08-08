@@ -21,17 +21,20 @@ var logPrintf = log.Printf
 
 type Serve struct {
 	Scrapes map[string]prometheus.Scrape
-	Alerts map[string]prometheus.Alert
+	Alerts  map[string]prometheus.Alert
 }
 
 type Response struct {
-	Status      int
-	Message     string
-	Alerts      []prometheus.Alert
+	Status  int
+	Message string
+	Alerts  []prometheus.Alert
 	prometheus.Scrape
 }
 
 var httpListenAndServe = http.ListenAndServe
+
+const SCRAPE_PORT = "SCRAPE_PORT"
+const SERVICE_NAME = "SERVICE_NAME"
 
 var New = func() *Serve {
 	return &Serve{
@@ -127,13 +130,25 @@ func (s *Serve) InitialConfig() error {
 			if alert, err := s.getAlertFromMap(row, ""); err == nil {
 				s.Alerts[alert.AlertNameFormatted] = alert
 			}
-			for i:=1; i <= 10; i++ {
+			for i := 1; i <= 10; i++ {
 				suffix := fmt.Sprintf(".%d", i)
 				if alert, err := s.getAlertFromMap(row, suffix); err == nil {
 					s.Alerts[alert.AlertNameFormatted] = alert
 				} else {
 					break
 				}
+			}
+		}
+
+		scrapeVariablesFromEnv := s.getScrapeVariablesFromEnv()
+		if len(scrapeVariablesFromEnv) > 0 {
+			scrape, err := s.parseScrapeFromEnvMap(scrapeVariablesFromEnv)
+			if err != nil {
+				return err
+			}
+
+			for _, row := range scrape {
+				s.Scrapes[row.ServiceName] = row
 			}
 		}
 	}
@@ -146,6 +161,8 @@ func (s *Serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, err
 		scrape.ScrapePort = port
 	}
 	scrape.ServiceName = data["serviceName"]
+	scrape.ScrapeType = data["scrapeType"]
+
 	if s.isValidScrape(&scrape) {
 		return scrape, nil
 	}
@@ -192,7 +209,7 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 		alerts = append(alerts, alertDecode)
 		logPrintf("Adding alert %s for the service %s\n", alertDecode.AlertName, alertDecode.ServiceName, alertDecode)
 	}
-	for i:=1; i <= 10; i++ {
+	for i := 1; i <= 10; i++ {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
 		annotations := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertAnnotations.%d", i)))
 		labels := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertLabels.%d", i)))
@@ -265,7 +282,7 @@ func (s *Serve) formatAlert(alert *prometheus.Alert) {
 					alert.AlertAnnotations[k] = s.replaceTags(v, alert.ServiceName, value)
 				}
 				if alert.AlertLabels == nil {
-					alert.AlertLabels= map[string]string{}
+					alert.AlertLabels = map[string]string{}
 				}
 				for k, v := range data.labels {
 					alert.AlertLabels[k] = s.replaceTags(v, alert.ServiceName, value)
@@ -333,4 +350,50 @@ func (s *Serve) getResponse(alerts *[]prometheus.Alert, scrape *prometheus.Scrap
 		resp.Status = http.StatusInternalServerError
 	}
 	return resp
+}
+
+func (s *Serve) getScrapeVariablesFromEnv() map[string]string {
+	scrapeVariablesPrefix := []string{
+		SCRAPE_PORT,
+		SERVICE_NAME,
+	}
+
+	scrapesVariables := map[string]string{}
+	for _, e := range os.Environ() {
+		if key, value := prometheus.GetScrapeFromEnv(e, scrapeVariablesPrefix); len(key) > 0 {
+			scrapesVariables[key] = value
+		}
+	}
+
+	return scrapesVariables
+}
+
+func (s *Serve) parseScrapeFromEnvMap(data map[string]string) ([]prometheus.Scrape, error) {
+	count := len(data) / 2
+
+	// If an odd number was find in the environment variables it means it is missing variables
+	if len(data) % 2 != 0 {
+		return []prometheus.Scrape{}, fmt.Errorf("SCRAPE_PORT_* and SERVICE_NAME_* environment variable configuration are not valid.")
+	}
+
+	scrapeFromEnv := []prometheus.Scrape{}
+	for i := 1; i <= count; i++ {
+
+		index := strconv.Itoa(i)
+		if len(data[SERVICE_NAME + "_" + index]) > 0 && len(data[SCRAPE_PORT + "_" + index]) > 0 {
+			scrapePort, err := strconv.Atoi(data[SCRAPE_PORT + "_" + index])
+			if err != nil {
+				return []prometheus.Scrape{}, err
+			}
+
+			scrapeFromEnv = append(scrapeFromEnv, prometheus.Scrape{
+				ScrapePort: scrapePort,
+				ServiceName: data[SERVICE_NAME + "_" + index],
+				ScrapeType: "static_configs",
+			})
+		}
+
+	}
+
+	return scrapeFromEnv, nil
 }

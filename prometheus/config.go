@@ -95,10 +95,16 @@ func getScrapeConfigFromMap(scrapes map[string]Scrape) string {
 	if len(scrapes) != 0 {
 		templateString := `{{range .}}
   - job_name: "{{.ServiceName}}"
+{{- if .ScrapeType}}
+    {{.ScrapeType}}:
+      - targets:
+        - {{.ServiceName}}:{{- .ScrapePort}}
+{{- else}}
     dns_sd_configs:
       - names: ["tasks.{{.ServiceName}}"]
         type: A
-        port: {{.ScrapePort}}{{end}}
+        port: {{.ScrapePort -}}{{end -}}
+{{end}}
 `
 		tmpl, _ := template.New("").Parse(templateString)
 		var b bytes.Buffer

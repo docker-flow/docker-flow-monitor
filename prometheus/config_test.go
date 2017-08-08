@@ -80,10 +80,15 @@ scrape_configs:
       - names: ["tasks.service-2"]
         type: A
         port: 5678
+  - job_name: "service-3"
+    static_configs:
+      - targets:
+        - service-3:4321
 `
 	scrapes := map[string]Scrape {
 		"service-1": Scrape{ ServiceName: "service-1", ScrapePort: 1234 },
 		"service-2": Scrape{ ServiceName: "service-2", ScrapePort: 5678 },
+		"service-3": Scrape{ ServiceName: "service-3", ScrapePort: 4321, ScrapeType: "static_configs" },
 	}
 
 	actual := GetScrapeConfig(scrapes)

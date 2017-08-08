@@ -13,5 +13,6 @@ type Alert struct {
 type Scrape struct {
 	ScrapePort 	int `json:"scrapePort,string,omitempty"`
 	ServiceName string `json:"serviceName"`
+	ScrapeType string `json:"scrapeType"`
 }
 

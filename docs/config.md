@@ -59,6 +59,21 @@ global:
     type: production
 ```
 
+It is possible to add servers that are not part of the Docker Swarm Cluster just adding the variables `SCRAPE_PORT` and `SERVICE_NAME` on the environment. The project is going to use the [static_configs](https://prometheus.io/docs/operating/configuration/#<static_config>) configuration.
+
+```
+SCRAPE_PORT_1=1234
+SERVICE_NAME_1=myservice.acme.com
+SCRAPE_PORT_2=1234
+SERVICE_NAME_2=myservice2.acme.com
+```
+
+As well you can add the service via `api` using the `reconfigure` entry point.
+
+```bash
+curl `[IP_OF_ONE_OF_SWARM_NODES]:8080/v1/docker-flow-monitor/reconfigure?scrapePort=[PORT]&serviceName=[IP_OR_DOMAIN]&scrapeType=static_configs
+```
+
 Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.
 
 ## Secrets

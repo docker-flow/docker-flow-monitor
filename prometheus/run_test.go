@@ -1,10 +1,10 @@
 package prometheus
 
 import (
-	"testing"
 	"github.com/stretchr/testify/suite"
-	"os/exec"
 	"os"
+	"os/exec"
+	"testing"
 )
 
 type RunTestSuite struct {

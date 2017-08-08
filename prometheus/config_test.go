@@ -1,11 +1,11 @@
 package prometheus
 
 import (
-	"github.com/stretchr/testify/suite"
-	"testing"
-	"os"
-	"github.com/spf13/afero"
 	"fmt"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/suite"
+	"os"
+	"testing"
 )
 
 type ConfigTestSuite struct {
@@ -56,7 +56,7 @@ global:
 	actual := ""
 
 	// Because of ordering, the config is not always the same so we're repeating a failure for a few times.
-	for i:=0; i < 5; i++ {
+	for i := 0; i < 5; i++ {
 		actual = GetGlobalConfig()
 		if actual == expected {
 			return
@@ -85,10 +85,10 @@ scrape_configs:
       - targets:
         - service-3:4321
 `
-	scrapes := map[string]Scrape {
-		"service-1": Scrape{ ServiceName: "service-1", ScrapePort: 1234 },
-		"service-2": Scrape{ ServiceName: "service-2", ScrapePort: 5678 },
-		"service-3": Scrape{ ServiceName: "service-3", ScrapePort: 4321, ScrapeType: "static_configs" },
+	scrapes := map[string]Scrape{
+		"service-1": {ServiceName: "service-1", ScrapePort: 1234},
+		"service-2": {ServiceName: "service-2", ScrapePort: 5678},
+		"service-3": {ServiceName: "service-3", ScrapePort: 4321, ScrapeType: "static_configs"},
 	}
 
 	actual := GetScrapeConfig(scrapes)
@@ -122,8 +122,8 @@ scrape_configs:
 		job2,
 		job3,
 	)
-	scrapes := map[string]Scrape {
-		"service-1": Scrape{ ServiceName: "service-1", ScrapePort: 1234 },
+	scrapes := map[string]Scrape{
+		"service-1": {ServiceName: "service-1", ScrapePort: 1234},
 	}
 	afero.WriteFile(FS, "/run/secrets/scrape_job2", []byte(job2), 0644)
 	afero.WriteFile(FS, "/run/secrets/scrape_job3", []byte(job3), 0644)
@@ -148,7 +148,7 @@ scrape_configs:
 `,
 		job,
 	)
-	scrapes := map[string]Scrape {}
+	scrapes := map[string]Scrape{}
 	afero.WriteFile(FS, "/run/secrets/scrape_job", []byte(job), 0644)
 	afero.WriteFile(FS, "/run/secrets/job_without_scrape_prefix", []byte("something silly"), 0644)
 
@@ -174,7 +174,7 @@ scrape_configs:
 `,
 		job,
 	)
-	scrapes := map[string]Scrape {}
+	scrapes := map[string]Scrape{}
 	afero.WriteFile(FS, "/tmp/scrape_job", []byte(job), 0644)
 
 	actual := GetScrapeConfig(scrapes)
@@ -194,9 +194,9 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesConfig() {
 	fsOrig := FS
 	defer func() { FS = fsOrig }()
 	FS = afero.NewMemMapFs()
-	scrapes := map[string]Scrape {
-		"service-1": Scrape{ ServiceName: "service-1", ScrapePort: 1234 },
-		"service-2": Scrape{ ServiceName: "service-2", ScrapePort: 5678 },
+	scrapes := map[string]Scrape{
+		"service-1": {ServiceName: "service-1", ScrapePort: 1234},
+		"service-2": {ServiceName: "service-2", ScrapePort: 5678},
 	}
 	gc := GetGlobalConfig()
 	sc := GetScrapeConfig(scrapes)
@@ -218,10 +218,10 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesAlerts() {
 	FS = afero.NewMemMapFs()
 	alerts := map[string]Alert{}
 	alerts["myalert"] = Alert{
-		ServiceName: "my-service",
-		AlertName: "alert-name",
+		ServiceName:        "my-service",
+		AlertName:          "alert-name",
 		AlertNameFormatted: "myservicealertname",
-		AlertIf: "a>b",
+		AlertIf:            "a>b",
 	}
 	gc := GetGlobalConfig()
 	expectedConfig := fmt.Sprintf(`%s

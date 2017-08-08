@@ -1,8 +1,8 @@
 package prometheus
 
 import (
-	"os/exec"
 	"os"
+	"os/exec"
 	"sync"
 )
 
@@ -22,4 +22,3 @@ var Reload = func() error {
 	LogPrintf("Prometheus was reloaded")
 	return err
 }
-

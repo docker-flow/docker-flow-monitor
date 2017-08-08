@@ -1,10 +1,10 @@
 package prometheus
 
 import (
-	"os"
-	"strings"
 	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 )
 
 func Run() error {

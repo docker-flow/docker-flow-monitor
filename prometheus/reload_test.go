@@ -1,10 +1,10 @@
 package prometheus
 
 import (
-	"github.com/stretchr/testify/suite"
-	"testing"
-	"os/exec"
 	"fmt"
+	"github.com/stretchr/testify/suite"
+	"os/exec"
+	"testing"
 )
 
 type ReloadTestSuite struct {

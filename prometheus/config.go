@@ -1,11 +1,11 @@
 package prometheus
 
 import (
-	"os"
-	"text/template"
 	"bytes"
 	"github.com/spf13/afero"
+	"os"
 	"strings"
+	"text/template"
 )
 
 func GetGlobalConfig() string {
@@ -87,7 +87,7 @@ func getScrapeConfigFromDir() string {
 			if !strings.HasPrefix(file.Name(), "scrape_") {
 				continue
 			}
-			if content, err := afero.ReadFile(FS, dir + file.Name()); err == nil {
+			if content, err := afero.ReadFile(FS, dir+file.Name()); err == nil {
 				config += string(content)
 				if !strings.HasSuffix(config, "\n") {
 					config += "\n"

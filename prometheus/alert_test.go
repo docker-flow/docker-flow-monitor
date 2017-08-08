@@ -1,9 +1,9 @@
 package prometheus
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/suite"
 	"testing"
-	"fmt"
 )
 
 type AlertTestSuite struct {
@@ -100,10 +100,10 @@ func (s *AlertTestSuite) getTestAlerts() map[string]Alert {
 	for _, i := range []int{1, 2} {
 		alerts[fmt.Sprintf("alert-name-%d", i)] = Alert{
 			AlertNameFormatted: fmt.Sprintf("alertNameFormatted%d", i),
-			ServiceName: fmt.Sprintf("my-service-%d", i),
-			AlertName: fmt.Sprintf("alert-name-%d", i),
-			AlertIf: fmt.Sprintf("alert-if-%d", i),
-			AlertFor: fmt.Sprintf("alert-for-%d", i),
+			ServiceName:        fmt.Sprintf("my-service-%d", i),
+			AlertName:          fmt.Sprintf("alert-name-%d", i),
+			AlertIf:            fmt.Sprintf("alert-if-%d", i),
+			AlertFor:           fmt.Sprintf("alert-for-%d", i),
 		}
 	}
 	return alerts

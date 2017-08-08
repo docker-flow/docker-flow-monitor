@@ -1,8 +1,8 @@
 package prometheus
 
 import (
-	"text/template"
 	"bytes"
+	"text/template"
 )
 
 func GetAlertConfig(alerts map[string]Alert) string {

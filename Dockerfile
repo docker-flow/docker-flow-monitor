@@ -1,4 +1,4 @@
-FROM golang:1.7 AS build
+FROM golang:1.8 AS build
 ADD . /src
 WORKDIR /src
 RUN go get -t github.com/stretchr/testify/suite
@@ -14,7 +14,8 @@ ENV GLOBAL_SCRAPE_INTERVAL=10s \
     ARG_CONFIG_FILE=/etc/prometheus/prometheus.yml \
     ARG_STORAGE_LOCAL_PATH=/prometheus \
     ARG_WEB_CONSOLE_LIBRARIES=/usr/share/prometheus/console_libraries \
-    ARG_WEB_CONSOLE_TEMPLATES=/usr/share/prometheus/consoles
+    ARG_WEB_CONSOLE_TEMPLATES=/usr/share/prometheus/consoles \
+    CONFIGS_DIR="/run/secrets"
 
 EXPOSE 8080
 

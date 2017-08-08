@@ -26,7 +26,7 @@ global:`
 }
 
 func GetScrapeConfig(scrapes map[string]Scrape) string {
-	config := getScrapeConfigFromMap(scrapes) + getScrapeConfigFromSecrets()
+	config := getScrapeConfigFromMap(scrapes) + getScrapeConfigFromDir()
 	if len(config) > 0 {
 		if !strings.HasPrefix(config, "\n") {
 			config = "\n" + config
@@ -73,14 +73,21 @@ func getGlobalConfigData() map[string]map[string]string {
 	return data
 }
 
-func getScrapeConfigFromSecrets() string {
+func getScrapeConfigFromDir() string {
 	config := ""
-	if files, err := afero.ReadDir(FS, "/run/secrets/"); err == nil {
+	dir := "/run/secrets/"
+	if len(os.Getenv("CONFIGS_DIR")) > 0 {
+		dir = os.Getenv("CONFIGS_DIR")
+	}
+	if !strings.HasSuffix(dir, "/") {
+		dir += "/"
+	}
+	if files, err := afero.ReadDir(FS, dir); err == nil {
 		for _, file := range files {
 			if !strings.HasPrefix(file.Name(), "scrape_") {
 				continue
 			}
-			if content, err := afero.ReadFile(FS, "/run/secrets/" + file.Name()); err == nil {
+			if content, err := afero.ReadFile(FS, dir + file.Name()); err == nil {
 				config += string(content)
 				if !strings.HasSuffix(config, "\n") {
 					config += "\n"

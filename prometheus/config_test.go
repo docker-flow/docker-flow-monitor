@@ -157,6 +157,31 @@ scrape_configs:
 	s.Equal(expected, actual)
 }
 
+func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigsFromCustomDirectory() {
+	fsOrig := FS
+	defer func() { FS = fsOrig }()
+	FS = afero.NewMemMapFs()
+	defer func() { os.Unsetenv("CONFIGS_DIR") }()
+	os.Setenv("CONFIGS_DIR", "/tmp")
+	job := `  - job_name: "my-service"
+    dns_sd_configs:
+      - names: ["tasks.my-service"]
+        type: A
+        port: 5678`
+	expected := fmt.Sprintf(`
+scrape_configs:
+%s
+`,
+		job,
+	)
+	scrapes := map[string]Scrape {}
+	afero.WriteFile(FS, "/tmp/scrape_job", []byte(job), 0644)
+
+	actual := GetScrapeConfig(scrapes)
+
+	s.Equal(expected, actual)
+}
+
 func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsEmptyString_WhenNoData() {
 	actual := GetScrapeConfig(map[string]Scrape{})
 

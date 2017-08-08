@@ -71,4 +71,6 @@ Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/c
 
 ## Scrapes
 
-Content of Docker secrets prefixed with the name `scrape_` is automatically added to the `scrape_configs` section of the configuration.
+Additional scrapes can be added through files prefixed with `scrape_`. By default, all such files located in `/run/secrets` are automatically added to the `scrape_configs` section of the configuration. The directory can be changed by setting a different value to the environment variable `CONFIGS_DIR`.
+
+The simplest way to add scrape configs is to use Docker [secrets](https://docs.docker.com/engine/swarm/secrets/) or [configs](https://docs.docker.com/engine/swarm/configs/).

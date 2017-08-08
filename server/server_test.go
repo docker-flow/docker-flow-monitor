@@ -1,17 +1,17 @@
- package server
+package server
 
 import (
-	"github.com/stretchr/testify/suite"
-	"testing"
-	"net/http"
-	"time"
-	"fmt"
+	"../prometheus"
 	"encoding/json"
+	"fmt"
 	"github.com/spf13/afero"
-	"os"
+	"github.com/stretchr/testify/suite"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"../prometheus"
+	"os"
+	"testing"
+	"time"
 )
 
 type ServerTestSuite struct {
@@ -183,13 +183,13 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_SetsStatusCodeTo200() {
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 	expected := prometheus.Alert{
-		ServiceName: "my-service",
-		AlertName: "my-alert",
-		AlertIf: "a>b",
-		AlertFor: "my-for",
+		ServiceName:        "my-service",
+		AlertName:          "my-alert",
+		AlertIf:            "a>b",
+		AlertFor:           "my-for",
 		AlertNameFormatted: "myservicemyalert",
-		AlertAnnotations: map[string]string{"a1": "v1", "a2": "v2"},
-		AlertLabels: map[string]string{"l1": "v1"},
+		AlertAnnotations:   map[string]string{"a1": "v1", "a2": "v2"},
+		AlertLabels:        map[string]string{"l1": "v1"},
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
@@ -210,11 +210,11 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
-	testData := []struct{
-		expected string
-		shortcut string
+	testData := []struct {
+		expected    string
+		shortcut    string
 		annotations map[string]string
-		labels map[string]string
+		labels      map[string]string
 	}{
 		{
 			`container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
@@ -277,13 +277,13 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
 	expected := prometheus.Alert{
-		ServiceName: "my-service",
-		AlertName: "my-alert",
-		AlertIf: "a>b",
-		AlertFor: "my-for",
+		ServiceName:        "my-service",
+		AlertName:          "my-alert",
+		AlertIf:            "a>b",
+		AlertFor:           "my-for",
 		AlertNameFormatted: "myservicemyalert",
-		AlertAnnotations: map[string]string{},
-		AlertLabels: map[string]string{},
+		AlertAnnotations:   map[string]string{},
+		AlertLabels:        map[string]string{},
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
@@ -298,11 +298,11 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
 	serve := New()
 	serve.Alerts["myservicesomeotheralert"] = prometheus.Alert{
 		ServiceName: "my-service",
-		AlertName: "some-other-alert",
+		AlertName:   "some-other-alert",
 	}
 	serve.Alerts["anotherservicemyalert"] = prometheus.Alert{
 		ServiceName: "another-service",
-		AlertName: "my-alert",
+		AlertName:   "my-alert",
 	}
 	serve.ReconfigureHandler(rwMock, req)
 
@@ -312,15 +312,15 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 	expected := []prometheus.Alert{}
-	for i:=1; i <=2; i++ {
+	for i := 1; i <= 2; i++ {
 		expected = append(expected, prometheus.Alert{
-			ServiceName: "my-service",
-			AlertName: fmt.Sprintf("my-alert-%d", i),
-			AlertIf: fmt.Sprintf("my-if-%d", i),
-			AlertFor: fmt.Sprintf("my-for-%d", i),
+			ServiceName:        "my-service",
+			AlertName:          fmt.Sprintf("my-alert-%d", i),
+			AlertIf:            fmt.Sprintf("my-if-%d", i),
+			AlertFor:           fmt.Sprintf("my-for-%d", i),
 			AlertNameFormatted: fmt.Sprintf("myservicemyalert%d", i),
-			AlertAnnotations: map[string]string{"annotation": fmt.Sprintf("annotation-value-%d", i)},
-			AlertLabels: map[string]string{"label": fmt.Sprintf("label-value-%d", i)},
+			AlertAnnotations:   map[string]string{"annotation": fmt.Sprintf("annotation-value-%d", i)},
+			AlertLabels:        map[string]string{"label": fmt.Sprintf("label-value-%d", i)},
 		})
 	}
 	rwMock := ResponseWriterMock{}
@@ -354,7 +354,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrape() {
 	expected := prometheus.Scrape{
 		ServiceName: "my-service",
-		ScrapePort: 1234,
+		ScrapePort:  1234,
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
@@ -371,25 +371,25 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrape() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrapeType() {
-	 expected := prometheus.Scrape{
-		 ServiceName: "my-service",
-		 ScrapePort: 1234,
-		 ScrapeType: "static_configs",
-	 }
-	 rwMock := ResponseWriterMock{}
-	 addr := fmt.Sprintf(
-		 "/v1/docker-flow-monitor?serviceName=%s&scrapePort=%d&scrapeType=%s",
-		 expected.ServiceName,
-		 expected.ScrapePort,
-		 expected.ScrapeType,
-	 )
-	 req, _ := http.NewRequest("GET", addr, nil)
+	expected := prometheus.Scrape{
+		ServiceName: "my-service",
+		ScrapePort:  1234,
+		ScrapeType:  "static_configs",
+	}
+	rwMock := ResponseWriterMock{}
+	addr := fmt.Sprintf(
+		"/v1/docker-flow-monitor?serviceName=%s&scrapePort=%d&scrapeType=%s",
+		expected.ServiceName,
+		expected.ScrapePort,
+		expected.ScrapeType,
+	)
+	req, _ := http.NewRequest("GET", addr, nil)
 
-	 serve := New()
-	 serve.ReconfigureHandler(rwMock, req)
+	serve := New()
+	serve.ReconfigureHandler(rwMock, req)
 
-	 s.Equal(expected, serve.Scrapes[expected.ServiceName])
- }
+	s.Equal(expected, serve.Scrapes[expected.ServiceName])
+}
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddAlert_WhenAlertNameIsEmpty() {
 	rwMock := ResponseWriterMock{}
@@ -413,12 +413,12 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddScrape_WhenScrapePor
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
 	expected := prometheus.Alert{
-		AlertName: "my-alert",
-		AlertIf: "my-if",
-		AlertFor: "my-for",
+		AlertName:          "my-alert",
+		AlertIf:            "my-if",
+		AlertFor:           "my-for",
 		AlertNameFormatted: "myalert",
-		AlertAnnotations: map[string]string{},
-		AlertLabels: map[string]string{},
+		AlertAnnotations:   map[string]string{},
+		AlertLabels:        map[string]string{},
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
@@ -443,16 +443,16 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
 	}
 	expected := Response{
 		Status: http.StatusOK,
-		Alerts: []prometheus.Alert{prometheus.Alert{
-			ServiceName: "my-service",
-			AlertName: "myalert",
-			AlertIf: "my-if",
-			AlertFor: "my-for",
+		Alerts: []prometheus.Alert{{
+			ServiceName:        "my-service",
+			AlertName:          "myalert",
+			AlertIf:            "my-if",
+			AlertFor:           "my-for",
 			AlertNameFormatted: "myservicemyalert",
 		}},
 		Scrape: prometheus.Scrape{
 			ServiceName: "my-service",
-			ScrapePort: 1234,
+			ScrapePort:  1234,
 		},
 	}
 	actual := Response{}
@@ -652,11 +652,11 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
 	expected := Response{
 		Status: http.StatusOK,
 		Alerts: []prometheus.Alert{
-			prometheus.Alert{ServiceName: "my-service", AlertName: "my-alert"},
+			{ServiceName: "my-service", AlertName: "my-alert"},
 		},
 		Scrape: prometheus.Scrape{
 			ServiceName: "my-service",
-			ScrapePort: 1234,
+			ScrapePort:  1234,
 		},
 	}
 	actual := Response{}
@@ -815,8 +815,8 @@ func (s *ServerTestSuite) Test_InitialConfig_DoesNotSendRequest_WhenListenerAddr
 
 func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
 	expected := map[string]prometheus.Scrape{
-		"service-1": prometheus.Scrape{ServiceName: "service-1", ScrapePort: 1111},
-		"service-2": prometheus.Scrape{ServiceName: "service-2", ScrapePort: 2222},
+		"service-1": {ServiceName: "service-1", ScrapePort: 1111},
+		"service-2": {ServiceName: "service-2", ScrapePort: 2222},
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -837,47 +837,95 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
 }
 
 func (s *ServerTestSuite) Test_InitialConfig_AddsScrapesFromEnv() {
-	 expected := map[string]prometheus.Scrape{
-		 "service-1": prometheus.Scrape{ServiceName: "service-1", ScrapePort: 1111},
-		 "service-2": prometheus.Scrape{ServiceName: "service-2", ScrapePort: 2222},
-		 "service-4": prometheus.Scrape{ServiceName: "service-4", ScrapePort: 4444, ScrapeType: "static_configs"},
-		 "service-3": prometheus.Scrape{ServiceName: "service-3", ScrapePort: 3333, ScrapeType: "static_configs"},
-	 }
-	 testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		 w.WriteHeader(http.StatusOK)
-		 resp := []map[string]string{}
-		 resp = append(resp, map[string]string{"scrapePort": "1111", "serviceName": "service-1"})
-		 resp = append(resp, map[string]string{"scrapePort": "2222", "serviceName": "service-2"})
-		 resp = append(resp, map[string]string{"scrapePort": "4444", "serviceName": "service-4", "scrapeType": "static_configs"})
-		 js, _ := json.Marshal(resp)
-		 w.Write(js)
-	 }))
-	 defer testServer.Close()
-	 defer func() { os.Unsetenv("LISTENER_ADDRESS") }()
-	 os.Setenv("LISTENER_ADDRESS", testServer.URL)
-	 os.Setenv("SCRAPE_PORT_1", "3333")
-	 os.Setenv("SERVICE_NAME_1", "service-3")
+	expected := map[string]prometheus.Scrape{
+		"service-1": {ServiceName: "service-1", ScrapePort: 1111},
+		"service-2": {ServiceName: "service-2", ScrapePort: 2222},
+		"service-4": {ServiceName: "service-4", ScrapePort: 4444, ScrapeType: "static_configs"},
+		"service-3": {ServiceName: "service-3", ScrapePort: 3333, ScrapeType: "static_configs"},
+	}
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		resp := []map[string]string{}
+		resp = append(resp, map[string]string{"scrapePort": "1111", "serviceName": "service-1"})
+		resp = append(resp, map[string]string{"scrapePort": "2222", "serviceName": "service-2"})
+		resp = append(resp, map[string]string{"scrapePort": "4444", "serviceName": "service-4", "scrapeType": "static_configs"})
+		js, _ := json.Marshal(resp)
+		w.Write(js)
+	}))
+	defer testServer.Close()
+	defer func() {
+		os.Unsetenv("LISTENER_ADDRESS")
+		os.Unsetenv("SCRAPE_PORT_1")
+		os.Unsetenv("SERVICE_NAME_1")
+	}()
+	os.Setenv("LISTENER_ADDRESS", testServer.URL)
+	os.Setenv("SCRAPE_PORT_1", "3333")
+	os.Setenv("SERVICE_NAME_1", "service-3")
 
-	 serve := New()
-	 serve.InitialConfig()
+	serve := New()
+	serve.InitialConfig()
 
-	 s.Equal(expected, serve.Scrapes)
- }
+	s.Equal(expected, serve.Scrapes)
+}
+
+func (s *ServerTestSuite) Test_InitialConfig_ReturnsError_WhenPortFromEnvVarsCannotBeParsed() {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		js, _ := json.Marshal([]map[string]string{})
+		w.Write(js)
+	}))
+	defer testServer.Close()
+	defer func() {
+		os.Unsetenv("LISTENER_ADDRESS")
+		os.Unsetenv("SCRAPE_PORT_1")
+		os.Unsetenv("SERVICE_NAME_1")
+	}()
+	os.Setenv("LISTENER_ADDRESS", testServer.URL)
+	os.Setenv("SCRAPE_PORT_1", "xxxx") // This cannot be parsed to int
+	os.Setenv("SERVICE_NAME_1", "service-3")
+
+	serve := New()
+	err := serve.InitialConfig()
+
+	s.Error(err)
+}
+
+func (s *ServerTestSuite) Test_InitialConfig_ReturnsError_WhenEnvVarsAreMissing() {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		js, _ := json.Marshal([]map[string]string{})
+		w.Write(js)
+	}))
+	defer testServer.Close()
+	defer func() {
+		os.Unsetenv("LISTENER_ADDRESS")
+		os.Unsetenv("SCRAPE_PORT_1")
+	}()
+	os.Setenv("LISTENER_ADDRESS", testServer.URL)
+	os.Setenv("SCRAPE_PORT_1", "1234")
+	// `SERVICE_NAME_1` is missing
+
+	serve := New()
+	err := serve.InitialConfig()
+
+	s.Error(err)
+}
+
 func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 	expected := map[string]prometheus.Alert{
-		"myservicealert1": prometheus.Alert{
+		"myservicealert1": {
 			AlertAnnotations: map[string]string{},
 			AlertName:        "alert-1",
 			AlertIf:          "if-1",
 			AlertFor:         "for-1",
-			AlertLabels:      map[string]string{
+			AlertLabels: map[string]string{
 				"label-1-1": "value-1-1",
 				"label-1-2": "value-1-2",
 			},
 			ServiceName:        "my-service",
 			AlertNameFormatted: "myservicealert1",
 		},
-		"myservicealert21": prometheus.Alert{
+		"myservicealert21": {
 			AlertAnnotations:   map[string]string{},
 			AlertFor:           "for-21",
 			AlertIf:            "if-21",
@@ -886,7 +934,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 			ServiceName:        "my-service",
 			AlertNameFormatted: "myservicealert21",
 		},
-		"myservicealert22": prometheus.Alert{
+		"myservicealert22": {
 			AlertAnnotations: map[string]string{
 				"annotation-22-1": "value-22-1",
 				"annotation-22-2": "value-22-2",
@@ -905,24 +953,24 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 		// Is Not included since alertIf is missing
 		resp = append(resp, map[string]string{
 			"serviceName": "my-service-without-if",
-			"alertName": "alert-without-if",
+			"alertName":   "alert-without-if",
 		})
 		resp = append(resp, map[string]string{
 			"serviceName": "my-service",
-			"alertName": "alert-1",
-			"alertIf": "if-1",
-			"alertFor": "for-1",
+			"alertName":   "alert-1",
+			"alertIf":     "if-1",
+			"alertFor":    "for-1",
 			"alertLabels": "label-1-1=value-1-1,label-1-2=value-1-2",
 		})
 		resp = append(resp, map[string]string{
-			"serviceName": "my-service",
-			"alertName.1": "alert-21",
-			"alertIf.1": "if-21",
-			"alertFor.1": "for-21",
-			"alertName.2": "alert-22",
+			"serviceName":        "my-service",
+			"alertName.1":        "alert-21",
+			"alertIf.1":          "if-21",
+			"alertFor.1":         "for-21",
+			"alertName.2":        "alert-22",
 			"alertAnnotations.2": "annotation-22-1=value-22-1,annotation-22-2=value-22-2",
-			"alertIf.2": "if-22",
-			"alertFor.2": "for-22",
+			"alertIf.2":          "if-22",
+			"alertFor.2":         "for-22",
 		})
 		js, _ := json.Marshal(resp)
 		w.Write(js)

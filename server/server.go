@@ -1,18 +1,18 @@
 package server
 
 import (
-	"net/http"
-	"github.com/gorilla/schema"
-	"github.com/gorilla/mux"
-	"log"
-	"encoding/json"
-	"sync"
-	"strings"
-	"fmt"
-	"os"
-	"io/ioutil"
-	"strconv"
 	"../prometheus"
+	"encoding/json"
+	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
 )
 
 var decoder = schema.NewDecoder()
@@ -38,7 +38,7 @@ const SERVICE_NAME = "SERVICE_NAME"
 
 var New = func() *Serve {
 	return &Serve{
-		Alerts: make(map[string]prometheus.Alert),
+		Alerts:  make(map[string]prometheus.Alert),
 		Scrapes: make(map[string]prometheus.Scrape),
 	}
 }
@@ -146,7 +146,6 @@ func (s *Serve) InitialConfig() error {
 			if err != nil {
 				return err
 			}
-
 			for _, row := range scrape {
 				s.Scrapes[row.ServiceName] = row
 			}
@@ -170,13 +169,13 @@ func (s *Serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, err
 }
 
 func (s *Serve) getAlertFromMap(data map[string]string, suffix string) (prometheus.Alert, error) {
-	if _, ok := data["alertName" + suffix]; ok {
+	if _, ok := data["alertName"+suffix]; ok {
 		alert := prometheus.Alert{}
-		alert.AlertAnnotations = s.getMapFromString(data["alertAnnotations" + suffix])
-		alert.AlertFor = data["alertFor" + suffix]
-		alert.AlertIf = data["alertIf" + suffix]
-		alert.AlertLabels = s.getMapFromString(data["alertLabels" + suffix])
-		alert.AlertName = data["alertName" + suffix]
+		alert.AlertAnnotations = s.getMapFromString(data["alertAnnotations"+suffix])
+		alert.AlertFor = data["alertFor"+suffix]
+		alert.AlertIf = data["alertIf"+suffix]
+		alert.AlertLabels = s.getMapFromString(data["alertLabels"+suffix])
+		alert.AlertName = data["alertName"+suffix]
 		alert.ServiceName = data["serviceName"]
 		s.formatAlert(&alert)
 		if s.isValidAlert(&alert) {
@@ -214,12 +213,12 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 		annotations := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertAnnotations.%d", i)))
 		labels := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertLabels.%d", i)))
 		alert := prometheus.Alert{
-			ServiceName: alertDecode.ServiceName,
-			AlertName: alertName,
-			AlertIf: req.URL.Query().Get(fmt.Sprintf("alertIf.%d", i)),
-			AlertFor: req.URL.Query().Get(fmt.Sprintf("alertFor.%d", i)),
+			ServiceName:      alertDecode.ServiceName,
+			AlertName:        alertName,
+			AlertIf:          req.URL.Query().Get(fmt.Sprintf("alertIf.%d", i)),
+			AlertFor:         req.URL.Query().Get(fmt.Sprintf("alertFor.%d", i)),
 			AlertAnnotations: annotations,
-			AlertLabels: labels,
+			AlertLabels:      labels,
 		}
 		s.formatAlert(&alert)
 		if !s.isValidAlert(&alert) {
@@ -251,8 +250,8 @@ var alertIfShortcutData = []alertIfShortcut{
 		annotations: map[string]string{"summary": "Memory of a node is over [VALUE]"},
 		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
 	}, {
-		expanded:   `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > [VALUE]`,
-		shortcut:   `@node_fs_limit:`,
+		expanded:    `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > [VALUE]`,
+		shortcut:    `@node_fs_limit:`,
 		annotations: map[string]string{"summary": "Disk usage of a node is over [VALUE]"},
 		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
 	}, {
@@ -377,24 +376,25 @@ func (s *Serve) parseScrapeFromEnvMap(data map[string]string) ([]prometheus.Scra
 	count := len(data) / 2
 
 	// If an odd number was find in the environment variables it means it is missing variables
-	if len(data) % 2 != 0 {
-		return []prometheus.Scrape{}, fmt.Errorf("SCRAPE_PORT_* and SERVICE_NAME_* environment variable configuration are not valid.")
+	if len(data)%2 != 0 {
+		msg := fmt.Errorf("SCRAPE_PORT_* and SERVICE_NAME_* environment variable configuration are not valid.")
+		return []prometheus.Scrape{}, msg
 	}
 
 	scrapeFromEnv := []prometheus.Scrape{}
 	for i := 1; i <= count; i++ {
 
 		index := strconv.Itoa(i)
-		if len(data[SERVICE_NAME + "_" + index]) > 0 && len(data[SCRAPE_PORT + "_" + index]) > 0 {
-			scrapePort, err := strconv.Atoi(data[SCRAPE_PORT + "_" + index])
+		if len(data[SERVICE_NAME+"_"+index]) > 0 && len(data[SCRAPE_PORT+"_"+index]) > 0 {
+			scrapePort, err := strconv.Atoi(data[SCRAPE_PORT+"_"+index])
 			if err != nil {
 				return []prometheus.Scrape{}, err
 			}
 
 			scrapeFromEnv = append(scrapeFromEnv, prometheus.Scrape{
-				ScrapePort: scrapePort,
-				ServiceName: data[SERVICE_NAME + "_" + index],
-				ScrapeType: "static_configs",
+				ScrapePort:  scrapePort,
+				ServiceName: data[SERVICE_NAME+"_"+index],
+				ScrapeType:  "static_configs",
 			})
 		}
 

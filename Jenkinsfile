@@ -17,13 +17,6 @@ pipeline {
         }
         checkout scm
         sh "docker image build -t vfarcic/docker-flow-monitor ."
-        withCredentials([usernamePassword(
-          credentialsId: "docker",
-          usernameVariable: "USER",
-          passwordVariable: "PASS"
-        )]) {
-          sh "docker login -u $USER -p $PASS"
-        }
         sh "docker image build -t vfarcic/docker-flow-monitor-docs -f Dockerfile.docs ."
       }
     }
@@ -32,12 +25,19 @@ pipeline {
         branch "master"
       }
       steps {
+        withCredentials([usernamePassword(
+          credentialsId: "docker",
+          usernameVariable: "USER",
+          passwordVariable: "PASS"
+        )]) {
+          sh "docker login -u $USER -p $PASS"
+        }
         sh "docker tag vfarcic/docker-flow-monitor vfarcic/docker-flow-monitor:${currentBuild.displayName}"
+        sh "docker image push vfarcic/docker-flow-monitor:latest"
         sh "docker image push vfarcic/docker-flow-monitor:${currentBuild.displayName}"
-        sh "docker image push vfarcic/docker-flow-monitor"
         sh "docker tag vfarcic/docker-flow-monitor-docs vfarcic/docker-flow-monitor-docs:${currentBuild.displayName}"
+        sh "docker image push vfarcic/docker-flow-monitor-docs:latest"
         sh "docker image push vfarcic/docker-flow-monitor-docs:${currentBuild.displayName}"
-        sh "docker image push vfarcic/docker-flow-monitor-docs"
       }
     }
     stage("deploy") {

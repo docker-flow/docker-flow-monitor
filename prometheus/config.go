@@ -26,26 +26,15 @@ global:`
 }
 
 func GetScrapeConfig(scrapes map[string]Scrape) string {
-	if len(scrapes) == 0 {
-		return ""
+	config := getScrapeConfigFromMap(scrapes) + getScrapeConfigFromSecrets()
+	if len(config) > 0 {
+		if !strings.HasPrefix(config, "\n") {
+			config = "\n" + config
+		}
+		config = `
+scrape_configs:` + config
 	}
-	templateString := `
-scrape_configs:{{range .}}
-  - job_name: "{{.ServiceName}}"
-{{- if .ScrapeType}}
-    {{.ScrapeType}}:
-      - targets:
-        - {{.ServiceName}}:{{- .ScrapePort}}
-{{- else}}
-    dns_sd_configs:
-      - names: ["tasks.{{.ServiceName}}"]
-        type: A
-        port: {{.ScrapePort}}{{end}}
-{{end}}`
-	tmpl, _ := template.New("").Parse(templateString)
-	var b bytes.Buffer
-	tmpl.Execute(&b, scrapes)
-	return b.String()
+	return config
 }
 
 func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
@@ -82,4 +71,46 @@ func getGlobalConfigData() map[string]map[string]string {
 		}
 	}
 	return data
+}
+
+func getScrapeConfigFromSecrets() string {
+	config := ""
+	if files, err := afero.ReadDir(FS, "/run/secrets/"); err == nil {
+		for _, file := range files {
+			if !strings.HasPrefix(file.Name(), "scrape_") {
+				continue
+			}
+			if content, err := afero.ReadFile(FS, "/run/secrets/" + file.Name()); err == nil {
+				config += string(content)
+				if !strings.HasSuffix(config, "\n") {
+					config += "\n"
+				}
+			}
+		}
+	}
+	return config
+}
+
+func getScrapeConfigFromMap(scrapes map[string]Scrape) string {
+	if len(scrapes) != 0 {
+		templateString := `{{range .}}
+  - job_name: "{{.ServiceName}}"
+{{- if .ScrapeType}}
+    {{.ScrapeType}}:
+      - targets:
+        - {{.ServiceName}}:{{- .ScrapePort}}
+{{- else}}
+    dns_sd_configs:
+      - names: ["tasks.{{.ServiceName}}"]
+        type: A
+        port: {{.ScrapePort -}}{{end -}}
+{{end}}
+`
+		tmpl, _ := template.New("").Parse(templateString)
+		var b bytes.Buffer
+		tmpl.Execute(&b, scrapes)
+		return b.String()
+
+	}
+	return ""
 }

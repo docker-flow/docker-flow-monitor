@@ -75,3 +75,7 @@ curl `[IP_OF_ONE_OF_SWARM_NODES]:8080/v1/docker-flow-monitor/reconfigure?scrapeP
 ```
 
 Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.
+
+## Secrets
+
+Content of Docker secrets prefixed with the name `scrape_` is automatically added to the `scrape_configs` section of the configuration.

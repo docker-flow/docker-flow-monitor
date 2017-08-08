@@ -75,13 +75,11 @@ scrape_configs:
       - names: ["tasks.service-1"]
         type: A
         port: 1234
-
   - job_name: "service-2"
     dns_sd_configs:
       - names: ["tasks.service-2"]
         type: A
         port: 5678
-
   - job_name: "service-3"
     static_configs:
       - targets:
@@ -92,6 +90,67 @@ scrape_configs:
 		"service-2": Scrape{ ServiceName: "service-2", ScrapePort: 5678 },
 		"service-3": Scrape{ ServiceName: "service-3", ScrapePort: 4321, ScrapeType: "static_configs" },
 	}
+
+	actual := GetScrapeConfig(scrapes)
+
+	s.Equal(expected, actual)
+}
+
+func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigWithDataAndSecrets() {
+	fsOrig := FS
+	defer func() { FS = fsOrig }()
+	FS = afero.NewMemMapFs()
+	job2 := `  - job_name: "service-2"
+    dns_sd_configs:
+      - names: ["tasks.service-2"]
+        type: A
+        port: 5678`
+	job3 := `  - job_name: "service-3"
+    dns_sd_configs:
+      - names: ["tasks.service-3"]
+        port: 9999
+`
+	expected := fmt.Sprintf(`
+scrape_configs:
+  - job_name: "service-1"
+    dns_sd_configs:
+      - names: ["tasks.service-1"]
+        type: A
+        port: 1234
+%s
+%s`,
+		job2,
+		job3,
+	)
+	scrapes := map[string]Scrape {
+		"service-1": Scrape{ ServiceName: "service-1", ScrapePort: 1234 },
+	}
+	afero.WriteFile(FS, "/run/secrets/scrape_job2", []byte(job2), 0644)
+	afero.WriteFile(FS, "/run/secrets/scrape_job3", []byte(job3), 0644)
+
+	actual := GetScrapeConfig(scrapes)
+
+	s.Equal(expected, actual)
+}
+
+func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsOnlySecretsWithScrapePrefix() {
+	fsOrig := FS
+	defer func() { FS = fsOrig }()
+	FS = afero.NewMemMapFs()
+	job := `  - job_name: "my-service"
+    dns_sd_configs:
+      - names: ["tasks.my-service"]
+        type: A
+        port: 5678`
+	expected := fmt.Sprintf(`
+scrape_configs:
+%s
+`,
+		job,
+	)
+	scrapes := map[string]Scrape {}
+	afero.WriteFile(FS, "/run/secrets/scrape_job", []byte(job), 0644)
+	afero.WriteFile(FS, "/run/secrets/job_without_scrape_prefix", []byte("something silly"), 0644)
 
 	actual := GetScrapeConfig(scrapes)
 

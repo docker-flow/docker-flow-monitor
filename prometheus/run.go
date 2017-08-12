@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Run starts `prometheus` process
 func Run() error {
 	LogPrintf("Starting Prometheus")
 	cmdString := "prometheus"

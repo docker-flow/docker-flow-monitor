@@ -5,6 +5,7 @@ import (
 	"text/template"
 )
 
+// GetAlertConfig returns Prometheus configuration snippet related to alerts.
 func GetAlertConfig(alerts map[string]Alert) string {
 	templateString := `{{range .}}
 ALERT {{.AlertNameFormatted}}

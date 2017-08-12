@@ -8,6 +8,7 @@ import (
 
 var mu = &sync.Mutex{}
 
+// Reload sends `pkill -HUP` signal to `prometheus` process.
 var Reload = func() error {
 	mu.Lock()
 	defer mu.Unlock()

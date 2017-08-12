@@ -33,7 +33,7 @@ func (s *ConfigTestSuite) Test_GlobalConfig_ReturnsConfigWithData() {
 global:
   scrape_interval: 123s`
 
-	actual := GetGlobalConfig()
+	actual := getGlobalConfig()
 	s.Equal(expected, actual)
 }
 
@@ -57,7 +57,7 @@ global:
 
 	// Because of ordering, the config is not always the same so we're repeating a failure for a few times.
 	for i := 0; i < 5; i++ {
-		actual = GetGlobalConfig()
+		actual = getGlobalConfig()
 		if actual == expected {
 			return
 		}
@@ -91,7 +91,7 @@ scrape_configs:
 		"service-3": {ServiceName: "service-3", ScrapePort: 4321, ScrapeType: "static_configs"},
 	}
 
-	actual := GetScrapeConfig(scrapes)
+	actual := getScrapeConfig(scrapes)
 
 	s.Equal(expected, actual)
 }
@@ -128,7 +128,7 @@ scrape_configs:
 	afero.WriteFile(FS, "/run/secrets/scrape_job2", []byte(job2), 0644)
 	afero.WriteFile(FS, "/run/secrets/scrape_job3", []byte(job3), 0644)
 
-	actual := GetScrapeConfig(scrapes)
+	actual := getScrapeConfig(scrapes)
 
 	s.Equal(expected, actual)
 }
@@ -152,7 +152,7 @@ scrape_configs:
 	afero.WriteFile(FS, "/run/secrets/scrape_job", []byte(job), 0644)
 	afero.WriteFile(FS, "/run/secrets/job_without_scrape_prefix", []byte("something silly"), 0644)
 
-	actual := GetScrapeConfig(scrapes)
+	actual := getScrapeConfig(scrapes)
 
 	s.Equal(expected, actual)
 }
@@ -177,13 +177,13 @@ scrape_configs:
 	scrapes := map[string]Scrape{}
 	afero.WriteFile(FS, "/tmp/scrape_job", []byte(job), 0644)
 
-	actual := GetScrapeConfig(scrapes)
+	actual := getScrapeConfig(scrapes)
 
 	s.Equal(expected, actual)
 }
 
 func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsEmptyString_WhenNoData() {
-	actual := GetScrapeConfig(map[string]Scrape{})
+	actual := getScrapeConfig(map[string]Scrape{})
 
 	s.Empty(actual)
 }
@@ -198,8 +198,8 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesConfig() {
 		"service-1": {ServiceName: "service-1", ScrapePort: 1234},
 		"service-2": {ServiceName: "service-2", ScrapePort: 5678},
 	}
-	gc := GetGlobalConfig()
-	sc := GetScrapeConfig(scrapes)
+	gc := getGlobalConfig()
+	sc := getScrapeConfig(scrapes)
 	expected := fmt.Sprintf(`%s
 %s`,
 		gc,
@@ -223,7 +223,7 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesAlerts() {
 		AlertNameFormatted: "myservicealertname",
 		AlertIf:            "a>b",
 	}
-	gc := GetGlobalConfig()
+	gc := getGlobalConfig()
 	expectedConfig := fmt.Sprintf(`%s
 
 rule_files:

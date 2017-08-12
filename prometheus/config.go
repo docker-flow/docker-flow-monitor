@@ -8,7 +8,23 @@ import (
 	"text/template"
 )
 
-func GetGlobalConfig() string {
+// WriteConfig creates Prometheus configuration (`/etc/prometheus/prometheus.yml`) and rules (`/etc/prometheus/alert.rules`) files.
+func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
+	FS.MkdirAll("/etc/prometheus", 0755)
+	gc := getGlobalConfig()
+	sc := getScrapeConfig(scrapes)
+	ruleFiles := ""
+	if len(alerts) > 0 {
+		LogPrintf("Writing to alert.rules")
+		ruleFiles = "\nrule_files:\n  - 'alert.rules'\n"
+		afero.WriteFile(FS, "/etc/prometheus/alert.rules", []byte(GetAlertConfig(alerts)), 0644)
+	}
+	config := gc + "\n" + sc + ruleFiles
+	LogPrintf("Writing to prometheus.yml")
+	afero.WriteFile(FS, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
+}
+
+func getGlobalConfig() string {
 	data := getGlobalConfigData()
 	config := `
 global:`
@@ -25,7 +41,7 @@ global:`
 	return config
 }
 
-func GetScrapeConfig(scrapes map[string]Scrape) string {
+func getScrapeConfig(scrapes map[string]Scrape) string {
 	config := getScrapeConfigFromMap(scrapes) + getScrapeConfigFromDir()
 	if len(config) > 0 {
 		if !strings.HasPrefix(config, "\n") {
@@ -35,21 +51,6 @@ func GetScrapeConfig(scrapes map[string]Scrape) string {
 scrape_configs:` + config
 	}
 	return config
-}
-
-func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
-	FS.MkdirAll("/etc/prometheus", 0755)
-	gc := GetGlobalConfig()
-	sc := GetScrapeConfig(scrapes)
-	ruleFiles := ""
-	if len(alerts) > 0 {
-		LogPrintf("Writing to alert.rules")
-		ruleFiles = "\nrule_files:\n  - 'alert.rules'\n"
-		afero.WriteFile(FS, "/etc/prometheus/alert.rules", []byte(GetAlertConfig(alerts)), 0644)
-	}
-	config := gc + "\n" + sc + ruleFiles
-	LogPrintf("Writing to prometheus.yml")
-	afero.WriteFile(FS, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }
 
 func getGlobalConfigData() map[string]map[string]string {

@@ -12,14 +12,14 @@ var mu = &sync.Mutex{}
 var Reload = func() error {
 	mu.Lock()
 	defer mu.Unlock()
-	LogPrintf("Reloading Prometheus")
+	logPrintf("Reloading Prometheus")
 	cmd := exec.Command("pkill", "-HUP", "prometheus")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmdRun(cmd)
 	if err != nil {
-		LogPrintf(err.Error())
+		logPrintf(err.Error())
 	}
-	LogPrintf("Prometheus was reloaded")
+	logPrintf("Prometheus was reloaded")
 	return err
 }

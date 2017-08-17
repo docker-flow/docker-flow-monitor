@@ -24,12 +24,13 @@ func (s *ServerTestSuite) SetupTest() {
 func TestServerUnitTestSuite(t *testing.T) {
 	s := new(ServerTestSuite)
 	logPrintlnOrig := logPrintf
+	listenerTimeoutOrig := listenerTimeout
 	defer func() {
 		logPrintf = logPrintlnOrig
-		prometheus.LogPrintf = logPrintlnOrig
+		listenerTimeout = listenerTimeoutOrig
 	}()
+	listenerTimeout = 10 * time.Millisecond
 	logPrintf = func(format string, v ...interface{}) {}
-	prometheus.LogPrintf = func(format string, v ...interface{}) {}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer testServer.Close()
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
@@ -51,15 +52,15 @@ func (s *ServerTestSuite) Test_New_ReturnsServe() {
 func (s *ServerTestSuite) Test_New_InitializesAlerts() {
 	serve := New()
 
-	s.NotNil(serve.Alerts)
-	s.Len(serve.Alerts, 0)
+	s.NotNil(serve.alerts)
+	s.Len(serve.alerts, 0)
 }
 
 func (s *ServerTestSuite) Test_New_InitializesScrapes() {
 	serve := New()
 
-	s.NotNil(serve.Scrapes)
-	s.Len(serve.Scrapes, 0)
+	s.NotNil(serve.scrapes)
+	s.Len(serve.scrapes, 0)
 }
 
 // Execute
@@ -206,7 +207,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Equal(expected, serve.Alerts[expected.AlertNameFormatted])
+	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
@@ -271,7 +272,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 		serve := New()
 		serve.ReconfigureHandler(rwMock, req)
 
-		s.Equal(expected, serve.Alerts[expected.AlertNameFormatted])
+		s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 	}
 }
 
@@ -296,18 +297,18 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
 	req, _ := http.NewRequest("GET", addr, nil)
 
 	serve := New()
-	serve.Alerts["myservicesomeotheralert"] = prometheus.Alert{
+	serve.alerts["myservicesomeotheralert"] = prometheus.Alert{
 		ServiceName: "my-service",
 		AlertName:   "some-other-alert",
 	}
-	serve.Alerts["anotherservicemyalert"] = prometheus.Alert{
+	serve.alerts["anotherservicemyalert"] = prometheus.Alert{
 		ServiceName: "another-service",
 		AlertName:   "my-alert",
 	}
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Equal(2, len(serve.Alerts))
-	s.Equal(expected, serve.Alerts[expected.AlertNameFormatted])
+	s.Equal(2, len(serve.alerts))
+	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
@@ -343,12 +344,12 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Equal(2, len(serve.Alerts))
-	s.Contains(serve.Alerts, expected[0].AlertNameFormatted)
-	s.Equal(expected[0].AlertLabels, serve.Alerts[expected[0].AlertNameFormatted].AlertLabels)
-	s.Contains(expected, serve.Alerts[expected[0].AlertNameFormatted])
-	s.Contains(serve.Alerts, expected[1].AlertNameFormatted)
-	s.Contains(expected, serve.Alerts[expected[1].AlertNameFormatted])
+	s.Equal(2, len(serve.alerts))
+	s.Contains(serve.alerts, expected[0].AlertNameFormatted)
+	s.Equal(expected[0].AlertLabels, serve.alerts[expected[0].AlertNameFormatted].AlertLabels)
+	s.Contains(expected, serve.alerts[expected[0].AlertNameFormatted])
+	s.Contains(serve.alerts, expected[1].AlertNameFormatted)
+	s.Contains(expected, serve.alerts[expected[1].AlertNameFormatted])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrape() {
@@ -367,7 +368,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrape() {
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Equal(expected, serve.Scrapes[expected.ServiceName])
+	s.Equal(expected, serve.scrapes[expected.ServiceName])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrapeType() {
@@ -388,7 +389,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrapeType() {
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Equal(expected, serve.Scrapes[expected.ServiceName])
+	s.Equal(expected, serve.scrapes[expected.ServiceName])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddAlert_WhenAlertNameIsEmpty() {
@@ -398,7 +399,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddAlert_WhenAlertNameI
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Equal(0, len(serve.Alerts))
+	s.Equal(0, len(serve.alerts))
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddScrape_WhenScrapePortZero() {
@@ -408,7 +409,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddScrape_WhenScrapePor
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Equal(0, len(serve.Scrapes))
+	s.Equal(0, len(serve.scrapes))
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
@@ -432,7 +433,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Equal(expected, serve.Alerts["myalert"])
+	s.Equal(expected, serve.alerts["myalert"])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
@@ -622,11 +623,11 @@ func (s *ServerTestSuite) Test_RemoveHandler_RemovesScrape() {
 	req, _ := http.NewRequest("DELETE", addr, nil)
 
 	serve := New()
-	serve.Scrapes["my-service-1"] = prometheus.Scrape{ServiceName: "my-service-1", ScrapePort: 1111}
-	serve.Scrapes["my-service-2"] = prometheus.Scrape{ServiceName: "my-service-2", ScrapePort: 2222}
+	serve.scrapes["my-service-1"] = prometheus.Scrape{ServiceName: "my-service-1", ScrapePort: 1111}
+	serve.scrapes["my-service-2"] = prometheus.Scrape{ServiceName: "my-service-2", ScrapePort: 2222}
 	serve.RemoveHandler(rwMock, req)
 
-	s.Len(serve.Scrapes, 1)
+	s.Len(serve.scrapes, 1)
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_RemovesAlerts() {
@@ -635,12 +636,12 @@ func (s *ServerTestSuite) Test_RemoveHandler_RemovesAlerts() {
 	req, _ := http.NewRequest("DELETE", addr, nil)
 
 	serve := New()
-	serve.Alerts["myservice1alert1"] = prometheus.Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
-	serve.Alerts["myservice1alert2"] = prometheus.Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
-	serve.Alerts["myservice2alert1"] = prometheus.Alert{ServiceName: "my-service-2", AlertName: "my-alert-1"}
+	serve.alerts["myservice1alert1"] = prometheus.Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
+	serve.alerts["myservice1alert2"] = prometheus.Alert{ServiceName: "my-service-1", AlertName: "my-alert-1"}
+	serve.alerts["myservice2alert1"] = prometheus.Alert{ServiceName: "my-service-2", AlertName: "my-alert-1"}
 	serve.RemoveHandler(rwMock, req)
 
-	s.Len(serve.Alerts, 1)
+	s.Len(serve.alerts, 1)
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
@@ -670,9 +671,9 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
 	req, _ := http.NewRequest("DELETE", addr, nil)
 
 	serve := New()
-	serve.Scrapes[expected.Scrape.ServiceName] = expected.Scrape
+	serve.scrapes[expected.Scrape.ServiceName] = expected.Scrape
 	alertKey := serve.getNameFormatted(fmt.Sprintf("%s%s", expected.Alerts[0].ServiceName, expected.Alerts[0].AlertName))
-	serve.Alerts[alertKey] = expected.Alerts[0]
+	serve.alerts[alertKey] = expected.Alerts[0]
 	serve.RemoveHandler(rwMock, req)
 
 	s.Equal(expected, actual)
@@ -833,7 +834,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
 	serve := New()
 	serve.InitialConfig()
 
-	s.Equal(expected, serve.Scrapes)
+	s.Equal(expected, serve.scrapes)
 }
 
 func (s *ServerTestSuite) Test_InitialConfig_AddsScrapesFromEnv() {
@@ -865,7 +866,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapesFromEnv() {
 	serve := New()
 	serve.InitialConfig()
 
-	s.Equal(expected, serve.Scrapes)
+	s.Equal(expected, serve.scrapes)
 }
 
 func (s *ServerTestSuite) Test_InitialConfig_ReturnsError_WhenPortFromEnvVarsCannotBeParsed() {
@@ -982,7 +983,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 	serve := New()
 	serve.InitialConfig()
 
-	s.Equal(expected, serve.Alerts)
+	s.Equal(expected, serve.alerts)
 }
 
 // Mock

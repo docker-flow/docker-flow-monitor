@@ -17,9 +17,9 @@ func (s *ConfigTestSuite) SetupTest() {
 
 func TestConfigUnitTestSuite(t *testing.T) {
 	s := new(ConfigTestSuite)
-	logPrintlnOrig := LogPrintf
-	defer func() { LogPrintf = logPrintlnOrig }()
-	LogPrintf = func(format string, v ...interface{}) {}
+	logPrintlnOrig := logPrintf
+	defer func() { logPrintf = logPrintlnOrig }()
+	logPrintf = func(format string, v ...interface{}) {}
 	suite.Run(t, s)
 }
 

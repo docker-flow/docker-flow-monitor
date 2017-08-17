@@ -15,9 +15,9 @@ func (s *AlertTestSuite) SetupTest() {
 
 func TestAlertUnitTestSuite(t *testing.T) {
 	s := new(AlertTestSuite)
-	logPrintlnOrig := LogPrintf
-	defer func() { LogPrintf = logPrintlnOrig }()
-	LogPrintf = func(format string, v ...interface{}) {}
+	logPrintlnOrig := logPrintf
+	defer func() { logPrintf = logPrintlnOrig }()
+	logPrintf = func(format string, v ...interface{}) {}
 	suite.Run(t, s)
 }
 

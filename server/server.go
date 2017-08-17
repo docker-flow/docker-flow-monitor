@@ -13,15 +13,17 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var decoder = schema.NewDecoder()
 var mu = &sync.Mutex{}
 var logPrintf = log.Printf
+var listenerTimeout = 30 * time.Second
 
-type Serve struct {
-	Scrapes map[string]prometheus.Scrape
-	Alerts  map[string]prometheus.Alert
+type serve struct {
+	scrapes map[string]prometheus.Scrape
+	alerts  map[string]prometheus.Alert
 }
 
 type Response struct {
@@ -36,16 +38,16 @@ var httpListenAndServe = http.ListenAndServe
 const SCRAPE_PORT = "SCRAPE_PORT"
 const SERVICE_NAME = "SERVICE_NAME"
 
-var New = func() *Serve {
-	return &Serve{
-		Alerts:  make(map[string]prometheus.Alert),
-		Scrapes: make(map[string]prometheus.Scrape),
+var New = func() *serve {
+	return &serve{
+		alerts:  make(map[string]prometheus.Alert),
+		scrapes: make(map[string]prometheus.Scrape),
 	}
 }
 
-func (s *Serve) Execute() error {
+func (s *serve) Execute() error {
 	s.InitialConfig()
-	prometheus.WriteConfig(s.Scrapes, s.Alerts)
+	prometheus.WriteConfig(s.scrapes, s.alerts)
 	go prometheus.Run()
 	address := "0.0.0.0:8080"
 	r := mux.NewRouter().StrictSlash(true)
@@ -62,17 +64,17 @@ func (s *Serve) Execute() error {
 	return nil
 }
 
-func (s *Serve) PingHandler(w http.ResponseWriter, req *http.Request) {
+func (s *serve) PingHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Serve) EmptyHandler(w http.ResponseWriter, req *http.Request) {
+func (s *serve) EmptyHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Serve) ReconfigureHandler(w http.ResponseWriter, req *http.Request) {
+func (s *serve) ReconfigureHandler(w http.ResponseWriter, req *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 	logPrintf("Processing " + req.URL.String())
@@ -80,7 +82,7 @@ func (s *Serve) ReconfigureHandler(w http.ResponseWriter, req *http.Request) {
 	scrape := s.getScrape(req)
 	s.deleteAlerts(scrape.ServiceName)
 	alerts := s.getAlerts(req)
-	prometheus.WriteConfig(s.Scrapes, s.Alerts)
+	prometheus.WriteConfig(s.scrapes, s.alerts)
 	err := prometheus.Reload()
 	statusCode := http.StatusOK
 	resp := s.getResponse(&alerts, &scrape, err, statusCode)
@@ -90,14 +92,14 @@ func (s *Serve) ReconfigureHandler(w http.ResponseWriter, req *http.Request) {
 	w.Write(js)
 }
 
-func (s *Serve) RemoveHandler(w http.ResponseWriter, req *http.Request) {
+func (s *serve) RemoveHandler(w http.ResponseWriter, req *http.Request) {
 	logPrintf("Processing " + req.URL.Path)
 	req.ParseForm()
 	serviceName := req.URL.Query().Get("serviceName")
-	scrape := s.Scrapes[serviceName]
-	delete(s.Scrapes, serviceName)
+	scrape := s.scrapes[serviceName]
+	delete(s.scrapes, serviceName)
 	alerts := s.deleteAlerts(serviceName)
-	prometheus.WriteConfig(s.Scrapes, s.Alerts)
+	prometheus.WriteConfig(s.scrapes, s.alerts)
 	err := prometheus.Reload()
 	statusCode := http.StatusOK
 	resp := s.getResponse(&alerts, &scrape, err, statusCode)
@@ -107,7 +109,7 @@ func (s *Serve) RemoveHandler(w http.ResponseWriter, req *http.Request) {
 	w.Write(js)
 }
 
-func (s *Serve) InitialConfig() error {
+func (s *serve) InitialConfig() error {
 	if len(os.Getenv("LISTENER_ADDRESS")) > 0 {
 		logPrintf("Requesting services from Docker Flow Swarm Listener")
 		addr := os.Getenv("LISTENER_ADDRESS")
@@ -115,7 +117,9 @@ func (s *Serve) InitialConfig() error {
 			addr = fmt.Sprintf("http://%s:8080", addr)
 		}
 		addr = fmt.Sprintf("%s/v1/docker-flow-swarm-listener/get-services", addr)
-		resp, err := http.Get(addr)
+		timeout := time.Duration(listenerTimeout)
+		client := http.Client{Timeout: timeout}
+		resp, err := client.Get(addr)
 		if err != nil {
 			return err
 		}
@@ -125,15 +129,15 @@ func (s *Serve) InitialConfig() error {
 		json.Unmarshal(body, &data)
 		for _, row := range data {
 			if scrape, err := s.getScrapeFromMap(row); err == nil {
-				s.Scrapes[scrape.ServiceName] = scrape
+				s.scrapes[scrape.ServiceName] = scrape
 			}
 			if alert, err := s.getAlertFromMap(row, ""); err == nil {
-				s.Alerts[alert.AlertNameFormatted] = alert
+				s.alerts[alert.AlertNameFormatted] = alert
 			}
 			for i := 1; i <= 10; i++ {
 				suffix := fmt.Sprintf(".%d", i)
 				if alert, err := s.getAlertFromMap(row, suffix); err == nil {
-					s.Alerts[alert.AlertNameFormatted] = alert
+					s.alerts[alert.AlertNameFormatted] = alert
 				} else {
 					break
 				}
@@ -147,14 +151,14 @@ func (s *Serve) InitialConfig() error {
 				return err
 			}
 			for _, row := range scrape {
-				s.Scrapes[row.ServiceName] = row
+				s.scrapes[row.ServiceName] = row
 			}
 		}
 	}
 	return nil
 }
 
-func (s *Serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, error) {
+func (s *serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, error) {
 	scrape := prometheus.Scrape{}
 	if port, err := strconv.Atoi(data["scrapePort"]); err == nil {
 		scrape.ScrapePort = port
@@ -168,7 +172,7 @@ func (s *Serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, err
 	return prometheus.Scrape{}, fmt.Errorf("Not a valid scrape")
 }
 
-func (s *Serve) getAlertFromMap(data map[string]string, suffix string) (prometheus.Alert, error) {
+func (s *serve) getAlertFromMap(data map[string]string, suffix string) (prometheus.Alert, error) {
 	if _, ok := data["alertName"+suffix]; ok {
 		alert := prometheus.Alert{}
 		alert.AlertAnnotations = s.getMapFromString(data["alertAnnotations"+suffix])
@@ -185,7 +189,7 @@ func (s *Serve) getAlertFromMap(data map[string]string, suffix string) (promethe
 	return prometheus.Alert{}, fmt.Errorf("Not a valid alert")
 }
 
-func (s *Serve) getMapFromString(value string) map[string]string {
+func (s *serve) getMapFromString(value string) map[string]string {
 	mappedValue := map[string]string{}
 	if len(value) > 0 {
 		for _, label := range strings.Split(value, ",") {
@@ -196,7 +200,7 @@ func (s *Serve) getMapFromString(value string) map[string]string {
 	return mappedValue
 }
 
-func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
+func (s *serve) getAlerts(req *http.Request) []prometheus.Alert {
 	alerts := []prometheus.Alert{}
 	alertDecode := prometheus.Alert{}
 	decoder.Decode(&alertDecode, req.Form)
@@ -204,7 +208,7 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 		alertDecode.AlertAnnotations = s.getMapFromString(req.URL.Query().Get("alertAnnotations"))
 		alertDecode.AlertLabels = s.getMapFromString(req.URL.Query().Get("alertLabels"))
 		s.formatAlert(&alertDecode)
-		s.Alerts[alertDecode.AlertNameFormatted] = alertDecode
+		s.alerts[alertDecode.AlertNameFormatted] = alertDecode
 		alerts = append(alerts, alertDecode)
 		logPrintf("Adding alert %s for the service %s\n", alertDecode.AlertName, alertDecode.ServiceName, alertDecode)
 	}
@@ -224,7 +228,7 @@ func (s *Serve) getAlerts(req *http.Request) []prometheus.Alert {
 		if !s.isValidAlert(&alert) {
 			break
 		}
-		s.Alerts[alert.AlertNameFormatted] = alert
+		s.alerts[alert.AlertNameFormatted] = alert
 		logPrintf("Adding alert %s for the service %s\n", alert.AlertName, alert.ServiceName, alert)
 		alerts = append(alerts, alert)
 	}
@@ -272,7 +276,7 @@ var alertIfShortcutData = []alertIfShortcut{
 	},
 }
 
-func (s *Serve) formatAlert(alert *prometheus.Alert) {
+func (s *serve) formatAlert(alert *prometheus.Alert) {
 	alert.AlertNameFormatted = s.getNameFormatted(fmt.Sprintf("%s%s", alert.ServiceName, alert.AlertName))
 	if strings.HasPrefix(alert.AlertIf, "@") {
 		for _, data := range alertIfShortcutData {
@@ -297,7 +301,7 @@ func (s *Serve) formatAlert(alert *prometheus.Alert) {
 }
 
 // TODO: Change to template
-func (s *Serve) replaceTags(tag, serviceName, value string) string {
+func (s *serve) replaceTags(tag, serviceName, value string) string {
 	replaced := strings.Replace(tag, "[SERVICE_NAME]", serviceName, -1)
 	replaced = strings.Replace(replaced, "[VALUE]", value, -1)
 	values := strings.Split(value, ",")
@@ -308,42 +312,42 @@ func (s *Serve) replaceTags(tag, serviceName, value string) string {
 	return replaced
 }
 
-func (s *Serve) isValidAlert(alert *prometheus.Alert) bool {
+func (s *serve) isValidAlert(alert *prometheus.Alert) bool {
 	return len(alert.AlertName) > 0 && len(alert.AlertIf) > 0
 }
 
-func (s *Serve) deleteAlerts(serviceName string) []prometheus.Alert {
+func (s *serve) deleteAlerts(serviceName string) []prometheus.Alert {
 	alerts := []prometheus.Alert{}
 	serviceNameFormatted := s.getNameFormatted(serviceName)
-	for k, v := range s.Alerts {
+	for k, v := range s.alerts {
 		if strings.HasPrefix(k, serviceNameFormatted) {
 			alerts = append(alerts, v)
-			delete(s.Alerts, k)
+			delete(s.alerts, k)
 		}
 	}
 	return alerts
 }
 
-func (s *Serve) getNameFormatted(name string) string {
+func (s *serve) getNameFormatted(name string) string {
 	value := strings.Replace(name, "-", "", -1)
 	return strings.Replace(value, "_", "", -1)
 }
 
-func (s *Serve) getScrape(req *http.Request) prometheus.Scrape {
+func (s *serve) getScrape(req *http.Request) prometheus.Scrape {
 	scrape := prometheus.Scrape{}
 	decoder.Decode(&scrape, req.Form)
 	if s.isValidScrape(&scrape) {
-		s.Scrapes[scrape.ServiceName] = scrape
+		s.scrapes[scrape.ServiceName] = scrape
 		logPrintf("Adding scrape %s\n%v", scrape.ServiceName, scrape)
 	}
 	return scrape
 }
 
-func (s *Serve) isValidScrape(scrape *prometheus.Scrape) bool {
+func (s *serve) isValidScrape(scrape *prometheus.Scrape) bool {
 	return len(scrape.ServiceName) > 0 && scrape.ScrapePort > 0
 }
 
-func (s *Serve) getResponse(alerts *[]prometheus.Alert, scrape *prometheus.Scrape, err error, statusCode int) Response {
+func (s *serve) getResponse(alerts *[]prometheus.Alert, scrape *prometheus.Scrape, err error, statusCode int) Response {
 	resp := Response{
 		Status: statusCode,
 		Alerts: *alerts,
@@ -356,7 +360,7 @@ func (s *Serve) getResponse(alerts *[]prometheus.Alert, scrape *prometheus.Scrap
 	return resp
 }
 
-func (s *Serve) getScrapeVariablesFromEnv() map[string]string {
+func (s *serve) getScrapeVariablesFromEnv() map[string]string {
 	scrapeVariablesPrefix := []string{
 		SCRAPE_PORT,
 		SERVICE_NAME,
@@ -364,7 +368,7 @@ func (s *Serve) getScrapeVariablesFromEnv() map[string]string {
 
 	scrapesVariables := map[string]string{}
 	for _, e := range os.Environ() {
-		if key, value := prometheus.GetScrapeFromEnv(e, scrapeVariablesPrefix); len(key) > 0 {
+		if key, value := GetScrapeFromEnv(e, scrapeVariablesPrefix); len(key) > 0 {
 			scrapesVariables[key] = value
 		}
 	}
@@ -372,7 +376,7 @@ func (s *Serve) getScrapeVariablesFromEnv() map[string]string {
 	return scrapesVariables
 }
 
-func (s *Serve) parseScrapeFromEnvMap(data map[string]string) ([]prometheus.Scrape, error) {
+func (s *serve) parseScrapeFromEnvMap(data map[string]string) ([]prometheus.Scrape, error) {
 	count := len(data) / 2
 
 	// If an odd number was find in the environment variables it means it is missing variables

@@ -15,12 +15,12 @@ func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
 	sc := getScrapeConfig(scrapes)
 	ruleFiles := ""
 	if len(alerts) > 0 {
-		LogPrintf("Writing to alert.rules")
+		logPrintf("Writing to alert.rules")
 		ruleFiles = "\nrule_files:\n  - 'alert.rules'\n"
 		afero.WriteFile(FS, "/etc/prometheus/alert.rules", []byte(GetAlertConfig(alerts)), 0644)
 	}
 	config := gc + "\n" + sc + ruleFiles
-	LogPrintf("Writing to prometheus.yml")
+	logPrintf("Writing to prometheus.yml")
 	afero.WriteFile(FS, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }
 

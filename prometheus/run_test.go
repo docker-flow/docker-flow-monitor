@@ -16,9 +16,9 @@ func (s *RunTestSuite) SetupTest() {
 
 func TestRunUnitTestSuite(t *testing.T) {
 	s := new(RunTestSuite)
-	logPrintlnOrig := LogPrintf
-	defer func() { LogPrintf = logPrintlnOrig }()
-	LogPrintf = func(format string, v ...interface{}) {}
+	logPrintlnOrig := logPrintf
+	defer func() { logPrintf = logPrintlnOrig }()
+	logPrintf = func(format string, v ...interface{}) {}
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
 	os.Setenv("ARG_CONFIG_FILE", "/etc/prometheus/prometheus.yml")
 	os.Setenv("ARG_STORAGE_LOCAL_PATH", "/prometheus")

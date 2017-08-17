@@ -7,9 +7,10 @@ import (
 	"strings"
 )
 
-var LogPrintf = log.Printf
+// FS defines file system used to read and write configuration files
 var FS = afero.NewOsFs()
 
+var logPrintf = log.Printf
 func getArgFromEnv(env, prefix string) (key, value string) {
 	if strings.HasPrefix(env, prefix+"_") {
 		values := strings.Split(env, "=")
@@ -21,19 +22,7 @@ func getArgFromEnv(env, prefix string) (key, value string) {
 	return key, value
 }
 
-func GetScrapeFromEnv(env string, prefix []string) (key, value string) {
-	for _, p := range prefix {
-		if strings.HasPrefix(env, p+"_") {
-			values := strings.Split(env, "=")
-			key = values[0]
-			value = values[1]
-		}
-	}
-
-	return key, value
-}
-
 var cmdRun = func(cmd *exec.Cmd) error {
-	LogPrintf(strings.Join(cmd.Args, " "))
+	logPrintf(strings.Join(cmd.Args, " "))
 	return cmd.Run()
 }

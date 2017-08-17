@@ -9,7 +9,7 @@ import (
 
 // Run starts `prometheus` process
 func Run() error {
-	LogPrintf("Starting Prometheus")
+	logPrintf("Starting Prometheus")
 	cmdString := "prometheus"
 	for _, e := range os.Environ() {
 		if key, value := getArgFromEnv(e, "ARG"); len(key) > 0 {

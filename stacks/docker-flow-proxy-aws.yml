@@ -1,0 +1,51 @@
+version: "3"
+
+services:
+
+  proxy:
+    image: vfarcic/docker-flow-proxy:${TAG:-latest}
+    ports:
+      - 80:80
+      - 443:443
+    networks:
+      - proxy
+    environment:
+      - LISTENER_ADDRESS=swarm-listener
+      - MODE=swarm
+      - CONNECTION_MODE=${CONNECTION_MODE:-http-server-close}
+      - STATS_USER=admin
+      - STATS_PASS=admin
+    secrets:
+      - dfp_users_vfarcic
+    deploy:
+      resources:
+        reservations:
+          memory: 10M
+        limits:
+          memory: 20M
+
+  swarm-listener:
+    image: vfarcic/docker-flow-swarm-listener
+    networks:
+      - proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DF_NOTIFY_CREATE_SERVICE_URL=http://proxy:8080/v1/docker-flow-proxy/reconfigure
+      - DF_NOTIFY_REMOVE_SERVICE_URL=http://proxy:8080/v1/docker-flow-proxy/remove
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        reservations:
+          memory: 5M
+        limits:
+          memory: 10M
+
+networks:
+  proxy:
+    external: true
+
+secrets:
+  dfp_users_vfarcic:
+    external: true

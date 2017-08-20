@@ -8,9 +8,12 @@ services:
       - proxy
       - monitor
     environment:
+      - ARG_STORAGE_LOCAL_PATH=/data
       - ARG_WEB_EXTERNAL-URL=http://prometheus.dockerflow.com
       - LISTENER_ADDRESS=swarm-listener
       - ARG_ALERTMANAGER_URL=http://alert-manager:9093
+    volumes:
+      - prom:/data
     deploy:
       labels:
         - com.df.notify=true
@@ -144,3 +147,7 @@ secrets:
   alert_manager_config:
     external: true
 
+volumes:
+  prom:
+    driver: cloudstor:aws
+    external: false

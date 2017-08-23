@@ -1,6 +1,6 @@
 # Auto-Scaling Services Using Instrumented Metrics
 
-Docker Swarm provides a solid mechanism that, among other things, makes sure that the specified number of replicas of a service is (almost) always running inside a cluster. It is performing self-healing out-of-the-box. However, that is often not enough. We need the system to adapt to change conditions. We'll call this process self-adaptation.
+Docker Swarm provides a solid mechanism that, among other things, makes sure that the specified number of replicas of a service is (almost) always running inside a cluster. It is performing self-healing out-of-the-box. However, that is often not enough. We need the system to adapt to changed conditions. We'll call this process self-adaptation.
 
 In this tutorial, we'll go through one possible setup that allows self-adaptation of services based on their response time. That does not mean that response time metrics are the only ones we should use. Quite the contrary. However, we need to limit the scope of this tutorial and response times are probably one of the most commonly used metrics when applying self-adaptation.
 
@@ -13,6 +13,8 @@ The tools we'll use to setup a self-adaptive system are as follows.
 * [Docker Flow Proxy](http://proxy.dockerflow.com/): It extends HAProxy with capability to auto-configure itself.
 * [Docker Flow Swarm Listener](http://swarmlistener.dockerflow.com/): Listens to Swarm events and sends notifications when a service is created or updated. We'll use it to send notifications to *Docker Flow Monitor* and *Docker Flow Proxy*.
 * [go-demo](https://github.com/vfarcic/go-demo): A demo service.
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/eThDk8Jz598" frameborder="0" allowfullscreen></iframe>
 
 The examples that follow assume that you have Docker Machine version v0.8+ that includes Docker Engine v1.12+.
 
@@ -446,7 +448,7 @@ docker-machine rm -f swarm-1 swarm-2 swarm-3
 
 ## The DevOps 2.2 Toolkit: Self-Healing Docker Clusters
 
-The article you just read uses some of the concepts and exercises described in [The DevOps 2.2 Toolkit: Self-Healing Docker Clusters](https://leanpub.com/the-devops-2-2-toolkit).
+The tutorial you just read uses some of the concepts and exercises described in [The DevOps 2.2 Toolkit: Self-Healing Docker Clusters](https://leanpub.com/the-devops-2-2-toolkit).
 
 <a href="https://leanpub.com/the-devops-2-2-toolkit"><img src="https://technologyconversations.files.wordpress.com/2017/06/cover-small1.jpg?w=249" alt="" width="249" height="300" class="alignright size-medium wp-image-3563" /></a>If you liked this article, you might be interested in **[The DevOps 2.2 Toolkit: Self-Healing Docker Clusters](https://leanpub.com/the-devops-2-2-toolkit)** book. The book goes beyond Docker and schedulers and tries to explore ways for building self-adaptive and self-healing Docker clusters. If you are a Docker user and want to explore advanced techniques for creating clusters and managing services, this book might be just what you're looking for.
 

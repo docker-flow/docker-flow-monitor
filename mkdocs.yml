@@ -1,7 +1,9 @@
 site_name: Docker Flow Monitor
 pages:
   - Home: index.md
-  - Tutorial: tutorial.md
+  - Tutorial:
+    - Running Docker Flow Monitor: tutorial.md
+    - Auto-Scaling Services Using Instrumented Metrics: auto-scaling.md
   - Configuration: config.md
   - Usage: usage.md
   - About:

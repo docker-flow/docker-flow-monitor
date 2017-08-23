@@ -18,10 +18,10 @@ services:
       - monitor
     deploy:
       labels:
-        - com.df.usersPassEncrypted=false
-        - com.df.usersSecret=vfarcic
         - com.df.notify=true
         - com.df.distribute=true
+        - com.df.usersPassEncrypted=false
+        - com.df.usersSecret=vfarcic
         - com.df.servicePath=/monitor
         - com.df.serviceDomain=${DOMAIN:-localhost}
         - com.df.port=9090

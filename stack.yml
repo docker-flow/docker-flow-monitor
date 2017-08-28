@@ -111,6 +111,7 @@ services:
       - monitor
     environment:
       - HOST_HOSTNAME=/etc/host_hostname
+      - LOGSPOUT=ignore
     volumes:
       - /proc:/host/proc
       - /sys:/host/sys
@@ -132,9 +133,9 @@ services:
         - com.df.alertFor.3=30s
       resources:
         reservations:
-          memory: 20M
+          memory: 30M
         limits:
-          memory: 40M
+          memory: 50M
     command: '-collector.procfs /host/proc -collector.sysfs /host/sys -collector.filesystem.ignored-mount-points "^/(sys|proc|dev|host|etc)($$|/)" -collector.textfile.directory /etc/node-exporter/ -collectors.enabled="conntrack,diskstats,entropy,filefd,filesystem,loadavg,mdadm,meminfo,netdev,netstat,stat,textfile,time,vmstat,ipvs"'
 
 networks:

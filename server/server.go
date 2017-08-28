@@ -26,7 +26,7 @@ type serve struct {
 	alerts  map[string]prometheus.Alert
 }
 
-type Response struct {
+type response struct {
 	Status  int
 	Message string
 	Alerts  []prometheus.Alert
@@ -35,9 +35,10 @@ type Response struct {
 
 var httpListenAndServe = http.ListenAndServe
 
-const SCRAPE_PORT = "SCRAPE_PORT"
-const SERVICE_NAME = "SERVICE_NAME"
+const scrapePort = "SCRAPE_PORT"
+const serviceName = "SERVICE_NAME"
 
+// New returns instance of the `serve` structure
 var New = func() *serve {
 	return &serve{
 		alerts:  make(map[string]prometheus.Alert),
@@ -347,8 +348,8 @@ func (s *serve) isValidScrape(scrape *prometheus.Scrape) bool {
 	return len(scrape.ServiceName) > 0 && scrape.ScrapePort > 0
 }
 
-func (s *serve) getResponse(alerts *[]prometheus.Alert, scrape *prometheus.Scrape, err error, statusCode int) Response {
-	resp := Response{
+func (s *serve) getResponse(alerts *[]prometheus.Alert, scrape *prometheus.Scrape, err error, statusCode int) response {
+	resp := response{
 		Status: statusCode,
 		Alerts: *alerts,
 		Scrape: *scrape,
@@ -362,8 +363,8 @@ func (s *serve) getResponse(alerts *[]prometheus.Alert, scrape *prometheus.Scrap
 
 func (s *serve) getScrapeVariablesFromEnv() map[string]string {
 	scrapeVariablesPrefix := []string{
-		SCRAPE_PORT,
-		SERVICE_NAME,
+		scrapePort,
+		serviceName,
 	}
 
 	scrapesVariables := map[string]string{}
@@ -389,15 +390,15 @@ func (s *serve) parseScrapeFromEnvMap(data map[string]string) ([]prometheus.Scra
 	for i := 1; i <= count; i++ {
 
 		index := strconv.Itoa(i)
-		if len(data[SERVICE_NAME+"_"+index]) > 0 && len(data[SCRAPE_PORT+"_"+index]) > 0 {
-			scrapePort, err := strconv.Atoi(data[SCRAPE_PORT+"_"+index])
+		if len(data[serviceName +"_"+index]) > 0 && len(data[scrapePort +"_"+index]) > 0 {
+			scrapePort, err := strconv.Atoi(data[scrapePort +"_"+index])
 			if err != nil {
 				return []prometheus.Scrape{}, err
 			}
 
 			scrapeFromEnv = append(scrapeFromEnv, prometheus.Scrape{
 				ScrapePort:  scrapePort,
-				ServiceName: data[SERVICE_NAME+"_"+index],
+				ServiceName: data[serviceName +"_"+index],
 				ScrapeType:  "static_configs",
 			})
 		}

@@ -1,4 +1,4 @@
-# Auto-Scaling Services Using Instrumented Metrics
+# Auto-Scaling Docker Swarm Services Using Instrumented Metrics
 
 Docker Swarm provides a solid mechanism that, among other things, makes sure that the specified number of replicas of a service is (almost) always running inside a cluster. It is performing self-healing out-of-the-box. However, that is often not enough. We need the system to adapt to changed conditions. We'll call this process self-adaptation.
 

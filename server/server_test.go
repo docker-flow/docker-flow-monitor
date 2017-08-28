@@ -442,7 +442,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
 	prometheus.Reload = func() error {
 		return nil
 	}
-	expected := Response{
+	expected := response{
 		Status: http.StatusOK,
 		Alerts: []prometheus.Alert{{
 			ServiceName:        "my-service",
@@ -456,7 +456,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
 			ScrapePort:  1234,
 		},
 	}
-	actual := Response{}
+	actual := response{}
 	rwMock := ResponseWriterMock{
 		WriteMock: func(content []byte) (int, error) {
 			json.Unmarshal(content, &actual)
@@ -527,7 +527,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_SendsReloadRequestToPrometheus
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsNokWhenPrometheusReloadFails() {
-	actualResponse := Response{}
+	actualResponse := response{}
 	rwMock := ResponseWriterMock{
 		WriteMock: func(content []byte) (int, error) {
 			json.Unmarshal(content, &actualResponse)
@@ -544,7 +544,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsNokWhenPrometheusReload
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsStatusCodeFromPrometheus() {
-	actualResponse := Response{}
+	actualResponse := response{}
 	actualStatus := 0
 	rwMock := ResponseWriterMock{
 		WriteMock: func(content []byte) (int, error) {
@@ -650,7 +650,7 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
 	prometheus.Reload = func() error {
 		return nil
 	}
-	expected := Response{
+	expected := response{
 		Status: http.StatusOK,
 		Alerts: []prometheus.Alert{
 			{ServiceName: "my-service", AlertName: "my-alert"},
@@ -660,7 +660,7 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
 			ScrapePort:  1234,
 		},
 	}
-	actual := Response{}
+	actual := response{}
 	rwMock := ResponseWriterMock{
 		WriteMock: func(content []byte) (int, error) {
 			json.Unmarshal(content, &actual)
@@ -739,7 +739,7 @@ func (s *ServerTestSuite) Test_RemoveHandler_SendsReloadRequestToPrometheus() {
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_ReturnsNokWhenPrometheusReloadFails() {
-	actualResponse := Response{}
+	actualResponse := response{}
 	rwMock := ResponseWriterMock{
 		WriteMock: func(content []byte) (int, error) {
 			json.Unmarshal(content, &actualResponse)
@@ -756,7 +756,7 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsNokWhenPrometheusReloadFails
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_ReturnsStatusCodeFromPrometheus() {
-	actualResponse := Response{}
+	actualResponse := response{}
 	actualStatus := 0
 	rwMock := ResponseWriterMock{
 		WriteMock: func(content []byte) (int, error) {

@@ -14,4 +14,3 @@ func GetScrapeFromEnv(env string, prefix []string) (key, value string) {
 	}
 	return key, value
 }
-

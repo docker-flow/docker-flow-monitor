@@ -11,6 +11,7 @@ import (
 var FS = afero.NewOsFs()
 
 var logPrintf = log.Printf
+
 func getArgFromEnv(env, prefix string) (key, value string) {
 	if strings.HasPrefix(env, prefix+"_") {
 		values := strings.Split(env, "=")

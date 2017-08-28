@@ -4,3 +4,4 @@
 /alertmanager.yml
 /tmp
 /*.pem
+/secret

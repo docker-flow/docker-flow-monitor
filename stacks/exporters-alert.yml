@@ -16,7 +16,7 @@ services:
           memory: 20M
         limits:
           memory: 50M
-    command: -haproxy.scrape-uri="http://admin:admin@proxy/admin?stats;csv"
+    command: --haproxy.scrape-uri="http://admin:admin@proxy/admin?stats;csv"
 
   cadvisor:
     image: google/cadvisor:${CADVISOR_TAG:-latest}

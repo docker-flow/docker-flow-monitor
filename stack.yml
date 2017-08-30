@@ -123,14 +123,11 @@ services:
         - com.df.notify=true
         - com.df.scrapePort=9100
         - com.df.alertName.1=memload
-        - com.df.alertIf.1=@node_mem_limit:0.8
+        - com.df.alertIf.1=@node_mem_limit:0.9
         - com.df.alertFor.1=30s
-        - com.df.alertName.2=diskload
-        - com.df.alertIf.2=@node_fs_limit:0.8
+        - com.df.alertName.2=memlimit
+        - com.df.alertIf.2=@service_mem_limit:0.8
         - com.df.alertFor.2=30s
-        - com.df.alertName.3=memlimit
-        - com.df.alertIf.3=@service_mem_limit:0.8
-        - com.df.alertFor.3=30s
       resources:
         reservations:
           memory: 30M

@@ -1,4 +1,4 @@
-version: "3"
+version: "3.2"
 
 services:
 
@@ -16,7 +16,7 @@ services:
       - STATS_USER=admin
       - STATS_PASS=admin
     secrets:
-      - dfp_users_vfarcic
+      - dfp_users_admin
     deploy:
       resources:
         reservations:
@@ -47,5 +47,5 @@ networks:
     external: true
 
 secrets:
-  dfp_users_vfarcic:
+  dfp_users_admin:
     external: true

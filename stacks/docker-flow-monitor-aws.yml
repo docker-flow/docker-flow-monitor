@@ -1,4 +1,4 @@
-version: "3.1"
+version: "3.2"
 
 services:
 
@@ -21,7 +21,7 @@ services:
         - com.df.notify=true
         - com.df.distribute=true
         - com.df.usersPassEncrypted=false
-        - com.df.usersSecret=vfarcic
+        - com.df.usersSecret=admin
         - com.df.servicePath=/monitor
         - com.df.serviceDomain=${DOMAIN:-localhost}
         - com.df.port=9090

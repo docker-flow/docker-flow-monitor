@@ -2,8 +2,11 @@
 
 set -e
 
+echo "admin:admin" | docker secret \
+    create dfp_users_admin -
+
 curl -o proxy.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-proxy-mem.yml
+    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-proxy-aws.yml
 
 docker network create -d overlay proxy
 
@@ -19,7 +22,7 @@ docker stack deploy -c exporters.yml \
     exporter
 
 curl -o monitor.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-monitor-slack.yml
+    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-monitor-aws.yml
 
 echo "route:
   group_by: [service,scale]
@@ -54,11 +57,11 @@ receivers:
         url: 'http://$CLUSTER_DNS/jenkins/job/service-scale/buildWithParameters?token=DevOps22&service=go-demo_main&scale=-1'
 " | docker secret create alert_manager_config -
 
-docker stack deploy -c monitor.yml \
-    monitor
+DOMAIN=$CLUSTER_DNS docker stack \
+    deploy -c monitor.yml monitor
 
 curl -o jenkins.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/jenkins-scale.yml
+    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/jenkins-aws.yml
 
 echo "admin" | \
     docker secret create jenkins-user -

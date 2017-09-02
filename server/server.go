@@ -369,7 +369,7 @@ func (s *serve) getScrapeVariablesFromEnv() map[string]string {
 
 	scrapesVariables := map[string]string{}
 	for _, e := range os.Environ() {
-		if key, value := GetScrapeFromEnv(e, scrapeVariablesPrefix); len(key) > 0 {
+		if key, value := getScrapeFromEnv(e, scrapeVariablesPrefix); len(key) > 0 {
 			scrapesVariables[key] = value
 		}
 	}
@@ -390,15 +390,15 @@ func (s *serve) parseScrapeFromEnvMap(data map[string]string) ([]prometheus.Scra
 	for i := 1; i <= count; i++ {
 
 		index := strconv.Itoa(i)
-		if len(data[serviceName +"_"+index]) > 0 && len(data[scrapePort +"_"+index]) > 0 {
-			scrapePort, err := strconv.Atoi(data[scrapePort +"_"+index])
+		if len(data[serviceName+"_"+index]) > 0 && len(data[scrapePort+"_"+index]) > 0 {
+			scrapePort, err := strconv.Atoi(data[scrapePort+"_"+index])
 			if err != nil {
 				return []prometheus.Scrape{}, err
 			}
 
 			scrapeFromEnv = append(scrapeFromEnv, prometheus.Scrape{
 				ScrapePort:  scrapePort,
-				ServiceName: data[serviceName +"_"+index],
+				ServiceName: data[serviceName+"_"+index],
 				ScrapeType:  "static_configs",
 			})
 		}

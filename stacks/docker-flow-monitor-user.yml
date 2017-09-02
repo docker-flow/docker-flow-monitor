@@ -1,4 +1,4 @@
-version: "3.1"
+version: "3.2"
 
 services:
 
@@ -16,7 +16,7 @@ services:
     deploy:
       labels:
         - com.df.usersPassEncrypted=false
-        - com.df.usersSecret=vfarcic
+        - com.df.usersSecret=admin
         - com.df.notify=true
         - com.df.distribute=true
         - com.df.servicePath=/monitor

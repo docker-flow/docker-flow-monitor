@@ -51,8 +51,6 @@ services:
       - CERTBOT_EMAIL=${EMAIL}
       - PROXY_ADDRESS=proxy
       - CERTBOT_CRON_RENEW=("0 3 * * *" "0 15 * * *")
-    volumes:
-      - lets-encrypt:/etc/letsencrypt
     deploy:
       labels:
         - com.df.servicePath=/.well-known/acme-challenge
@@ -72,8 +70,3 @@ networks:
 secrets:
   dfp_users_admin:
     external: true
-
-volumes:
-  lets-encrypt:
-    driver: cloudstor:aws
-    external: false

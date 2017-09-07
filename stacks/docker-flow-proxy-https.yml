@@ -1,4 +1,4 @@
-version: "3.2"
+version: "3"
 
 services:
 
@@ -15,8 +15,6 @@ services:
       - CONNECTION_MODE=${CONNECTION_MODE:-http-server-close}
       - STATS_USER=admin
       - STATS_PASS=admin
-    secrets:
-      - dfp_users_admin
     deploy:
       resources:
         reservations:
@@ -51,8 +49,6 @@ services:
       - CERTBOT_EMAIL=${EMAIL}
       - PROXY_ADDRESS=proxy
       - CERTBOT_CRON_RENEW=("0 3 * * *" "0 15 * * *")
-    volumes:
-      - lets-encrypt:/etc/letsencrypt
     deploy:
       labels:
         - com.df.servicePath=/.well-known/acme-challenge
@@ -69,11 +65,3 @@ networks:
   proxy:
     external: true
 
-secrets:
-  dfp_users_admin:
-    external: true
-
-volumes:
-  lets-encrypt:
-    driver: cloudstor:aws
-    external: false

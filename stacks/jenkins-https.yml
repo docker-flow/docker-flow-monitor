@@ -11,8 +11,6 @@ services:
     networks:
       - proxy
       - default
-    volumes:
-      - master:/var/jenkins_home
     deploy:
       labels:
         - com.df.notify=true
@@ -67,8 +65,3 @@ secrets:
     external: true
   jenkins-pass:
     external: true
-
-volumes:
-  master:
-    driver: cloudstor:aws
-    external: false

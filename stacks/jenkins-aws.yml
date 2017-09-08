@@ -1,4 +1,4 @@
-version: '3.1'
+version: "3.2"
 
 services:
 
@@ -22,7 +22,6 @@ services:
         - com.df.alertName=memlimit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=30s
-        - com.df.httpsOnly=true
       resources:
         reservations:
           memory: 600M
@@ -39,7 +38,7 @@ services:
     environment:
       - USER_NAME_SECRET=/run/secrets/${JENKINS_USER_SECRET:-jenkins-user}
       - PASSWORD_SECRET=/run/secrets/${JENKINS_PASS_SECRET:-jenkins-pass}
-      - COMMAND_OPTIONS=-master http://master:8080/jenkins -labels 'prod' -executors 4
+      - COMMAND_OPTIONS=-master http://master:8080/jenkins -labels "prod" -executors 4
     networks:
       - default
     volumes:

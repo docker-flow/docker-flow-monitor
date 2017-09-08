@@ -1,4 +1,4 @@
-version: "3.1"
+version: "3.3"
 
 services:
 
@@ -27,7 +27,7 @@ services:
         constraints: [node.role == worker]
 
   logstash:
-    image: vfarcic/logstash:5.5.2
+    image: docker.elastic.co/logstash/logstash:5.5.2
     networks:
       - default
     deploy:
@@ -43,8 +43,12 @@ services:
           memory: 600M
         limits:
           memory: 1000M
+    configs:
+      - logstash.conf
     environment:
       - LOGSPOUT=ignore
+    command:
+      - logstash -f /logstash.conf
 
   kibana:
     image: docker.elastic.co/kibana/kibana:5.5.2
@@ -60,7 +64,7 @@ services:
         - com.df.notify=true
         - com.df.distribute=true
         - com.df.usersPassEncrypted=false
-        - com.df.usersSecret=vfarcic
+        - com.df.usersSecret=admin
         - com.df.servicePath=/kibana
         - com.df.port=5601
         - com.df.alertName=memlimit
@@ -105,3 +109,7 @@ volumes:
   es:
     driver: cloudstor:aws
     external: false
+
+configs:
+  logstash.conf:
+    external: true

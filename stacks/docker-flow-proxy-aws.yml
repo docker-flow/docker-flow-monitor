@@ -42,29 +42,6 @@ services:
         limits:
           memory: 10M
 
-  letsencrypt:
-    image: hamburml/docker-flow-letsencrypt:latest
-    networks:
-      - proxy
-    environment:
-      - DOMAIN_1=("${CLUSTER_DNS}")
-      - CERTBOT_EMAIL=${EMAIL}
-      - PROXY_ADDRESS=proxy
-      - CERTBOT_CRON_RENEW=("0 3 * * *" "0 15 * * *")
-    volumes:
-      - lets-encrypt:/etc/letsencrypt
-    deploy:
-      labels:
-        - com.df.servicePath=/.well-known/acme-challenge
-        - com.df.notify=true
-        - com.df.distribute=true
-        - com.df.port=80
-      resources:
-        reservations:
-          memory: 20M
-        limits:
-          memory: 30M
-
 networks:
   proxy:
     external: true
@@ -72,8 +49,3 @@ networks:
 secrets:
   dfp_users_admin:
     external: true
-
-volumes:
-  lets-encrypt:
-    driver: cloudstor:aws
-    external: false

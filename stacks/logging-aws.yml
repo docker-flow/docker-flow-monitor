@@ -20,9 +20,9 @@ services:
         - com.df.alertFor=30s
       resources:
         reservations:
-          memory: 1500M
+          memory: 3000M
         limits:
-          memory: 1900M
+          memory: 3500M
       placement:
         constraints: [node.role == worker]
 
@@ -47,8 +47,7 @@ services:
       - logstash.conf
     environment:
       - LOGSPOUT=ignore
-    command:
-      - logstash -f /logstash.conf
+    command: logstash -f /logstash.conf
 
   kibana:
     image: docker.elastic.co/kibana/kibana:5.5.2
@@ -58,14 +57,13 @@ services:
     environment:
       - xpack.security.enabled=false
       - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - SERVER_BASEPATH=/kibana
     deploy:
       labels:
         - com.df.notify=true
         - com.df.distribute=true
         - com.df.usersPassEncrypted=false
         - com.df.usersSecret=admin
-        - com.df.servicePath=/kibana
+        - com.df.servicePath=/app,/elasticsearch,/api,/ui,/bundles,/plugins,/status,/es_admin
         - com.df.port=5601
         - com.df.alertName=memlimit
         - com.df.alertIf=@service_mem_limit:0.8

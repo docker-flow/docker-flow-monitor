@@ -24,9 +24,9 @@ services:
         - com.df.alertFor=30s
       resources:
         reservations:
-          memory: 600M
-        limits:
           memory: 800M
+        limits:
+          memory: 1000M
     extra_hosts:
       - "${SLACK_HOST:-devops20.slack.com}:${SLACK_IP:-54.192.78.227}"
     secrets:

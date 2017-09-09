@@ -3,12 +3,12 @@
 set -e
 
 curl -o proxy.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-proxy-user.yml
+    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-proxy-aws.yml
+
+docker network create -d overlay proxy
 
 echo "admin:admin" | docker secret \
     create dfp_users_admin -
-
-docker network create -d overlay proxy
 
 docker stack deploy -c proxy.yml \
     proxy
@@ -22,7 +22,7 @@ docker stack deploy -c exporters.yml \
     exporter
 
 curl -o monitor.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-monitor-user.yml
+    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-monitor-aws.yml
 
 echo "route:
   group_by: [service,scale]
@@ -61,7 +61,7 @@ DOMAIN=$CLUSTER_DNS docker stack deploy \
     -c monitor.yml monitor
 
 curl -o jenkins.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/jenkins-scale.yml
+    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/jenkins-aws.yml
 
 echo "admin" | \
     docker secret create jenkins-user -

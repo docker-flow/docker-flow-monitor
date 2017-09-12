@@ -70,9 +70,9 @@ services:
         - com.df.alertFor=30s
       resources:
         reservations:
-          memory: 150M
-        limits:
           memory: 300M
+        limits:
+          memory: 600M
 
   logspout:
     image: gliderlabs/logspout:v3.2.2

@@ -81,3 +81,21 @@ curl -o go-demo.yml \
 
 docker stack deploy -c go-demo.yml \
     go-demo
+
+#curl -o logging.yml \
+#    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/logging-aws.yml
+#
+#echo '
+#input {
+#  syslog { port => 51415 }
+#}
+#
+#output {
+#  elasticsearch {
+#    hosts => ["elasticsearch:9200"]
+#  }
+#}
+#' | docker config create logstash.conf -
+#
+#docker stack deploy -c logging.yml \
+#    logging

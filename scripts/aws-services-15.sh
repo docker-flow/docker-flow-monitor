@@ -2,10 +2,30 @@
 
 set -e
 
+docker network create -d overlay proxy
+
+docker network create -d overlay monitor
+
+curl -o logging.yml \
+    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/logging-aws.yml
+
+echo '
+input {
+  syslog { port => 51415 }
+}
+
+output {
+  elasticsearch {
+    hosts => ["elasticsearch:9200"]
+  }
+}
+' | docker config create logstash.conf -
+
+docker stack deploy -c logging.yml \
+    logging
+
 curl -o proxy.yml \
     https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-proxy-aws.yml
-
-docker network create -d overlay proxy
 
 echo "admin:admin" | docker secret \
     create dfp_users_admin -
@@ -15,8 +35,6 @@ docker stack deploy -c proxy.yml \
 
 curl -o exporters.yml \
     https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/exporters-alert.yml
-
-docker network create -d overlay monitor
 
 docker stack deploy -c exporters.yml \
     exporter
@@ -81,21 +99,3 @@ curl -o go-demo.yml \
 
 docker stack deploy -c go-demo.yml \
     go-demo
-
-#curl -o logging.yml \
-#    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/logging-aws.yml
-#
-#echo '
-#input {
-#  syslog { port => 51415 }
-#}
-#
-#output {
-#  elasticsearch {
-#    hosts => ["elasticsearch:9200"]
-#  }
-#}
-#' | docker config create logstash.conf -
-#
-#docker stack deploy -c logging.yml \
-#    logging

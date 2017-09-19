@@ -1,87 +1,22 @@
-version: "3.1"
+version: "3"
 
 services:
 
-  monitor:
-    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+  ha-proxy:
+    image: quay.io/prometheus/haproxy-exporter:${HA_PROXY_TAG:-latest}
     networks:
       - proxy
       - monitor
-    environment:
-      - ARG_STORAGE_LOCAL_PATH=/data
-      - ARG_WEB_EXTERNAL-URL=http://prometheus.dockerflow.com
-      - LISTENER_ADDRESS=swarm-listener
-      - ARG_ALERTMANAGER_URL=http://alert-manager:9093
-    volumes:
-      - prom:/data
     deploy:
       labels:
         - com.df.notify=true
-        - com.df.distribute=true
-        - com.df.serviceDomain=prometheus.dockerflow.com
-        - com.df.httpsOnly=true
-        - com.df.port=9090
-        - com.df.usersPassEncrypted=false
-        - com.df.usersSecret=vfarcic
-        - com.df.alertName=memlimit
-        - com.df.alertIf=@service_mem_limit:0.8
-        - com.df.alertFor=30s
+        - com.df.scrapePort=9101
       resources:
         reservations:
-          memory: 2500M
-        limits:
-          memory: 3500M
-
-  alert-manager:
-    image: prom/alertmanager
-    networks:
-      - monitor
-    secrets:
-      - alert_manager_config
-    command: -config.file=/run/secrets/alert_manager_config -storage.path=/alertmanager
-
-  swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
-    networks:
-      - monitor
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
-      - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove
-    deploy:
-      labels:
-        - com.df.alertName=memlimit
-        - com.df.alertIf=@service_mem_limit:0.8
-        - com.df.alertFor=30s
-      placement:
-        constraints: [node.role == manager]
-      resources:
-        reservations:
-          memory: 10M
-        limits:
           memory: 20M
-
-  docs:
-    image: vfarcic/docker-flow-monitor-docs:${TAG:-latest}
-    networks:
-      - proxy
-    deploy:
-      labels:
-        - com.df.distribute=true
-        - com.df.notify=true
-        - com.df.port=80
-        - com.df.serviceDomain=monitor.dockerflow.com
-        - com.df.servicePath=/
-        - com.df.alertName=memlimit
-        - com.df.alertIf=@service_mem_limit:0.8
-        - com.df.alertFor=30s
-      replicas: 2
-      resources:
-        reservations:
-          memory: 10M
         limits:
-          memory: 20M
+          memory: 50M
+    command: --haproxy.scrape-uri="http://admin:admin@proxy/admin?stats;csv"
 
   cadvisor:
     image: google/cadvisor:${CADVISOR_TAG:-latest}
@@ -97,14 +32,11 @@ services:
       labels:
         - com.df.notify=true
         - com.df.scrapePort=8080
-        - com.df.alertName=memlimit
-        - com.df.alertIf=@service_mem_limit:0.8
-        - com.df.alertFor=30s
       resources:
         reservations:
-          memory: 40M
+          memory: 30M
         limits:
-          memory: 80M
+          memory: 50M
 
   node-exporter-manager:
     image: basi/node-exporter:${NODE_EXPORTER_TAG:-v1.14.0}
@@ -177,12 +109,3 @@ networks:
     external: true
   proxy:
     external: true
-
-secrets:
-  alert_manager_config:
-    external: true
-
-volumes:
-  prom:
-    driver: cloudstor:aws
-    external: false

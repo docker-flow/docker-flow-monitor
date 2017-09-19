@@ -228,6 +228,11 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 			map[string]string{"summary": "Memory of a node is over 0.8"},
 			map[string]string{"receiver": "system", "service": "my-service"},
 		}, {
+			`(sum(node_memory_MemTotal{job="my-service"}) - sum(node_memory_MemFree{job="my-service"} + node_memory_Buffers{job="my-service"} + node_memory_Cached{job="my-service"})) / sum(node_memory_MemTotal{job="my-service"}) > 0.8`,
+			`@node_mem_limit_total:0.8`,
+			map[string]string{"summary": "Total memory of the nodes is over 0.8"},
+			map[string]string{"receiver": "system", "service": "my-service"},
+		}, {
 			`(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8`,
 			`@node_fs_limit:0.8`,
 			map[string]string{"summary": "Disk usage of a node is over 0.8"},

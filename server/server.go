@@ -255,6 +255,11 @@ var alertIfShortcutData = []alertIfShortcut{
 		annotations: map[string]string{"summary": "Memory of a node is over [VALUE]"},
 		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
 	}, {
+		expanded:    `(sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) - sum(node_memory_MemFree{job="[SERVICE_NAME]"} + node_memory_Buffers{job="[SERVICE_NAME]"} + node_memory_Cached{job="[SERVICE_NAME]"})) / sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) > [VALUE]`,
+		shortcut:    `@node_mem_limit_total:`,
+		annotations: map[string]string{"summary": "Total memory of the nodes is over [VALUE]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
+	}, {
 		expanded:    `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > [VALUE]`,
 		shortcut:    `@node_fs_limit:`,
 		annotations: map[string]string{"summary": "Disk usage of a node is over [VALUE]"},

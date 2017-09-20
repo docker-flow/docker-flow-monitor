@@ -283,7 +283,7 @@ var alertIfShortcutData = []alertIfShortcut{
 }
 
 func (s *serve) formatAlert(alert *prometheus.Alert) {
-	alert.AlertNameFormatted = s.getNameFormatted(fmt.Sprintf("%s%s", alert.ServiceName, alert.AlertName))
+	alert.AlertNameFormatted = s.getNameFormatted(fmt.Sprintf("%s_%s", alert.ServiceName, alert.AlertName))
 	if strings.HasPrefix(alert.AlertIf, "@") {
 		for _, data := range alertIfShortcutData {
 			if strings.HasPrefix(alert.AlertIf, data.shortcut) {
@@ -335,8 +335,7 @@ func (s *serve) deleteAlerts(serviceName string) []prometheus.Alert {
 }
 
 func (s *serve) getNameFormatted(name string) string {
-	value := strings.Replace(name, "-", "", -1)
-	return strings.Replace(value, "_", "", -1)
+	return strings.Replace(name, "-", "", -1)
 }
 
 func (s *serve) getScrape(req *http.Request) prometheus.Scrape {

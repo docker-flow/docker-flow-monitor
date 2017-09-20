@@ -15,7 +15,6 @@ pipeline {
           def dateFormat = new SimpleDateFormat("yy.MM.dd")
           currentBuild.displayName = dateFormat.format(new Date()) + "-" + env.BUILD_NUMBER
         }
-        checkout scm
         sh "docker image build -t vfarcic/docker-flow-monitor ."
         sh "docker image build -t vfarcic/docker-flow-monitor-docs -f Dockerfile.docs ."
       }

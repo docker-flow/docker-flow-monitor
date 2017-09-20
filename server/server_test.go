@@ -188,7 +188,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 		AlertName:          "my-alert",
 		AlertIf:            "a>b",
 		AlertFor:           "my-for",
-		AlertNameFormatted: "myservicemyalert",
+		AlertNameFormatted: "myservice_myalert",
 		AlertAnnotations:   map[string]string{"a1": "v1", "a2": "v2"},
 		AlertLabels:        map[string]string{"l1": "v1"},
 	}
@@ -261,7 +261,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 			AlertIf:            data.expected,
 			AlertLabels:        data.labels,
 			AlertName:          "my-alert",
-			AlertNameFormatted: "myservicemyalert",
+			AlertNameFormatted: "myservice_myalert",
 			ServiceName:        "my-service",
 		}
 		rwMock := ResponseWriterMock{}
@@ -287,7 +287,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {
 		AlertName:          "my-alert",
 		AlertIf:            "a>b",
 		AlertFor:           "my-for",
-		AlertNameFormatted: "myservicemyalert",
+		AlertNameFormatted: "myservice_myalert",
 		AlertAnnotations:   map[string]string{},
 		AlertLabels:        map[string]string{},
 	}
@@ -324,7 +324,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 			AlertName:          fmt.Sprintf("my-alert-%d", i),
 			AlertIf:            fmt.Sprintf("my-if-%d", i),
 			AlertFor:           fmt.Sprintf("my-for-%d", i),
-			AlertNameFormatted: fmt.Sprintf("myservicemyalert%d", i),
+			AlertNameFormatted: fmt.Sprintf("myservice_myalert%d", i),
 			AlertAnnotations:   map[string]string{"annotation": fmt.Sprintf("annotation-value-%d", i)},
 			AlertLabels:        map[string]string{"label": fmt.Sprintf("label-value-%d", i)},
 		})
@@ -422,13 +422,14 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
 		AlertName:          "my-alert",
 		AlertIf:            "my-if",
 		AlertFor:           "my-for",
-		AlertNameFormatted: "myalert",
+		AlertNameFormatted: "myservice_myalert",
 		AlertAnnotations:   map[string]string{},
 		AlertLabels:        map[string]string{},
+		ServiceName:        "my-service",
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?alertName=%s&alertIf=%s&alertFor=%s",
+		"/v1/docker-flow-monitor?alertName=%s&alertIf=%s&alertFor=%s&serviceName=my-service",
 		expected.AlertName,
 		expected.AlertIf,
 		expected.AlertFor,
@@ -438,7 +439,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.Equal(expected, serve.alerts["myalert"])
+	s.Equal(expected, serve.alerts["myservice_myalert"])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
@@ -454,7 +455,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
 			AlertName:          "myalert",
 			AlertIf:            "my-if",
 			AlertFor:           "my-for",
-			AlertNameFormatted: "myservicemyalert",
+			AlertNameFormatted: "myservice_myalert",
 		}},
 		Scrape: prometheus.Scrape{
 			ServiceName: "my-service",
@@ -919,7 +920,7 @@ func (s *ServerTestSuite) Test_InitialConfig_ReturnsError_WhenEnvVarsAreMissing(
 
 func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 	expected := map[string]prometheus.Alert{
-		"myservicealert1": {
+		"myservice_alert1": {
 			AlertAnnotations: map[string]string{},
 			AlertName:        "alert-1",
 			AlertIf:          "if-1",
@@ -929,18 +930,18 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 				"label-1-2": "value-1-2",
 			},
 			ServiceName:        "my-service",
-			AlertNameFormatted: "myservicealert1",
+			AlertNameFormatted: "myservice_alert1",
 		},
-		"myservicealert21": {
+		"myservice_alert21": {
 			AlertAnnotations:   map[string]string{},
 			AlertFor:           "for-21",
 			AlertIf:            "if-21",
 			AlertLabels:        map[string]string{},
 			AlertName:          "alert-21",
 			ServiceName:        "my-service",
-			AlertNameFormatted: "myservicealert21",
+			AlertNameFormatted: "myservice_alert21",
 		},
-		"myservicealert22": {
+		"myservice_alert22": {
 			AlertAnnotations: map[string]string{
 				"annotation-22-1": "value-22-1",
 				"annotation-22-2": "value-22-2",
@@ -950,7 +951,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 			AlertLabels:        map[string]string{},
 			AlertName:          "alert-22",
 			ServiceName:        "my-service",
-			AlertNameFormatted: "myservicealert22",
+			AlertNameFormatted: "myservice_alert22",
 		},
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

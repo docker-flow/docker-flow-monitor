@@ -15,7 +15,7 @@ services:
         - com.df.distribute=true
         - com.df.notify=true
         - com.df.port=80
-        - com.df.alertName=memlimit
+        - com.df.alertName=mem_limit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=30s
       resources:
@@ -35,7 +35,7 @@ services:
         - com.df.distribute=true
         - com.df.notify=true
         - com.df.port=80
-        - com.df.alertName=memlimit
+        - com.df.alertName=mem_limit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=30s
       resources:
@@ -65,7 +65,7 @@ services:
         - com.df.usersSecret=admin
         - com.df.servicePath=/app,/elasticsearch,/api,/ui,/bundles,/plugins,/status,/es_admin
         - com.df.port=5601
-        - com.df.alertName=memlimit
+        - com.df.alertName=mem_limit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=30s
       resources:
@@ -88,7 +88,7 @@ services:
       labels:
         - com.df.notify=true
         - com.df.distribute=true
-        - com.df.alertName=memlimit
+        - com.df.alertName=mem_limit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=30s
       resources:

@@ -23,7 +23,7 @@ services:
         - com.df.port=9090
         - com.df.usersPassEncrypted=false
         - com.df.usersSecret=vfarcic
-        - com.df.alertName=memlimit
+        - com.df.alertName=mem_limit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=30s
       resources:
@@ -51,7 +51,7 @@ services:
       - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove
     deploy:
       labels:
-        - com.df.alertName=memlimit
+        - com.df.alertName=mem_limit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=30s
       placement:
@@ -73,7 +73,7 @@ services:
         - com.df.port=80
         - com.df.serviceDomain=monitor.dockerflow.com
         - com.df.servicePath=/
-        - com.df.alertName=memlimit
+        - com.df.alertName=mem_limit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=30s
       replicas: 2
@@ -97,7 +97,7 @@ services:
       labels:
         - com.df.notify=true
         - com.df.scrapePort=8080
-        - com.df.alertName=memlimit
+        - com.df.alertName=mem_limit
         - com.df.alertIf=@service_mem_limit:0.8
         - com.df.alertFor=30s
       resources:
@@ -123,12 +123,15 @@ services:
       labels:
         - com.df.notify=true
         - com.df.scrapePort=9100
-        - com.df.alertName.1=nodememlimit
-        - com.df.alertIf.1=@node_mem_limit:0.9
+        - com.df.alertName.1=mem_limit_manager
+        - com.df.alertIf.1=@node_mem_limit:0.8
         - com.df.alertFor.1=30s
-        - com.df.alertName.2=servicememlimit
-        - com.df.alertIf.2=@service_mem_limit:0.8
+        - com.df.alertName.2=node_mem_limit_total_above_manager
+        - com.df.alertIf.2=@node_mem_limit_total_above:0.8
         - com.df.alertFor.2=30s
+        - com.df.alertName.3=service_mem_limit
+        - com.df.alertIf.3=@service_mem_limit:0.8
+        - com.df.alertFor.3=30s
       placement:
         constraints:
           - node.role == manager
@@ -156,12 +159,18 @@ services:
       labels:
         - com.df.notify=true
         - com.df.scrapePort=9100
-        - com.df.alertName.1=memloadworker
+        - com.df.alertName.1=mem_limit_worker
         - com.df.alertIf.1=@node_mem_limit:0.9
         - com.df.alertFor.1=30s
-        - com.df.alertName.2=memlimit
-        - com.df.alertIf.2=@service_mem_limit:0.8
+        - com.df.alertName.2=node_mem_limit_total_above_worker
+        - com.df.alertIf.2=@node_mem_limit_total_above:0.9
         - com.df.alertFor.2=30s
+        - com.df.alertName.3=node_mem_limit_total_below_worker
+        - com.df.alertIf.3=@node_mem_limit_total_below:0.4
+        - com.df.alertFor.3=30s
+        - com.df.alertName.4=service_mem_limit
+        - com.df.alertIf.4=@service_mem_limit:0.8
+        - com.df.alertFor.4=30s
       placement:
         constraints:
           - node.role == worker

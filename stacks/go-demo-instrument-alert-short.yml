@@ -22,7 +22,7 @@ services:
         - com.df.scaleMin=2
         - com.df.scaleMax=4
         - com.df.scrapePort=8080
-        - com.df.alertName.1=memlimit
+        - com.df.alertName.1=mem_limit
         - com.df.alertIf.1=@service_mem_limit:0.8
         - com.df.alertFor.1=5m
         - com.df.alertName.2=resptimeabove

@@ -33,7 +33,7 @@ services:
       labels:
         - com.df.notify=true
         - com.df.scrapePort=9100
-        - com.df.alertName.1=memload
+        - com.df.alertName.1=mem_load
         - com.df.alertIf.1=(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8
         - com.df.alertName.2=diskload
         - com.df.alertIf.2=@node_fs_limit:0.8

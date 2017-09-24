@@ -18,7 +18,7 @@ services:
         - com.df.distribute=true
         - com.df.servicePath=/demo
         - com.df.port=8080
-        - com.df.alertName=memlimit
+        - com.df.alertName=mem_limit
         - com.df.alertIf=container_memory_usage_bytes{container_label_com_docker_swarm_service_name="go-demo_main"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="go-demo_main"} > 0.8
         - com.df.alertFor=30s
       resources:

@@ -19,7 +19,7 @@ services:
         - com.df.distribute=true
         - com.df.servicePath=/demo
         - com.df.port=8080
-        - com.df.alertName.1=memlimit
+        - com.df.alertName.1=mem_limit
         - com.df.alertIf.1=@service_mem_limit:0.8
         - com.df.alertFor.1=5m
         - com.df.alertName.2=resptime

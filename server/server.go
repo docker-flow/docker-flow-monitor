@@ -256,9 +256,14 @@ var alertIfShortcutData = []alertIfShortcut{
 		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
 	}, {
 		expanded:    `(sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) - sum(node_memory_MemFree{job="[SERVICE_NAME]"} + node_memory_Buffers{job="[SERVICE_NAME]"} + node_memory_Cached{job="[SERVICE_NAME]"})) / sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) > [VALUE]`,
-		shortcut:    `@node_mem_limit_total:`,
+		shortcut:    `@node_mem_limit_total_above:`,
 		annotations: map[string]string{"summary": "Total memory of the nodes is over [VALUE]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up"},
+	}, {
+		expanded:    `(sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) - sum(node_memory_MemFree{job="[SERVICE_NAME]"} + node_memory_Buffers{job="[SERVICE_NAME]"} + node_memory_Cached{job="[SERVICE_NAME]"})) / sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) < [VALUE]`,
+		shortcut:    `@node_mem_limit_total_below:`,
+		annotations: map[string]string{"summary": "Total memory of the nodes is below [VALUE]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "down"},
 	}, {
 		expanded:    `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > [VALUE]`,
 		shortcut:    `@node_fs_limit:`,

@@ -22,7 +22,7 @@ services:
         - com.df.scaleMin=2
         - com.df.scaleMax=4
         - com.df.scrapePort=8080
-        - com.df.alertName.1=memlimit
+        - com.df.alertName.1=mem_limit
         - com.df.alertIf.1=@service_mem_limit:0.8
         - com.df.alertFor.1=5m
         - com.df.alertName.2=resptimeabove
@@ -35,9 +35,9 @@ services:
         - com.df.alertAnnotations.3=summary=Error rate is too high,description=Do something or start panicking
       resources:
         reservations:
-          memory: 5M
-        limits:
           memory: 10M
+        limits:
+          memory: 20M
 
   db:
     image: mongo

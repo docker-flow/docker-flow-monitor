@@ -210,7 +210,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 }
 
-func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
+func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts() {
 	testData := []struct {
 		expected    string
 		shortcut    string
@@ -290,6 +290,44 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 
 		s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 	}
+}
+
+func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotExpandAnnotationsAndLabels_WhenTheyAreAlreadySet() {
+	testData := struct {
+		expected    string
+		shortcut    string
+		annotations map[string]string
+		labels      map[string]string
+	}{
+		`container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
+		`@service_mem_limit:0.8`,
+		map[string]string{"summary": "Memory of the service my-service is over 0.8"},
+		map[string]string{"receiver": "system", "service": "my-service"},
+	}
+	expected := prometheus.Alert{
+		AlertAnnotations:   map[string]string{"summary": "not-again"},
+		AlertFor:           "my-for",
+		AlertIf:            testData.expected,
+		AlertLabels:        map[string]string{"receiver": "system", "service": "ugly-service"},
+		AlertName:          "my-alert",
+		AlertNameFormatted: "myservice_myalert",
+		ServiceName:        "my-service",
+		Replicas:           3,
+	}
+	rwMock := ResponseWriterMock{}
+	addr := fmt.Sprintf(
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s&replicas=3&alertAnnotations=summary=not-again&alertLabels=service=ugly-service",
+		expected.ServiceName,
+		expected.AlertName,
+		testData.shortcut,
+		expected.AlertFor,
+	)
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.ReconfigureHandler(rwMock, req)
+
+	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_RemovesOldAlerts() {

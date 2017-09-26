@@ -306,13 +306,17 @@ func (s *serve) formatAlert(alert *prometheus.Alert) {
 					alert.AlertAnnotations = map[string]string{}
 				}
 				for k, v := range data.annotations {
-					alert.AlertAnnotations[k] = s.replaceTags(v, alert, value)
+					if _, ok := alert.AlertAnnotations[k]; !ok {
+						alert.AlertAnnotations[k] = s.replaceTags(v, alert, value)
+					}
 				}
 				if alert.AlertLabels == nil {
 					alert.AlertLabels = map[string]string{}
 				}
 				for k, v := range data.labels {
-					alert.AlertLabels[k] = s.replaceTags(v, alert, value)
+					if _, ok := alert.AlertLabels[k]; !ok {
+						alert.AlertLabels[k] = s.replaceTags(v, alert, value)
+					}
 				}
 			}
 		}

@@ -60,11 +60,10 @@ services:
         - com.df.alertFor.1=30s
         - com.df.alertName.2=node_mem_limit_total_above
         - com.df.alertIf.2=@node_mem_limit_total_above:0.8
+        - com.df.alertLabels.2=receiver=system,scale=no,service=exporter_node-exporter-manager,type=node
         - com.df.alertFor.2=30s
         - com.df.alertName.3=service_mem_limit
         - com.df.alertIf.3=@service_mem_limit:0.8
-        - com.df.alertLabels.3=receiver=system,scale=no,service=exporter_node-exporter-manager,type=node
-
         - com.df.alertFor.3=30s
       placement:
         constraints:

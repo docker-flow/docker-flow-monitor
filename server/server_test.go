@@ -231,12 +231,12 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 			`(sum(node_memory_MemTotal{job="my-service"}) - sum(node_memory_MemFree{job="my-service"} + node_memory_Buffers{job="my-service"} + node_memory_Cached{job="my-service"})) / sum(node_memory_MemTotal{job="my-service"}) > 0.8`,
 			`@node_mem_limit_total_above:0.8`,
 			map[string]string{"summary": "Total memory of the nodes is over 0.8"},
-			map[string]string{"receiver": "system", "service": "my-service", "scale": "up"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "up", "type": "node"},
 		}, {
 			`(sum(node_memory_MemTotal{job="my-service"}) - sum(node_memory_MemFree{job="my-service"} + node_memory_Buffers{job="my-service"} + node_memory_Cached{job="my-service"})) / sum(node_memory_MemTotal{job="my-service"}) < 0.4`,
 			`@node_mem_limit_total_below:0.4`,
 			map[string]string{"summary": "Total memory of the nodes is below 0.4"},
-			map[string]string{"receiver": "system", "service": "my-service", "scale": "down"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "down", "type": "node"},
 		}, {
 			`(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8`,
 			`@node_fs_limit:0.8`,
@@ -246,12 +246,17 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.9999`,
 			`@resp_time_above:0.1,5m,0.9999`,
 			map[string]string{"summary": "Response time of the service my-service is above 0.1"},
-			map[string]string{"receiver": "system", "service": "my-service", "scale": "up"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "up", "type": "service"},
 		}, {
 			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.75`,
 			`@resp_time_below:0.025,5m,0.75`,
 			map[string]string{"summary": "Response time of the service my-service is below 0.025"},
-			map[string]string{"receiver": "system", "service": "my-service", "scale": "down"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "down", "type": "service"},
+		}, {
+			`count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}) != 3`,
+			`@replicas_running`,
+			map[string]string{"summary": "The number of running replicas of the service my-service is not 3"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "up", "type": "node"},
 		}, {
 			`sum(rate(http_server_resp_time_count{job="my-service", code=~"^5..$$"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.001`,
 			`@resp_time_server_error:5m,0.001`,
@@ -268,10 +273,11 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsFormattedAlert() {
 			AlertName:          "my-alert",
 			AlertNameFormatted: "myservice_myalert",
 			ServiceName:        "my-service",
+			Replicas:           3,
 		}
 		rwMock := ResponseWriterMock{}
 		addr := fmt.Sprintf(
-			"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s",
+			"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s&replicas=3",
 			expected.ServiceName,
 			expected.AlertName,
 			data.shortcut,

@@ -294,12 +294,12 @@ Please visit [go-demo-instrument-alert-short.yml](https://github.com/vfarcic/doc
         - com.df.scaleMin=2
         - com.df.scaleMax=4
         - com.df.scrapePort=8080
-        - com.df.alertName.1=memlimit
+        - com.df.alertName.1=mem_limit
         - com.df.alertIf.1=@service_mem_limit:0.8
         - com.df.alertFor.1=5m
-        - com.df.alertName.2=resptimeabove
+        - com.df.alertName.2=resp_time_above
         - com.df.alertIf.2=@resp_time_above:0.1,5m,0.99
-        - com.df.alertName.3=resptimebelow
+        - com.df.alertName.3=resp_time_below
         - com.df.alertIf.3=@resp_time_below:0.025,5m,0.75
       ...
 ```
@@ -308,7 +308,7 @@ The `servicePath` and `port` label will be used by *Docker Flow Proxy* to config
 
 You already saw the usage of `scaleMin` and `scaleMax` labels. Jenkins uses them to decide whether the service should be scale or the number of replicas already reached the limits.
 
-The `alertName`, `alertIf`, and `alertFor` labels are the key to scaling. The define Prometheus alerts. The first one (`memlimit`) is already described in the [Running Docker Flow Monitor tutorial](http://monitor.dockerflow.com/tutorial/) so will skip it. The second (`resptimeabove`) defines alert that will be fired if the rate of response times of the `0.1` seconds bucket (100 milliseconds or faster) is above 99% (`0.99`) for over five minutes (`5m`). Similarly, the `resptimebelow` alert will fire if the rate of response times of the `0.025` seconds bucket (25 milliseconds or faster) is below 75% (`0.75`) for over five minutes (`5m`). In all the cases, we're using [AlertIf Parameter Shortcuts](http://monitor.dockerflow.com/usage/#alertif-parameter-shortcuts) that will be expanded into full Prometheus expressions.
+The `alertName`, `alertIf`, and `alertFor` labels are the key to scaling. The define Prometheus alerts. The first one (`memlimit`) is already described in the [Running Docker Flow Monitor tutorial](http://monitor.dockerflow.com/tutorial/) so will skip it. The second (`resp_time_above`) defines alert that will be fired if the rate of response times of the `0.1` seconds bucket (100 milliseconds or faster) is above 99% (`0.99`) for over five minutes (`5m`). Similarly, the `resp_time_below` alert will fire if the rate of response times of the `0.025` seconds bucket (25 milliseconds or faster) is below 75% (`0.75`) for over five minutes (`5m`). In all the cases, we're using [AlertIf Parameter Shortcuts](http://monitor.dockerflow.com/usage/#alertif-parameter-shortcuts) that will be expanded into full Prometheus expressions.
 
 Let's take a look at Prometheus alert screen.
 
@@ -318,19 +318,19 @@ open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 
 You should see three alerts that correspond to the three labels define in the `main` service of the `go-demo` stack. *Docker Flow Swarm Listener* detected the new service and sent those labels to *Docker Flow Monitor* which, in turn, converted them info Prometheus configuration.
 
-If you expand the *godemomainresptimeabove* alert, you'll see that DFM translated the service labels into the alert definition that follows.
+If you expand the *godemo_main_resp_time_above* alert, you'll see that DFM translated the service labels into the alert definition that follows.
 
 ```
-ALERT godemomainresptimeabove
+ALERT godemo_main_resp_tim_eabove
   IF sum(rate(http_server_resp_time_bucket{job="go-demo_main",le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="go-demo_main"}[5m])) < 0.99
   LABELS {receiver="system", scale="up", service="go-demo_main"}
   ANNOTATIONS {summary="Response time of the service go-demo_main is above 0.1"}
 ```
 
-Similarly, the *godemomainresptimebelow* alert is defined as follows.
+Similarly, the *godemo_main_resp_time_below* alert is defined as follows.
 
 ```
-ALERT godemomainresptimebelow
+ALERT godemo_main_resp_time_below
   IF sum(rate(http_server_resp_time_bucket{job="go-demo_main",le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="go-demo_main"}[5m])) > 0.75
   LABELS {receiver="system", scale="down", service="go-demo_main"}
   ANNOTATIONS {summary="Response time of the service go-demo_main is below 0.025"}
@@ -360,7 +360,7 @@ Let's go back to the Prometheus' alert screen.
 open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
-By this time, the *godemomainresptimebelow* alert should be red. The `go-demo` service periodically pings itself and the response is faster than the twenty-five milliseconds limit we set (unless your laptop is very old and slow). As a result, Prometheus fired the alert to Alertmanager. It, in turn, evaluated the `service` and `scale` labels and decided that it should send a POST request to Jenkins with parameters `service=go-demo_main&scale=-1`.
+By this time, the *godemo_main_resp_time_below* alert should be red. The `go-demo` service periodically pings itself and the response is faster than the twenty-five milliseconds limit we set (unless your laptop is very old and slow). As a result, Prometheus fired the alert to Alertmanager. It, in turn, evaluated the `service` and `scale` labels and decided that it should send a POST request to Jenkins with parameters `service=go-demo_main&scale=-1`.
 
 We can confirm that the process worked by opening the Jenkins `service-scale` activity screen.
 
@@ -412,7 +412,7 @@ Now we can take a look at the alerts.
 open "http://$(docker-machine ip swarm-1)/monitor/alerts"
 ```
 
-The *godemomainresptimeabove* turned red indicating that the threshold is reached and Prometheus fired an alert to Alertmanager. If everything went as planned, Alertmanager should have sent a request to Jenkins. Let's confirm that indeed happened.
+The *godemo_main_resp_time_above* turned red indicating that the threshold is reached and Prometheus fired an alert to Alertmanager. If everything went as planned, Alertmanager should have sent a request to Jenkins. Let's confirm that indeed happened.
 
 ```bash
 open "http://$(docker-machine ip swarm-1)/jenkins/blue/organizations/jenkins/service-scale/activity"

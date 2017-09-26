@@ -55,10 +55,10 @@ services:
       labels:
         - com.df.notify=true
         - com.df.scrapePort=9100
-        - com.df.alertName.1=mem_limit_manager
+        - com.df.alertName.1=mem_limit
         - com.df.alertIf.1=@node_mem_limit:0.8
         - com.df.alertFor.1=30s
-        - com.df.alertName.2=node_mem_limit_total_above_manager
+        - com.df.alertName.2=node_mem_limit_total_above
         - com.df.alertIf.2=@node_mem_limit_total_above:0.8
         - com.df.alertFor.2=30s
         - com.df.alertName.3=service_mem_limit
@@ -91,14 +91,14 @@ services:
       labels:
         - com.df.notify=true
         - com.df.scrapePort=9100
-        - com.df.alertName.1=mem_limit_worker
+        - com.df.alertName.1=mem_limit
         - com.df.alertIf.1=@node_mem_limit:0.8
         - com.df.alertFor.1=30s
-        - com.df.alertName.2=node_mem_limit_total_above_worker
+        - com.df.alertName.2=node_mem_limit_total_above
         - com.df.alertIf.2=@node_mem_limit_total_above:0.8
         - com.df.alertFor.2=30s
-        - com.df.alertName.3=node_mem_limit_total_below_worker
-        - com.df.alertIf.3=@node_mem_limit_total_below:0.4
+        - com.df.alertName.3=node_mem_limit_total_below
+        - com.df.alertIf.3=@node_mem_limit_total_below:0.05 # For testing purposes only. A better value would be `0.4`.
         - com.df.alertFor.3=30s
         - com.df.alertName.4=service_mem_limit
         - com.df.alertIf.4=@service_mem_limit:0.8

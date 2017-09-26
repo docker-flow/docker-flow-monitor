@@ -258,12 +258,12 @@ var alertIfShortcutData = []alertIfShortcut{
 		expanded:    `(sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) - sum(node_memory_MemFree{job="[SERVICE_NAME]"} + node_memory_Buffers{job="[SERVICE_NAME]"} + node_memory_Cached{job="[SERVICE_NAME]"})) / sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) > [VALUE]`,
 		shortcut:    `@node_mem_limit_total_above:`,
 		annotations: map[string]string{"summary": "Total memory of the nodes is over [VALUE]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
 	}, {
 		expanded:    `(sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) - sum(node_memory_MemFree{job="[SERVICE_NAME]"} + node_memory_Buffers{job="[SERVICE_NAME]"} + node_memory_Cached{job="[SERVICE_NAME]"})) / sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) < [VALUE]`,
 		shortcut:    `@node_mem_limit_total_below:`,
 		annotations: map[string]string{"summary": "Total memory of the nodes is below [VALUE]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "down"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "down", "type": "node"},
 	}, {
 		expanded:    `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > [VALUE]`,
 		shortcut:    `@node_fs_limit:`,
@@ -273,12 +273,17 @@ var alertIfShortcutData = []alertIfShortcut{
 		expanded:    `sum(rate(http_server_resp_time_bucket{job="[SERVICE_NAME]", le="[VALUE_0]"}[[VALUE_1]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_1]])) < [VALUE_2]`,
 		shortcut:    `@resp_time_above:`,
 		annotations: map[string]string{"summary": "Response time of the service [SERVICE_NAME] is above [VALUE_0]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "service"},
 	}, {
 		expanded:    `sum(rate(http_server_resp_time_bucket{job="[SERVICE_NAME]", le="[VALUE_0]"}[[VALUE_1]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_1]])) > [VALUE_2]`,
 		shortcut:    `@resp_time_below:`,
 		annotations: map[string]string{"summary": "Response time of the service [SERVICE_NAME] is below [VALUE_0]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "down"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "down", "type": "service"},
+	}, {
+		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}) != [REPLICAS]`,
+		shortcut:    `@replicas_running`,
+		annotations: map[string]string{"summary": "The number of running replicas of the service [SERVICE_NAME] is not 3"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
 	}, {
 		expanded:    `sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]", code=~"^5..$$"}[[VALUE_0]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_0]])) > [VALUE_1]`,
 		shortcut:    `@resp_time_server_error:`,
@@ -292,19 +297,22 @@ func (s *serve) formatAlert(alert *prometheus.Alert) {
 	if strings.HasPrefix(alert.AlertIf, "@") {
 		for _, data := range alertIfShortcutData {
 			if strings.HasPrefix(alert.AlertIf, data.shortcut) {
-				value := strings.Split(alert.AlertIf, ":")[1]
-				alert.AlertIf = s.replaceTags(data.expanded, alert.ServiceName, value)
+				value := ""
+				if strings.Contains(alert.AlertIf, ":") {
+					value = strings.Split(alert.AlertIf, ":")[1]
+				}
+				alert.AlertIf = s.replaceTags(data.expanded, alert, value)
 				if alert.AlertAnnotations == nil {
 					alert.AlertAnnotations = map[string]string{}
 				}
 				for k, v := range data.annotations {
-					alert.AlertAnnotations[k] = s.replaceTags(v, alert.ServiceName, value)
+					alert.AlertAnnotations[k] = s.replaceTags(v, alert, value)
 				}
 				if alert.AlertLabels == nil {
 					alert.AlertLabels = map[string]string{}
 				}
 				for k, v := range data.labels {
-					alert.AlertLabels[k] = s.replaceTags(v, alert.ServiceName, value)
+					alert.AlertLabels[k] = s.replaceTags(v, alert, value)
 				}
 			}
 		}
@@ -312,9 +320,10 @@ func (s *serve) formatAlert(alert *prometheus.Alert) {
 }
 
 // TODO: Change to template
-func (s *serve) replaceTags(tag, serviceName, value string) string {
-	replaced := strings.Replace(tag, "[SERVICE_NAME]", serviceName, -1)
+func (s *serve) replaceTags(tag string, alert *prometheus.Alert, value string) string {
+	replaced := strings.Replace(tag, "[SERVICE_NAME]", alert.ServiceName, -1)
 	replaced = strings.Replace(replaced, "[VALUE]", value, -1)
+	replaced = strings.Replace(replaced, "[REPLICAS]", strconv.Itoa(alert.Replicas), -1)
 	values := strings.Split(value, ",")
 	for i, v := range values {
 		old := fmt.Sprintf("[VALUE_%d]", i)

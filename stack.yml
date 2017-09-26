@@ -70,6 +70,7 @@ services:
       labels:
         - com.df.distribute=true
         - com.df.notify=true
+        - com.df.reschedule=true
         - com.df.port=80
         - com.df.serviceDomain=monitor.dockerflow.com
         - com.df.servicePath=/
@@ -126,7 +127,7 @@ services:
         - com.df.alertName.1=mem_limit_manager
         - com.df.alertIf.1=@node_mem_limit:0.8
         - com.df.alertFor.1=30s
-        - com.df.alertName.2=node_mem_limit_total_above_manager
+        - com.df.alertName.2=node_mem_limit_total_above
         - com.df.alertIf.2=@node_mem_limit_total_above:0.8
         - com.df.alertFor.2=30s
         - com.df.alertName.3=service_mem_limit
@@ -162,10 +163,10 @@ services:
         - com.df.alertName.1=mem_limit_worker
         - com.df.alertIf.1=@node_mem_limit:0.9
         - com.df.alertFor.1=30s
-        - com.df.alertName.2=node_mem_limit_total_above_worker
+        - com.df.alertName.2=node_mem_limit_total_above
         - com.df.alertIf.2=@node_mem_limit_total_above:0.9
         - com.df.alertFor.2=30s
-        - com.df.alertName.3=node_mem_limit_total_below_worker
+        - com.df.alertName.3=node_mem_limit_total_below
         - com.df.alertIf.3=@node_mem_limit_total_below:0.4
         - com.df.alertFor.3=30s
         - com.df.alertName.4=service_mem_limit

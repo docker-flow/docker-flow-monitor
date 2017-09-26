@@ -9,6 +9,7 @@ type Alert struct {
 	AlertName          string            `json:"alertName"`
 	AlertNameFormatted string
 	ServiceName        string `json:"serviceName"`
+	Replicas           int    `json:"replicas"`
 }
 
 // Scrape defines data used to create scraping configuration snippet

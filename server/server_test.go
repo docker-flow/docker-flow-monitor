@@ -376,11 +376,12 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 			AlertNameFormatted: fmt.Sprintf("myservice_myalert%d", i),
 			AlertAnnotations:   map[string]string{"annotation": fmt.Sprintf("annotation-value-%d", i)},
 			AlertLabels:        map[string]string{"label": fmt.Sprintf("label-value-%d", i)},
+			Replicas:           3,
 		})
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?serviceName=%s&alertName.1=%s&alertIf.1=%s&alertFor.1=%s&alertName.2=%s&alertIf.2=%s&alertFor.2=%s&alertAnnotations.1=%s&alertAnnotations.2=%s&alertLabels.1=%s&alertLabels.2=%s",
+		"/v1/docker-flow-monitor?serviceName=%s&alertName.1=%s&alertIf.1=%s&alertFor.1=%s&alertName.2=%s&alertIf.2=%s&alertFor.2=%s&alertAnnotations.1=%s&alertAnnotations.2=%s&alertLabels.1=%s&alertLabels.2=%s&replicas=3",
 		expected[0].ServiceName,
 		expected[0].AlertName,
 		expected[0].AlertIf,
@@ -980,6 +981,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 			},
 			ServiceName:        "my-service",
 			AlertNameFormatted: "myservice_alert1",
+			Replicas:           4,
 		},
 		"myservice_alert21": {
 			AlertAnnotations:   map[string]string{},
@@ -1013,6 +1015,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 		})
 		resp = append(resp, map[string]string{
 			"serviceName": "my-service",
+			"replicas":    "4",
 			"alertName":   "alert-1",
 			"alertIf":     "if-1",
 			"alertFor":    "for-1",
@@ -1028,6 +1031,7 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 			"alertIf.2":          "if-22",
 			"alertFor.2":         "for-22",
 		})
+		resp = append(resp, map[string]string{"replicas": "4"})
 		js, _ := json.Marshal(resp)
 		w.Write(js)
 	}))

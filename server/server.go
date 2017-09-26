@@ -182,6 +182,9 @@ func (s *serve) getAlertFromMap(data map[string]string, suffix string) (promethe
 		alert.AlertLabels = s.getMapFromString(data["alertLabels"+suffix])
 		alert.AlertName = data["alertName"+suffix]
 		alert.ServiceName = data["serviceName"]
+		if len(data["replicas"]) > 0 {
+			alert.Replicas, _ = strconv.Atoi(data["replicas"])
+		}
 		s.formatAlert(&alert)
 		if s.isValidAlert(&alert) {
 			return alert, nil
@@ -213,6 +216,10 @@ func (s *serve) getAlerts(req *http.Request) []prometheus.Alert {
 		alerts = append(alerts, alertDecode)
 		logPrintf("Adding alert %s for the service %s\n", alertDecode.AlertName, alertDecode.ServiceName, alertDecode)
 	}
+	replicas := 0
+	if len(req.URL.Query().Get("replicas")) > 0 {
+		replicas, _ = strconv.Atoi(req.URL.Query().Get("replicas"))
+	}
 	for i := 1; i <= 10; i++ {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
 		annotations := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertAnnotations.%d", i)))
@@ -224,6 +231,7 @@ func (s *serve) getAlerts(req *http.Request) []prometheus.Alert {
 			AlertFor:         req.URL.Query().Get(fmt.Sprintf("alertFor.%d", i)),
 			AlertAnnotations: annotations,
 			AlertLabels:      labels,
+			Replicas:         replicas,
 		}
 		s.formatAlert(&alert)
 		if !s.isValidAlert(&alert) {
@@ -282,7 +290,7 @@ var alertIfShortcutData = []alertIfShortcut{
 	}, {
 		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}) != [REPLICAS]`,
 		shortcut:    `@replicas_running`,
-		annotations: map[string]string{"summary": "The number of running replicas of the service [SERVICE_NAME] is not 3"},
+		annotations: map[string]string{"summary": "The number of running replicas of the service [SERVICE_NAME] is not [REPLICAS]"},
 		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
 	}, {
 		expanded:    `sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]", code=~"^5..$$"}[[VALUE_0]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_0]])) > [VALUE_1]`,

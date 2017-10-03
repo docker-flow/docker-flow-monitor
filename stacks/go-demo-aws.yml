@@ -34,7 +34,7 @@ services:
         - com.df.alertIf.3=@resp_time_server_error:5m,0.001
         - com.df.alertName.4=replicas_running
         - com.df.alertIf.4=@replicas_running
-        - com.df.alertFor.4=10m
+        - com.df.alertFor.4=1m
       resources:
         reservations:
           memory: 5M

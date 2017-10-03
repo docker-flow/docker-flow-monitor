@@ -61,13 +61,25 @@ SCRAPE_PORT_2=1234
 SERVICE_NAME_2=myservice2.acme.com
 ```
 
-As well you can add the service via `api` using the `reconfigure` entry point.
+You can also add a service via `api` using the `reconfigure` entry point.
 
 ```bash
 curl `[IP_OF_ONE_OF_SWARM_NODES]:8080/v1/docker-flow-monitor/reconfigure?scrapePort=[PORT]&serviceName=[IP_OR_DOMAIN]&scrapeType=static_configs
 ```
 
 Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.
+
+## Remote Read Configuration
+
+Environment variables prefixed with `REMOTE_READ_` are used instead Prometheus `remote_read` entries in the configuration.
+
+The formatting rules for the `REMOTE_READ` variables follow the same pattern as those used for [Global Configuration](#global-configuration)
+
+## Remote Write Configuration
+
+Environment variables prefixed with `REMOTE_WRITE_` are used instead Prometheus `remote_write` entries in the configuration.
+
+The formatting rules for the `REMOTE_WRITE` variables follow the same pattern as those used for [Global Configuration](#global-configuration)
 
 ## Scrapes
 

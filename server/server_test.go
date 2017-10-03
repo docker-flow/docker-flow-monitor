@@ -97,6 +97,7 @@ func (s *ServerTestSuite) Test_Execute_WritesConfig() {
 	expected := `
 global:
   scrape_interval: 5s
+
 `
 	fsOrig := prometheus.FS
 	defer func() { prometheus.FS = fsOrig }()
@@ -547,6 +548,7 @@ scrape_configs:
         type: A
         port: 1234
 
+
 rule_files:
   - 'alert.rules'
 `
@@ -746,6 +748,7 @@ scrape_configs:
       - names: ["tasks.my-service"]
         type: A
         port: 1234
+
 `
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
@@ -763,6 +766,7 @@ scrape_configs:
 	expectedAfterDelete := `
 global:
   scrape_interval: 5s
+
 `
 	addr = "/v1/docker-flow-monitor?serviceName=my-service"
 	req, _ = http.NewRequest("DELETE", addr, nil)

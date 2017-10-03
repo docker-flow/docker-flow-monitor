@@ -51,7 +51,6 @@ services:
       - /:/rootfs
       - /etc/hostname:/etc/host_hostname
     deploy:
-      mode: global
       labels:
         - com.df.notify=true
         - com.df.scrapePort=9100
@@ -68,6 +67,7 @@ services:
       placement:
         constraints:
           - node.role == manager
+      mode: global
       resources:
         reservations:
           memory: 30M
@@ -88,7 +88,6 @@ services:
       - /:/rootfs
       - /etc/hostname:/etc/host_hostname
     deploy:
-      mode: global
       labels:
         - com.df.notify=true
         - com.df.scrapePort=9100
@@ -107,6 +106,7 @@ services:
       placement:
         constraints:
           - node.role == worker
+      mode: global
       resources:
         reservations:
           memory: 30M

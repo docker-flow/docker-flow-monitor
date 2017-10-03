@@ -6,42 +6,45 @@ import (
 	"os"
 	"strings"
 	"text/template"
+	"fmt"
 )
 
 // WriteConfig creates Prometheus configuration (`/etc/prometheus/prometheus.yml`) and rules (`/etc/prometheus/alert.rules`) files.
 func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
 	FS.MkdirAll("/etc/prometheus", 0755)
-	gc := getGlobalConfig()
-	sc := getScrapeConfig(scrapes)
+	gc := GetGlobalConfig()
+	sc := GetScrapeConfig(scrapes)
+	rc := GetRemoteConfig()
 	ruleFiles := ""
 	if len(alerts) > 0 {
 		logPrintf("Writing to alert.rules")
 		ruleFiles = "\nrule_files:\n  - 'alert.rules'\n"
 		afero.WriteFile(FS, "/etc/prometheus/alert.rules", []byte(GetAlertConfig(alerts)), 0644)
 	}
-	config := gc + "\n" + sc + ruleFiles
+	config := gc + "\n" + sc + "\n" + rc + ruleFiles
 	logPrintf("Writing to prometheus.yml")
 	afero.WriteFile(FS, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }
 
-func getGlobalConfig() string {
-	data := getGlobalConfigData()
-	config := `
-global:`
-	for key, values := range data {
-		if len(values[""]) > 0 {
-			config += "\n  " + key + ": " + values[""]
-		} else {
-			config += "\n  " + key + ":"
-			for subKey, value := range values {
-				config += "\n    " + subKey + ": " + value
-			}
-		}
-	}
+// GetRemoteConfig returns remote_write and remote_read configs
+func GetRemoteConfig() string {
+	rw := getDataFromEnvVars("REMOTE_WRITE")
+	config := getConfigSection("remote_write", rw)
+
+	rr := getDataFromEnvVars("REMOTE_READ")
+	config += getConfigSection("remote_read", rr)
+
 	return config
 }
 
-func getScrapeConfig(scrapes map[string]Scrape) string {
+// GetGlobalConfig returns global section of the configuration
+func GetGlobalConfig() string {
+	data := getDataFromEnvVars("GLOBAL")
+	return getConfigSection("global", data)
+}
+
+// GetScrapeConfig returns scrapes section of the configuration
+func GetScrapeConfig(scrapes map[string]Scrape) string {
 	config := getScrapeConfigFromMap(scrapes) + getScrapeConfigFromDir()
 	if len(config) > 0 {
 		if !strings.HasPrefix(config, "\n") {
@@ -53,10 +56,10 @@ scrape_configs:` + config
 	return config
 }
 
-func getGlobalConfigData() map[string]map[string]string {
+func getDataFromEnvVars(prefix string) map[string]map[string]string {
 	data := map[string]map[string]string{}
 	for _, e := range os.Environ() {
-		if key, value := getArgFromEnv(e, "GLOBAL"); len(key) > 0 {
+		if key, value := getArgFromEnv(e, prefix); len(key) > 0 {
 			realKey := key
 			subKey := ""
 			if strings.Contains(key, "-") {
@@ -121,4 +124,25 @@ func getScrapeConfigFromMap(scrapes map[string]Scrape) string {
 
 	}
 	return ""
+}
+
+func getConfigSection(section string, data map[string]map[string]string) string {
+	if len(data) == 0 {
+		return ""
+	}
+	config := fmt.Sprintf(`
+%s:`,
+		section,
+	)
+	for key, values := range data {
+		if len(values[""]) > 0 {
+			config += "\n  " + key + ": " + values[""]
+		} else {
+			config += "\n  " + key + ":"
+			for subKey, value := range values {
+				config += "\n    " + subKey + ": " + value
+			}
+		}
+	}
+	return config
 }

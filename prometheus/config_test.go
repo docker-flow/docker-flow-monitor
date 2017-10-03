@@ -23,6 +23,36 @@ func TestConfigUnitTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
+// GetRemoteConfig
+
+func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsEmptyString_WhenEnvVarsAreNotSet() {
+	actual := GetRemoteConfig()
+
+	s.Empty(actual)
+}
+
+func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsRemoteWriteUrl() {
+	defer func() { os.Unsetenv("REMOTE_WRITE_URL") }()
+	os.Setenv("REMOTE_WRITE_URL", "http://acme.com/write")
+	expected := `
+remote_write:
+  url: http://acme.com/write`
+	actual := GetRemoteConfig()
+
+	s.Equal(expected, actual)
+}
+
+func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsRemoteReadUrl() {
+	defer func() { os.Unsetenv("REMOTE_READ_URL") }()
+	os.Setenv("REMOTE_READ_URL", "http://acme.com/read")
+	expected := `
+remote_read:
+  url: http://acme.com/read`
+	actual := GetRemoteConfig()
+
+	s.Equal(expected, actual)
+}
+
 // GetGlobalConfig
 
 func (s *ConfigTestSuite) Test_GlobalConfig_ReturnsConfigWithData() {
@@ -33,7 +63,7 @@ func (s *ConfigTestSuite) Test_GlobalConfig_ReturnsConfigWithData() {
 global:
   scrape_interval: 123s`
 
-	actual := getGlobalConfig()
+	actual := GetGlobalConfig()
 	s.Equal(expected, actual)
 }
 
@@ -57,7 +87,7 @@ global:
 
 	// Because of ordering, the config is not always the same so we're repeating a failure for a few times.
 	for i := 0; i < 5; i++ {
-		actual = getGlobalConfig()
+		actual = GetGlobalConfig()
 		if actual == expected {
 			return
 		}
@@ -91,7 +121,7 @@ scrape_configs:
 		"service-3": {ServiceName: "service-3", ScrapePort: 4321, ScrapeType: "static_configs"},
 	}
 
-	actual := getScrapeConfig(scrapes)
+	actual := GetScrapeConfig(scrapes)
 
 	s.Equal(expected, actual)
 }
@@ -128,7 +158,7 @@ scrape_configs:
 	afero.WriteFile(FS, "/run/secrets/scrape_job2", []byte(job2), 0644)
 	afero.WriteFile(FS, "/run/secrets/scrape_job3", []byte(job3), 0644)
 
-	actual := getScrapeConfig(scrapes)
+	actual := GetScrapeConfig(scrapes)
 
 	s.Equal(expected, actual)
 }
@@ -152,7 +182,7 @@ scrape_configs:
 	afero.WriteFile(FS, "/run/secrets/scrape_job", []byte(job), 0644)
 	afero.WriteFile(FS, "/run/secrets/job_without_scrape_prefix", []byte("something silly"), 0644)
 
-	actual := getScrapeConfig(scrapes)
+	actual := GetScrapeConfig(scrapes)
 
 	s.Equal(expected, actual)
 }
@@ -177,13 +207,13 @@ scrape_configs:
 	scrapes := map[string]Scrape{}
 	afero.WriteFile(FS, "/tmp/scrape_job", []byte(job), 0644)
 
-	actual := getScrapeConfig(scrapes)
+	actual := GetScrapeConfig(scrapes)
 
 	s.Equal(expected, actual)
 }
 
 func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsEmptyString_WhenNoData() {
-	actual := getScrapeConfig(map[string]Scrape{})
+	actual := GetScrapeConfig(map[string]Scrape{})
 
 	s.Empty(actual)
 }
@@ -192,24 +222,37 @@ func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsEmptyString_WhenNoData() {
 
 func (s *ConfigTestSuite) Test_WriteConfig_WritesConfig() {
 	fsOrig := FS
-	defer func() { FS = fsOrig }()
+	defer func() {
+		FS = fsOrig
+		os.Unsetenv("REMOTE_WRITE_URL")
+		os.Unsetenv("REMOTE_READ_URL")
+	}()
+	os.Setenv("REMOTE_WRITE_URL", "http://acme.com/write")
+	os.Setenv("REMOTE_READ_URL", "http://acme.com/read")
 	FS = afero.NewMemMapFs()
 	scrapes := map[string]Scrape{
 		"service-1": {ServiceName: "service-1", ScrapePort: 1234},
 		"service-2": {ServiceName: "service-2", ScrapePort: 5678},
 	}
-	gc := getGlobalConfig()
-	sc := getScrapeConfig(scrapes)
+	gc := GetGlobalConfig()
+	sc := GetScrapeConfig(scrapes)
+	rc := GetRemoteConfig()
 	expected := fmt.Sprintf(`%s
+%s
 %s`,
 		gc,
 		sc,
+		rc,
 	)
+	println("000")
+	println(rc)
+	println("111")
 
 	WriteConfig(scrapes, map[string]Alert{})
 
 	actual, _ := afero.ReadFile(FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(expected, string(actual))
+//	s.Fail(string(actual))
 }
 
 func (s *ConfigTestSuite) Test_WriteConfig_WritesAlerts() {
@@ -223,8 +266,9 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesAlerts() {
 		AlertNameFormatted: "myservicealertname",
 		AlertIf:            "a>b",
 	}
-	gc := getGlobalConfig()
+	gc := GetGlobalConfig()
 	expectedConfig := fmt.Sprintf(`%s
+
 
 rule_files:
   - 'alert.rules'

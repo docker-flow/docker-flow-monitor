@@ -14,11 +14,20 @@ var logPrintf = log.Printf
 
 func getArgFromEnv(env, prefix string) (key, value string) {
 	if strings.HasPrefix(env, prefix+"_") {
+		println(env)
 		values := strings.Split(env, "=")
-		key = values[0]
-		key = strings.Replace(key, prefix+"_", "", 1)
-		key = strings.ToLower(key)
-		value = values[1]
+		for i, v := range values {
+			if i == 0 {
+				key = v
+				key = strings.Replace(key, prefix+"_", "", 1)
+				key = strings.ToLower(key)
+			} else {
+				if len(value) > 0 {
+					value += "="
+				}
+				value += v
+			}
+		}
 	}
 	return key, value
 }

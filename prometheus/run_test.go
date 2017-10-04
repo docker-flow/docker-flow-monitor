@@ -40,7 +40,7 @@ func (s *RunTestSuite) Test_Run_ExecutesPrometheus() {
 
 	Run()
 
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles"}, actualArgs)
+	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=\"/etc/prometheus/prometheus.yml\" -storage.local.path=\"/prometheus\" -web.console.libraries=\"/usr/share/prometheus/console_libraries\" -web.console.templates=\"/usr/share/prometheus/consoles\""}, actualArgs)
 }
 
 func (s *RunTestSuite) Test_Run_AddsArguments() {
@@ -49,18 +49,21 @@ func (s *RunTestSuite) Test_Run_AddsArguments() {
 		cmdRun = cmdRunOrig
 		os.Unsetenv("ARG_WEB_ROUTE-PREFIX")
 		os.Unsetenv("ARG_ALERTMANAGER_URL")
+		os.Unsetenv("ARG_LOG_FORMAT")
 	}()
 	os.Setenv("ARG_WEB_ROUTE-PREFIX", "/something")
 	os.Setenv("ARG_ALERTMANAGER_URL", "alertmanager")
+	os.Setenv("ARG_LOG_FORMAT", "logger:stdout?json=true")
 	actualArgs := []string{}
 	cmdRun = func(cmd *exec.Cmd) error {
 		actualArgs = cmd.Args
 		return nil
 	}
 
+	println("000")
 	Run()
 
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.route-prefix=/something -alertmanager.url=alertmanager"}, actualArgs)
+	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=\"/etc/prometheus/prometheus.yml\" -storage.local.path=\"/prometheus\" -web.console.libraries=\"/usr/share/prometheus/console_libraries\" -web.console.templates=\"/usr/share/prometheus/consoles\" -web.route-prefix=\"/something\" -alertmanager.url=\"alertmanager\" -log.format=\"logger:stdout?json=true\""}, actualArgs)
 }
 
 func (s *RunTestSuite) Test_Run_AddsExternalUrl() {
@@ -78,7 +81,7 @@ func (s *RunTestSuite) Test_Run_AddsExternalUrl() {
 
 	Run()
 
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=/etc/prometheus/prometheus.yml -storage.local.path=/prometheus -web.console.libraries=/usr/share/prometheus/console_libraries -web.console.templates=/usr/share/prometheus/consoles -web.external-url=/something"}, actualArgs)
+	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=\"/etc/prometheus/prometheus.yml\" -storage.local.path=\"/prometheus\" -web.console.libraries=\"/usr/share/prometheus/console_libraries\" -web.console.templates=\"/usr/share/prometheus/consoles\" -web.external-url=\"/something\""}, actualArgs)
 }
 
 func (s *RunTestSuite) Test_Run_ReturnsError() {

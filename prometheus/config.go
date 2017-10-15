@@ -2,11 +2,11 @@ package prometheus
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/spf13/afero"
 	"os"
 	"strings"
 	"text/template"
-	"fmt"
 )
 
 // WriteConfig creates Prometheus configuration (`/etc/prometheus/prometheus.yml`) and rules (`/etc/prometheus/alert.rules`) files.

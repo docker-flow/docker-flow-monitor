@@ -77,7 +77,7 @@ DOMAIN=$CLUSTER_DNS docker stack deploy \
     -c monitor.yml monitor
 
 curl -o jenkins.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/jenkins-aws-secret.yml
+    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/jenkins-aws-scale.yml
 
 source creds
 

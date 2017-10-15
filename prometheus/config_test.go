@@ -252,7 +252,7 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesConfig() {
 
 	actual, _ := afero.ReadFile(FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(expected, string(actual))
-//	s.Fail(string(actual))
+	//	s.Fail(string(actual))
 }
 
 func (s *ConfigTestSuite) Test_WriteConfig_WritesAlerts() {

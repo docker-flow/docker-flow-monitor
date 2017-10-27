@@ -8,7 +8,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -o docker-flow-monitor
 
 
 
-FROM prom/prometheus:v1.5.2
+FROM prom/prometheus:v1.8.1
 
 ENV GLOBAL_SCRAPE_INTERVAL=10s \
     ARG_CONFIG_FILE=/etc/prometheus/prometheus.yml \

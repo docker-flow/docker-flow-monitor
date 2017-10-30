@@ -106,6 +106,7 @@ func getScrapeConfigFromMap(scrapes map[string]Scrape) string {
 	if len(scrapes) != 0 {
 		templateString := `{{range .}}
   - job_name: "{{.ServiceName}}"
+    metrics_path: {{if .MetricsPath}}{{.MetricsPath}}{{else}}/metrics{{end}}
 {{- if .ScrapeType}}
     {{.ScrapeType}}:
       - targets:

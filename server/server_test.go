@@ -543,6 +543,7 @@ global:
 
 scrape_configs:
   - job_name: "my-service"
+    metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.my-service"]
         type: A
@@ -744,6 +745,7 @@ global:
 
 scrape_configs:
   - job_name: "my-service"
+    metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.my-service"]
         type: A

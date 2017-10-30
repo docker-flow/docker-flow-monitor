@@ -31,14 +31,6 @@ echo "route:
   receiver: 'slack'
   routes:
   - match:
-      service: 'go-demo_main'
-      scale: 'up'
-    receiver: 'jenkins-go-demo_main-up'
-  - match:
-      service: 'go-demo_main'
-      scale: 'down'
-    receiver: 'jenkins-go-demo_main-down'
-  - match:
       type: 'node'
       scale: 'up'
     receiver: 'jenkins-node-up'
@@ -46,6 +38,14 @@ echo "route:
       type: 'node'
       scale: 'down'
     receiver: 'jenkins-node-down'
+  - match:
+      service: 'go-demo_main'
+      scale: 'up'
+    receiver: 'jenkins-go-demo_main-up'
+  - match:
+      service: 'go-demo_main'
+      scale: 'down'
+    receiver: 'jenkins-go-demo_main-down'
 
 receivers:
   - name: 'slack'

@@ -15,6 +15,7 @@ Query parameters that follow should be added to the base address **[MONITOR_IP]:
 
 |Query          |Description                                                                               |Required|
 |---------------|------------------------------------------------------------------------------------------|--------|
+|metricsPath    |The path of the metrics endpoint. Defaults to `/metrics`                                  |No      |
 |scrapePort     |The port through which metrics are exposed.                                               |Yes     |
 |serviceName    |The name of the service that exports metrics.                                             |Yes     |
 |scrapeType     |A set of targets and parameters describing how to scrape metrics.                         |No      |

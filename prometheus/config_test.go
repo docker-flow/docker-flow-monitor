@@ -101,16 +101,19 @@ func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigWithData() {
 	expected := `
 scrape_configs:
   - job_name: "service-1"
+    metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.service-1"]
         type: A
         port: 1234
   - job_name: "service-2"
+    metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.service-2"]
         type: A
         port: 5678
   - job_name: "service-3"
+    metrics_path: /something
     static_configs:
       - targets:
         - service-3:4321
@@ -118,7 +121,7 @@ scrape_configs:
 	scrapes := map[string]Scrape{
 		"service-1": {ServiceName: "service-1", ScrapePort: 1234},
 		"service-2": {ServiceName: "service-2", ScrapePort: 5678},
-		"service-3": {ServiceName: "service-3", ScrapePort: 4321, ScrapeType: "static_configs"},
+		"service-3": {ServiceName: "service-3", ScrapePort: 4321, ScrapeType: "static_configs", MetricsPath: "/something"},
 	}
 
 	actual := GetScrapeConfig(scrapes)
@@ -130,12 +133,14 @@ func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigWithDataAndSecrets()
 	fsOrig := FS
 	defer func() { FS = fsOrig }()
 	FS = afero.NewMemMapFs()
-	job2 := `  - job_name: "service-2"
+    job2 := `  - job_name: "service-2"
+    metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.service-2"]
         type: A
         port: 5678`
-	job3 := `  - job_name: "service-3"
+    job3 := `  - job_name: "service-3"
+    metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.service-3"]
         port: 9999
@@ -143,6 +148,7 @@ func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigWithDataAndSecrets()
 	expected := fmt.Sprintf(`
 scrape_configs:
   - job_name: "service-1"
+    metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.service-1"]
         type: A

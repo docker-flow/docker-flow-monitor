@@ -133,13 +133,13 @@ func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigWithDataAndSecrets()
 	fsOrig := FS
 	defer func() { FS = fsOrig }()
 	FS = afero.NewMemMapFs()
-    job2 := `  - job_name: "service-2"
+	job2 := `  - job_name: "service-2"
     metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.service-2"]
         type: A
         port: 5678`
-    job3 := `  - job_name: "service-3"
+	job3 := `  - job_name: "service-3"
     metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.service-3"]

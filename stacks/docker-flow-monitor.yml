@@ -3,8 +3,7 @@ services:
   monitor:
     image: vfarcic/docker-flow-monitor:${TAG:-latest}
     environment:
-      - GLOBAL_SCRAPE_INTERVAL=5s
-      - GLOBAL_SCRAPE_TIMEOUT=5s
+      - GLOBAL_SCRAPE_INTERVAL=10s
     networks:
       - monitor
     ports:

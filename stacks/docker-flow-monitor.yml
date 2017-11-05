@@ -1,10 +1,13 @@
 version: "3"
-
 services:
-
   monitor:
     image: vfarcic/docker-flow-monitor:${TAG:-latest}
     environment:
       - GLOBAL_SCRAPE_INTERVAL=10s
+    networks:
+      - monitor
     ports:
       - 9090:9090
+networks:
+    monitor:
+       external: true

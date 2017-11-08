@@ -110,7 +110,7 @@ func getScrapeConfigFromMap(scrapes map[string]Scrape) string {
 {{- if .ScrapeType}}
     {{.ScrapeType}}:
       - targets:
-        - {{.ServiceName}}:{{- .ScrapePort}}
+        - ["{{.ServiceName}}:{{- .ScrapePort}}"]
 {{- else}}
     dns_sd_configs:
       - names: ["tasks.{{.ServiceName}}"]

@@ -16,3 +16,7 @@ DOMAIN=$(docker-machine ip swarm-1) \
     docker stack deploy \
     -c stacks/docker-flow-monitor-proxy.yml \
     monitor
+
+
+
+

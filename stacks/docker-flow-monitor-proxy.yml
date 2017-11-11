@@ -2,6 +2,19 @@ version: "3"
 
 services:
 
+  swarm-listener:
+    image: vfarcic/docker-flow-swarm-listener
+    networks:
+      - monitor
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
+      - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
   monitor:
     image: vfarcic/docker-flow-monitor:${TAG:-latest}
     environment:
@@ -19,19 +32,11 @@ services:
         - com.df.servicePath=/monitor
         - com.df.serviceDomain=${DOMAIN:-localhost}
         - com.df.port=9090
-
-  swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
-    networks:
-      - monitor
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
-      - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove
-    deploy:
-      placement:
-        constraints: [node.role == manager]
+        ################ below statements only required if you want to expose monitor endpoint to dashboard too like grafana.safe to remove if you dont required to do so.
+        #- com.df.serviceName=monitor
+        #- com.df.scrapeType=static_configs
+        #- com.df.scrapePort=9090
+        ################
 
 networks:
   monitor:

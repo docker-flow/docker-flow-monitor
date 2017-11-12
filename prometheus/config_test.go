@@ -116,7 +116,7 @@ scrape_configs:
     metrics_path: /something
     static_configs:
       - targets:
-        - ["service-3:4321"]
+        - service-3:4321
 `
 	scrapes := map[string]Scrape{
 		"service-1": {ServiceName: "service-1", ScrapePort: 1234},

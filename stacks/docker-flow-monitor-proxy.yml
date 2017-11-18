@@ -32,11 +32,24 @@ services:
         - com.df.servicePath=/monitor
         - com.df.serviceDomain=${DOMAIN:-localhost}
         - com.df.port=9090
-        ################ below statements only required if you want to expose monitor endpoint to dashboard too like grafana.safe to remove if you dont required to do so.
-        #- com.df.serviceName=monitor
-        #- com.df.scrapeType=static_configs
-        #- com.df.scrapePort=9090
-        ################
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_TAG:-4.5.2}
+    networks:
+      - monitor
+      - proxy
+    environment:
+      - GF_SERVER_DOMAIN=${DOMAIN:-localhost}
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
+    deploy:
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.servicePath=/grafana/,/grafana/public,/grafana/api
+        - com.df.reqPathSearch=/grafana
+        - com.df.port=3000
 
 networks:
   monitor:

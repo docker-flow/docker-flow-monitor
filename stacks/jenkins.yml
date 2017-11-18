@@ -19,10 +19,6 @@ services:
         - com.df.port=8080
     extra_hosts:
       - "${SLACK_HOST:-devops20.slack.com}:${SLACK_IP:-54.192.78.227}"
-      - "updates.jenkins-ci.org:${UPDATE_JENKINS_IP:-52.202.51.185}"
-      - "mirrors.jenkins-ci.org:${MIRRORS_JENKINS_IP:-52.202.51.185}"
-      - "mirrors.seville-jam.es:${SEVILLE_JENKINS_IP:-188.93.77.36}"
-      - "api.github.com:${API_GITHUB_IP:-192.30.253.116}"
     secrets:
       - jenkins-user
       - jenkins-pass

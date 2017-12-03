@@ -25,6 +25,7 @@ services:
         - com.df.alertName.1=mem_limit
         - com.df.alertIf.1=@service_mem_limit:0.8
         - com.df.alertFor.1=5m
+        - com.df.alertLabels.1=scale=up
         - com.df.alertName.2=resptimeabove
         - com.df.alertIf.2=@resp_time_above:0.1,5m,0.99
 #        - com.df.alertName.3=resptimebelow

@@ -293,6 +293,16 @@ var alertIfShortcutData = []alertIfShortcut{
 		annotations: map[string]string{"summary": "The number of running replicas of the service [SERVICE_NAME] is not [REPLICAS]"},
 		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
 	}, {
+		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}) < [REPLICAS]`,
+		shortcut:    `@replicas_less_than`,
+		annotations: map[string]string{"summary": "The number of running replicas of the service [SERVICE_NAME] is less than [REPLICAS]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
+	}, {
+		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}) > [REPLICAS]`,
+		shortcut:    `@replicas_more_than`,
+		annotations: map[string]string{"summary": "The number of running replicas of the service [SERVICE_NAME] is more than [REPLICAS]"},
+		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
+	}, {
 		expanded:    `sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]", code=~"^5..$$"}[[VALUE_0]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_0]])) > [VALUE_1]`,
 		shortcut:    `@resp_time_server_error:`,
 		annotations: map[string]string{"summary": "Error rate of the service [SERVICE_NAME] is above [VALUE_1]"},

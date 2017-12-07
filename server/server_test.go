@@ -259,6 +259,16 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts() {
 			map[string]string{"summary": "The number of running replicas of the service my-service is not 3"},
 			map[string]string{"receiver": "system", "service": "my-service", "scale": "up", "type": "node"},
 		}, {
+			`count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}) > 3`,
+			`@replicas_more_than`,
+			map[string]string{"summary": "The number of running replicas of the service my-service is more than 3"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "up", "type": "node"},
+		}, {
+			`count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}) < 3`,
+			`@replicas_less_than`,
+			map[string]string{"summary": "The number of running replicas of the service my-service is less than 3"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "up", "type": "node"},
+		}, {
 			`sum(rate(http_server_resp_time_count{job="my-service", code=~"^5..$$"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.001`,
 			`@resp_time_server_error:5m,0.001`,
 			map[string]string{"summary": "Error rate of the service my-service is above 0.001"},

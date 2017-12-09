@@ -29,7 +29,7 @@ services:
         - com.df.scrapePort=8080
 
   node-exporter:
-    image: basi/node-exporter:${NODE_EXPORTER_TAG:-v1.13.0}
+    image: basi/node-exporter:${NODE_EXPORTER_TAG:-v1.15.0}
     networks:
       - monitor
     environment:
@@ -48,7 +48,7 @@ services:
         - com.df.alertIf.1=(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8
         - com.df.alertName.2=diskload
         - com.df.alertIf.2=(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > 0.8
-    command: '-collector.procfs /host/proc -collector.sysfs /host/sys -collector.filesystem.ignored-mount-points "^/(sys|proc|dev|host|etc)($$|/)" -collector.textfile.directory /etc/node-exporter/ -collectors.enabled="conntrack,diskstats,entropy,filefd,filesystem,loadavg,mdadm,meminfo,netdev,netstat,stat,textfile,time,vmstat,ipvs"'
+    command: '--path.procfs="/host/proc" --path.sysfs="/host/sys" --collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)" --collector.textfile.directory="/etc/node-exporter/" --collector.conntrack --collector.diskstats --collector.entropy --collector.filefd --collector.filesystem --collector.loadavg --collector.mdadm --collector.meminfo --collector.netdev --collector.netstat --collector.stat --collector.textfile --collector.time --collector.vmstat --collector.ipvs'
 
 networks:
   monitor:

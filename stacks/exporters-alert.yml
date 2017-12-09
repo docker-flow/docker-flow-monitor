@@ -39,7 +39,7 @@ services:
           memory: 50M
 
   node-exporter:
-    image: basi/node-exporter:${NODE_EXPORTER_TAG:-v1.13.0}
+    image: basi/node-exporter:${NODE_EXPORTER_TAG:-v1.15.0}
     networks:
       - monitor
     environment:

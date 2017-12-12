@@ -1,11 +1,9 @@
 package server
 
 import (
-	"../prometheus"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,7 +11,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
+
+	"../prometheus"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 )
 
 var decoder = schema.NewDecoder()
@@ -246,112 +249,122 @@ func (s *serve) getAlerts(req *http.Request) []prometheus.Alert {
 
 type alertIfShortcut struct {
 	expanded    string
-	shortcut    string
 	annotations map[string]string
 	labels      map[string]string
 }
 
-var alertIfShortcutData = []alertIfShortcut{
-	{
-		expanded:    `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"} > [VALUE]`,
-		shortcut:    `@service_mem_limit:`,
-		annotations: map[string]string{"summary": "Memory of the service [SERVICE_NAME] is over [VALUE]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
-	}, {
-		expanded:    `(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > [VALUE]`,
-		shortcut:    `@node_mem_limit:`,
-		annotations: map[string]string{"summary": "Memory of a node is over [VALUE]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
-	}, {
-		expanded:    `(sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) - sum(node_memory_MemFree{job="[SERVICE_NAME]"} + node_memory_Buffers{job="[SERVICE_NAME]"} + node_memory_Cached{job="[SERVICE_NAME]"})) / sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) > [VALUE]`,
-		shortcut:    `@node_mem_limit_total_above:`,
-		annotations: map[string]string{"summary": "Total memory of the nodes is over [VALUE]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
-	}, {
-		expanded:    `(sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) - sum(node_memory_MemFree{job="[SERVICE_NAME]"} + node_memory_Buffers{job="[SERVICE_NAME]"} + node_memory_Cached{job="[SERVICE_NAME]"})) / sum(node_memory_MemTotal{job="[SERVICE_NAME]"}) < [VALUE]`,
-		shortcut:    `@node_mem_limit_total_below:`,
-		annotations: map[string]string{"summary": "Total memory of the nodes is below [VALUE]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "down", "type": "node"},
-	}, {
-		expanded:    `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > [VALUE]`,
-		shortcut:    `@node_fs_limit:`,
-		annotations: map[string]string{"summary": "Disk usage of a node is over [VALUE]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]"},
-	}, {
-		expanded:    `sum(rate(http_server_resp_time_bucket{job="[SERVICE_NAME]", le="[VALUE_0]"}[[VALUE_1]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_1]])) < [VALUE_2]`,
-		shortcut:    `@resp_time_above:`,
-		annotations: map[string]string{"summary": "Response time of the service [SERVICE_NAME] is above [VALUE_0]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "service"},
-	}, {
-		expanded:    `sum(rate(http_server_resp_time_bucket{job="[SERVICE_NAME]", le="[VALUE_0]"}[[VALUE_1]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_1]])) > [VALUE_2]`,
-		shortcut:    `@resp_time_below:`,
-		annotations: map[string]string{"summary": "Response time of the service [SERVICE_NAME] is below [VALUE_0]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "down", "type": "service"},
-	}, {
-		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}) != [REPLICAS]`,
-		shortcut:    `@replicas_running`,
-		annotations: map[string]string{"summary": "The number of running replicas of the service [SERVICE_NAME] is not [REPLICAS]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
-	}, {
-		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}) < [REPLICAS]`,
-		shortcut:    `@replicas_less_than`,
-		annotations: map[string]string{"summary": "The number of running replicas of the service [SERVICE_NAME] is less than [REPLICAS]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
-	}, {
-		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="[SERVICE_NAME]"}) > [REPLICAS]`,
-		shortcut:    `@replicas_more_than`,
-		annotations: map[string]string{"summary": "The number of running replicas of the service [SERVICE_NAME] is more than [REPLICAS]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "scale": "up", "type": "node"},
-	}, {
-		expanded:    `sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]", code=~"^5..$$"}[[VALUE_0]])) / sum(rate(http_server_resp_time_count{job="[SERVICE_NAME]"}[[VALUE_0]])) > [VALUE_1]`,
-		shortcut:    `@resp_time_server_error:`,
-		annotations: map[string]string{"summary": "Error rate of the service [SERVICE_NAME] is above [VALUE_1]"},
-		labels:      map[string]string{"receiver": "system", "service": "[SERVICE_NAME]", "type": "errors"},
+type alertTemplateInput struct {
+	Alert  *prometheus.Alert
+	Values []string
+}
+
+var alertIfShortcutData = map[string]alertIfShortcut{
+	"@service_mem_limit": alertIfShortcut{
+		expanded:    `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"} > {{ index .Values 0 }}`,
+		annotations: map[string]string{"summary": "Memory of the service {{ .Alert.ServiceName }} is over {{ index .Values 0 }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}"},
+	},
+	"@node_mem_limit": alertIfShortcut{
+		expanded:    `(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > {{ index .Values 0 }}`,
+		annotations: map[string]string{"summary": "Memory of a node is over {{ index .Values 0 }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}"},
+	},
+	"@node_mem_limit_total_above": alertIfShortcut{
+		expanded:    `(sum(node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) - sum(node_memory_MemFree{job="{{ .Alert.ServiceName }}"} + node_memory_Buffers{job="{{ .Alert.ServiceName }}"} + node_memory_Cached{job="{{ .Alert.ServiceName }}"})) / sum(node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) > {{ index .Values 0 }}`,
+		annotations: map[string]string{"summary": "Total memory of the nodes is over {{ index .Values 0 }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "node"},
+	},
+	"@node_mem_limit_total_below": alertIfShortcut{
+		expanded:    `(sum(node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) - sum(node_memory_MemFree{job="{{ .Alert.ServiceName }}"} + node_memory_Buffers{job="{{ .Alert.ServiceName }}"} + node_memory_Cached{job="{{ .Alert.ServiceName }}"})) / sum(node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) < {{ index .Values 0 }}`,
+		annotations: map[string]string{"summary": "Total memory of the nodes is below {{ index .Values 0 }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "down", "type": "node"},
+	},
+	"@node_fs_limit": alertIfShortcut{
+		expanded:    `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > {{ index .Values 0 }}`,
+		annotations: map[string]string{"summary": "Disk usage of a node is over {{ index .Values 0 }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}"},
+	},
+	"@resp_time_above": alertIfShortcut{
+		expanded:    `sum(rate(http_server_resp_time_bucket{job="{{ .Alert.ServiceName }}", le="{{ index .Values 0 }}"}[{{ index .Values 1 }}])) / sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}"}[{{ index .Values 1 }}])) < {{ index .Values 2 }}`,
+		annotations: map[string]string{"summary": "Response time of the service {{ .Alert.ServiceName }} is above {{ index .Values 0 }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "service"},
+	},
+	"@resp_time_below": alertIfShortcut{
+		expanded:    `sum(rate(http_server_resp_time_bucket{job="{{ .Alert.ServiceName }}", le="{{ index .Values 0 }}"}[{{ index .Values 1 }}])) / sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}"}[{{ index .Values 1 }}])) > {{ index .Values 2 }}`,
+		annotations: map[string]string{"summary": "Response time of the service {{ .Alert.ServiceName }} is below {{ index .Values 0 }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "down", "type": "service"},
+	},
+	"@replicas_running": alertIfShortcut{
+		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}) != {{ .Alert.Replicas }}`,
+		annotations: map[string]string{"summary": "The number of running replicas of the service {{ .Alert.ServiceName }} is not {{ .Alert.Replicas }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "node"},
+	},
+	"@replicas_less_than": alertIfShortcut{
+		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}) < {{ .Alert.Replicas }}`,
+		annotations: map[string]string{"summary": "The number of running replicas of the service {{ .Alert.ServiceName }} is less than {{ .Alert.Replicas }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "node"},
+	},
+	"@replicas_more_than": alertIfShortcut{
+		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}) > {{ .Alert.Replicas }}`,
+		annotations: map[string]string{"summary": "The number of running replicas of the service {{ .Alert.ServiceName }} is more than {{ .Alert.Replicas }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "node"},
+	},
+	"@resp_time_server_error": alertIfShortcut{
+		expanded:    `sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}", code=~"^5..$$"}[{{ index .Values 0 }}])) / sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}"}[{{ index .Values 0 }}])) > {{ index .Values 1 }}`,
+		annotations: map[string]string{"summary": "Error rate of the service {{ .Alert.ServiceName }} is above {{ index .Values 1 }}"},
+		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "type": "errors"},
 	},
 }
 
 func (s *serve) formatAlert(alert *prometheus.Alert) {
 	alert.AlertNameFormatted = s.getNameFormatted(fmt.Sprintf("%s_%s", alert.ServiceName, alert.AlertName))
 	if strings.HasPrefix(alert.AlertIf, "@") {
-		for _, data := range alertIfShortcutData {
-			if strings.HasPrefix(alert.AlertIf, data.shortcut) {
-				value := ""
-				if strings.Contains(alert.AlertIf, ":") {
-					value = strings.Split(alert.AlertIf, ":")[1]
-				}
-				alert.AlertIf = s.replaceTags(data.expanded, alert, value)
-				if alert.AlertAnnotations == nil {
-					alert.AlertAnnotations = map[string]string{}
-				}
-				for k, v := range data.annotations {
-					if _, ok := alert.AlertAnnotations[k]; !ok {
-						alert.AlertAnnotations[k] = s.replaceTags(v, alert, value)
-					}
-				}
-				if alert.AlertLabels == nil {
-					alert.AlertLabels = map[string]string{}
-				}
-				for k, v := range data.labels {
-					if _, ok := alert.AlertLabels[k]; !ok {
-						alert.AlertLabels[k] = s.replaceTags(v, alert, value)
-					}
-				}
+		value := ""
+		alertSplit := strings.Split(alert.AlertIf, ":")
+		shortcut := alertSplit[0]
+
+		if len(alertSplit) > 1 {
+			value = alertSplit[1]
+		}
+
+		data, ok := alertIfShortcutData[shortcut]
+		if !ok {
+			return
+		}
+
+		alert.AlertIf = replaceTags(data.expanded, alert, value)
+
+		if alert.AlertAnnotations == nil {
+			alert.AlertAnnotations = map[string]string{}
+		}
+		for k, v := range data.annotations {
+			if _, ok := alert.AlertAnnotations[k]; !ok {
+				alert.AlertAnnotations[k] = replaceTags(v, alert, value)
+			}
+		}
+
+		if alert.AlertLabels == nil {
+			alert.AlertLabels = map[string]string{}
+		}
+		for k, v := range data.labels {
+			if _, ok := alert.AlertLabels[k]; !ok {
+				alert.AlertLabels[k] = replaceTags(v, alert, value)
 			}
 		}
 	}
 }
 
-// TODO: Change to template
-func (s *serve) replaceTags(tag string, alert *prometheus.Alert, value string) string {
-	replaced := strings.Replace(tag, "[SERVICE_NAME]", alert.ServiceName, -1)
-	replaced = strings.Replace(replaced, "[VALUE]", value, -1)
-	replaced = strings.Replace(replaced, "[REPLICAS]", strconv.Itoa(alert.Replicas), -1)
-	values := strings.Split(value, ",")
-	for i, v := range values {
-		old := fmt.Sprintf("[VALUE_%d]", i)
-		replaced = strings.Replace(replaced, old, v, -1)
+func replaceTags(tag string, alert *prometheus.Alert, value string) string {
+
+	alertInput := alertTemplateInput{
+		Alert:  alert,
+		Values: strings.Split(value, ","),
 	}
-	return replaced
+	t := template.Must(template.New("tag").Parse(tag))
+	b := new(bytes.Buffer)
+	t.Execute(b, alertInput)
+
+	return b.String()
 }
 
 func (s *serve) isValidAlert(alert *prometheus.Alert) bool {

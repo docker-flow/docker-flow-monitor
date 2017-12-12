@@ -1,17 +1,18 @@
 package server
 
 import (
-	"../prometheus"
 	"encoding/json"
 	"fmt"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/suite"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"testing"
 	"time"
+
+	"../prometheus"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/suite"
 )
 
 type ServerTestSuite struct {

@@ -2,8 +2,9 @@ package prometheus
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/suite"
 	"testing"
+
+	"github.com/stretchr/testify/suite"
 )
 
 type AlertTestSuite struct {
@@ -24,14 +25,15 @@ func TestAlertUnitTestSuite(t *testing.T) {
 // GetAlertConfig
 
 func (s *AlertTestSuite) Test_GetAlertConfig_ReturnsConfigWithData() {
-	expected := ""
+	expected := `groups:
+- name: alert.rules
+  rules:`
 	alerts := s.getTestAlerts()
 	for _, i := range []int{1, 2} {
 		expected += fmt.Sprintf(`
-ALERT alertNameFormatted%d
-  IF alert-if-%d
-  FOR alert-for-%d
-`, i, i, i)
+  - alert: alertNameFormatted%d
+    expr: alert-if-%d
+    for: alert-for-%d`, i, i, i)
 	}
 
 	actual := GetAlertConfig(alerts)
@@ -40,18 +42,19 @@ ALERT alertNameFormatted%d
 }
 
 func (s *AlertTestSuite) Test_GetAlertConfig_ReturnsConfigWithLabels_WhenPresent() {
-	expected := ""
+	expected := `groups:
+- name: alert.rules
+  rules:`
 	alerts := s.getTestAlerts()
 	for _, i := range []int{1, 2} {
 		expected += fmt.Sprintf(`
-ALERT alertNameFormatted%d
-  IF alert-if-%d
-  FOR alert-for-%d
-  LABELS {
-    alert-label-%d-1 = "alert-label-value-%d-1",
-    alert-label-%d-2 = "alert-label-value-%d-2",
-  }
-`, i, i, i, i, i, i, i)
+  - alert: alertNameFormatted%d
+    expr: alert-if-%d
+    for: alert-for-%d
+    labels:
+      alert-label-%d-1: alert-label-value-%d-1
+      alert-label-%d-2: alert-label-value-%d-2`,
+			i, i, i, i, i, i, i)
 		key := fmt.Sprintf("alert-name-%d", i)
 		alert := alerts[key]
 		alert.AlertLabels = map[string]string{
@@ -67,18 +70,19 @@ ALERT alertNameFormatted%d
 }
 
 func (s *AlertTestSuite) Test_GetAlertConfig_ReturnsConfigWithAnnotations_WhenPresent() {
-	expected := ""
+	expected := `groups:
+- name: alert.rules
+  rules:`
 	alerts := s.getTestAlerts()
 	for _, i := range []int{1, 2} {
 		expected += fmt.Sprintf(`
-ALERT alertNameFormatted%d
-  IF alert-if-%d
-  FOR alert-for-%d
-  ANNOTATIONS {
-    alert-annotation-%d-1 = "alert-annotation-value-%d-1",
-    alert-annotation-%d-2 = "alert-annotation-value-%d-2",
-  }
-`, i, i, i, i, i, i, i)
+  - alert: alertNameFormatted%d
+    expr: alert-if-%d
+    for: alert-for-%d
+    annotations:
+      alert-annotation-%d-1: "alert-annotation-value-%d-1"
+      alert-annotation-%d-2: "alert-annotation-value-%d-2"`,
+			i, i, i, i, i, i, i)
 		key := fmt.Sprintf("alert-name-%d", i)
 		alert := alerts[key]
 		alert.AlertAnnotations = map[string]string{

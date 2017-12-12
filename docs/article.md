@@ -762,7 +762,7 @@ Now that we confirmed that `alert-manager` works when triggered manually, we'll 
 docker stack rm alert-manager
 ```
 
-We'll deploy the `docker-flow-monitor-full.yml` stack. It container `monitor` and `swarm-listener` services we're already familiar with and adds `alert-manager`. The only change to the `monitor` service is the addition of the environment variable `ARG_ALERTMANAGER_URL=http://alert-manager:9093`. It defines the address and the port of the `alert-manager`.
+We'll deploy the `docker-flow-monitor-full.yml` stack. It container `monitor` and `swarm-listener` services we're already familiar with and adds `alert-manager`. The only change to the `monitor` service is the addition of the environment variable `ALERTMANAGER_URL=http://alert-manager:9093`. It defines the address and the port of the `alert-manager`.
 
 The definition of the `alert-manager` service is as follows.
 
@@ -784,7 +784,7 @@ DOMAIN=$(docker-machine ip swarm-1) \
     monitor
 ```
 
-We should confirm that the `alert-manager` is correctly configured through the environment variable `ARG_ALERTMANAGER_URL`.
+We should confirm that the `alert-manager` is correctly configured through the environment variable `ALERTMANAGER_URL`.
 
 ```bash
 open "http://$(docker-machine ip swarm-1)/monitor/flags"

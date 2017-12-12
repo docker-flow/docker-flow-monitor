@@ -36,9 +36,10 @@ func TestServerUnitTestSuite(t *testing.T) {
 	defer testServer.Close()
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
 	os.Setenv("ARG_CONFIG_FILE", "/etc/prometheus/prometheus.yml")
-	os.Setenv("ARG_STORAGE_LOCAL_PATH", "/prometheus")
+	os.Setenv("ARG_STORAGE_TSDB_PATH", "/prometheus")
 	os.Setenv("ARG_WEB_CONSOLE_LIBRARIES", "/usr/share/prometheus/console_libraries")
 	os.Setenv("ARG_WEB_CONSOLE_TEMPLATES", "/usr/share/prometheus/consoles")
+	os.Setenv("ALERTMANAGER_URL", "http://alert-manager:9093")
 	suite.Run(t, s)
 }
 
@@ -99,7 +100,13 @@ func (s *ServerTestSuite) Test_Execute_WritesConfig() {
 global:
   scrape_interval: 5s
 
-`
+
+alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - alert-manager:9093`
 	fsOrig := prometheus.FS
 	defer func() { prometheus.FS = fsOrig }()
 	prometheus.FS = afero.NewMemMapFs()
@@ -563,7 +570,13 @@ scrape_configs:
 
 rule_files:
   - 'alert.rules'
-`
+
+alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - alert-manager:9093`
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234&alertName=my-alert&alertIf=my-if&alertFor=my-for"
 	req, _ := http.NewRequest("GET", addr, nil)
@@ -762,7 +775,13 @@ scrape_configs:
         type: A
         port: 1234
 
-`
+
+alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - alert-manager:9093`
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
 	req, _ := http.NewRequest("GET", addr, nil)
@@ -780,7 +799,13 @@ scrape_configs:
 global:
   scrape_interval: 5s
 
-`
+
+alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - alert-manager:9093`
 	addr = "/v1/docker-flow-monitor?serviceName=my-service"
 	req, _ = http.NewRequest("DELETE", addr, nil)
 

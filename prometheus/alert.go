@@ -7,25 +7,28 @@ import (
 
 // GetAlertConfig returns Prometheus configuration snippet related to alerts.
 func GetAlertConfig(alerts map[string]Alert) string {
-	templateString := `{{range .}}
-ALERT {{.AlertNameFormatted}}
-  IF {{.AlertIf}}{{if .AlertFor}}
-  FOR {{.AlertFor}}{{end}}
-  {{- if .AlertLabels}}
-  LABELS {
-    {{- range $key, $value := .AlertLabels}}
-    {{$key}} = "{{$value}}",
+	templateString := `groups:
+- name: alert.rules
+  rules:
+  {{- range . }}
+  - alert: {{ .AlertNameFormatted }}
+    expr: {{ .AlertIf }}
+    {{- if .AlertFor }}
+    for: {{ .AlertFor }}
+    {{- end }}
+    {{- if .AlertLabels }}
+    labels:
+    {{- range $key, $value := .AlertLabels }}
+      {{ $key }}: {{ $value }}
     {{- end}}
-  }
-  {{- end}}
-  {{- if .AlertAnnotations}}
-  ANNOTATIONS {
-    {{- range $key, $value := .AlertAnnotations}}
-    {{$key}} = "{{$value}}",
+    {{- end }}
+    {{- if .AlertAnnotations }}
+    annotations:
+    {{- range $key, $value := .AlertAnnotations }}
+      {{ $key }}: "{{ $value }}"
     {{- end}}
-  }
-  {{- end}}
-{{end}}`
+    {{- end }}
+  {{- end }}`
 	tmpl, _ := template.New("").Parse(templateString)
 	var b bytes.Buffer
 	tmpl.Execute(&b, alerts)

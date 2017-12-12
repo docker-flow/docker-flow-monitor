@@ -2,10 +2,11 @@ package prometheus
 
 import (
 	"fmt"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/suite"
 	"os"
 	"testing"
+
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/suite"
 )
 
 type ConfigTestSuite struct {
@@ -18,9 +19,26 @@ func (s *ConfigTestSuite) SetupTest() {
 func TestConfigUnitTestSuite(t *testing.T) {
 	s := new(ConfigTestSuite)
 	logPrintlnOrig := logPrintf
-	defer func() { logPrintf = logPrintlnOrig }()
+	os.Setenv("ALERTMANAGER_URL", "http://alert-manager:9093")
+	defer func() {
+		logPrintf = logPrintlnOrig
+		os.Unsetenv("ALERTMANAGER_URL")
+	}()
 	logPrintf = func(format string, v ...interface{}) {}
 	suite.Run(t, s)
+}
+
+// GetAlertManagerConfig
+
+func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsAlertManagerTarget() {
+	expected := `alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - alert-manager:9093`
+	actual := GetAlertManagerConfig()
+	s.Equal(expected, actual)
 }
 
 // GetRemoteConfig
@@ -243,12 +261,15 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesConfig() {
 	gc := GetGlobalConfig()
 	sc := GetScrapeConfig(scrapes)
 	rc := GetRemoteConfig()
+	acm := GetAlertManagerConfig()
 	expected := fmt.Sprintf(`%s
+%s
 %s
 %s`,
 		gc,
 		sc,
 		rc,
+		acm,
 	)
 	println("000")
 	println(rc)
@@ -273,14 +294,14 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesAlerts() {
 		AlertIf:            "a>b",
 	}
 	gc := GetGlobalConfig()
+	acm := GetAlertManagerConfig()
 	expectedConfig := fmt.Sprintf(`%s
 
 
 rule_files:
   - 'alert.rules'
-`,
-		gc,
-	)
+
+%s`, gc, acm)
 	expectedAlerts := GetAlertConfig(alerts)
 
 	WriteConfig(map[string]Scrape{}, alerts)

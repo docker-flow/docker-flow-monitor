@@ -1,10 +1,11 @@
 package prometheus
 
 import (
-	"github.com/stretchr/testify/suite"
 	"os"
 	"os/exec"
 	"testing"
+
+	"github.com/stretchr/testify/suite"
 )
 
 type RunTestSuite struct {
@@ -21,7 +22,7 @@ func TestRunUnitTestSuite(t *testing.T) {
 	logPrintf = func(format string, v ...interface{}) {}
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
 	os.Setenv("ARG_CONFIG_FILE", "/etc/prometheus/prometheus.yml")
-	os.Setenv("ARG_STORAGE_LOCAL_PATH", "/prometheus")
+	os.Setenv("ARG_STORAGE_TSDB_PATH", "/prometheus")
 	os.Setenv("ARG_WEB_CONSOLE_LIBRARIES", "/usr/share/prometheus/console_libraries")
 	os.Setenv("ARG_WEB_CONSOLE_TEMPLATES", "/usr/share/prometheus/consoles")
 	suite.Run(t, s)
@@ -40,7 +41,7 @@ func (s *RunTestSuite) Test_Run_ExecutesPrometheus() {
 
 	Run()
 
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=\"/etc/prometheus/prometheus.yml\" -storage.local.path=\"/prometheus\" -web.console.libraries=\"/usr/share/prometheus/console_libraries\" -web.console.templates=\"/usr/share/prometheus/consoles\""}, actualArgs)
+	s.Equal([]string{"/bin/sh", "-c", "prometheus --config.file=\"/etc/prometheus/prometheus.yml\" --storage.tsdb.path=\"/prometheus\" --web.console.libraries=\"/usr/share/prometheus/console_libraries\" --web.console.templates=\"/usr/share/prometheus/consoles\""}, actualArgs)
 }
 
 func (s *RunTestSuite) Test_Run_AddsArguments() {
@@ -48,12 +49,8 @@ func (s *RunTestSuite) Test_Run_AddsArguments() {
 	defer func() {
 		cmdRun = cmdRunOrig
 		os.Unsetenv("ARG_WEB_ROUTE-PREFIX")
-		os.Unsetenv("ARG_ALERTMANAGER_URL")
-		os.Unsetenv("ARG_LOG_FORMAT")
 	}()
 	os.Setenv("ARG_WEB_ROUTE-PREFIX", "/something")
-	os.Setenv("ARG_ALERTMANAGER_URL", "alertmanager")
-	os.Setenv("ARG_LOG_FORMAT", "logger:stdout?json=true")
 	actualArgs := []string{}
 	cmdRun = func(cmd *exec.Cmd) error {
 		actualArgs = cmd.Args
@@ -63,7 +60,7 @@ func (s *RunTestSuite) Test_Run_AddsArguments() {
 	println("000")
 	Run()
 
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=\"/etc/prometheus/prometheus.yml\" -storage.local.path=\"/prometheus\" -web.console.libraries=\"/usr/share/prometheus/console_libraries\" -web.console.templates=\"/usr/share/prometheus/consoles\" -web.route-prefix=\"/something\" -alertmanager.url=\"alertmanager\" -log.format=\"logger:stdout?json=true\""}, actualArgs)
+	s.Equal([]string{"/bin/sh", "-c", "prometheus --config.file=\"/etc/prometheus/prometheus.yml\" --storage.tsdb.path=\"/prometheus\" --web.console.libraries=\"/usr/share/prometheus/console_libraries\" --web.console.templates=\"/usr/share/prometheus/consoles\" --web.route-prefix=\"/something\""}, actualArgs)
 }
 
 func (s *RunTestSuite) Test_Run_AddsExternalUrl() {
@@ -81,7 +78,7 @@ func (s *RunTestSuite) Test_Run_AddsExternalUrl() {
 
 	Run()
 
-	s.Equal([]string{"/bin/sh", "-c", "prometheus -config.file=\"/etc/prometheus/prometheus.yml\" -storage.local.path=\"/prometheus\" -web.console.libraries=\"/usr/share/prometheus/console_libraries\" -web.console.templates=\"/usr/share/prometheus/consoles\" -web.external-url=\"/something\""}, actualArgs)
+	s.Equal([]string{"/bin/sh", "-c", "prometheus --config.file=\"/etc/prometheus/prometheus.yml\" --storage.tsdb.path=\"/prometheus\" --web.console.libraries=\"/usr/share/prometheus/console_libraries\" --web.console.templates=\"/usr/share/prometheus/consoles\" --web.external-url=\"/something\""}, actualArgs)
 }
 
 func (s *RunTestSuite) Test_Run_ReturnsError() {

@@ -3,10 +3,12 @@ package prometheus
 import (
 	"bytes"
 	"fmt"
-	"github.com/spf13/afero"
+	"net/url"
 	"os"
 	"strings"
 	"text/template"
+
+	"github.com/spf13/afero"
 )
 
 // WriteConfig creates Prometheus configuration (`/etc/prometheus/prometheus.yml`) and rules (`/etc/prometheus/alert.rules`) files.
@@ -15,13 +17,14 @@ func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
 	gc := GetGlobalConfig()
 	sc := GetScrapeConfig(scrapes)
 	rc := GetRemoteConfig()
+	amc := GetAlertManagerConfig()
 	ruleFiles := ""
 	if len(alerts) > 0 {
 		logPrintf("Writing to alert.rules")
 		ruleFiles = "\nrule_files:\n  - 'alert.rules'\n"
 		afero.WriteFile(FS, "/etc/prometheus/alert.rules", []byte(GetAlertConfig(alerts)), 0644)
 	}
-	config := gc + "\n" + sc + "\n" + rc + ruleFiles
+	config := gc + "\n" + sc + "\n" + rc + ruleFiles + "\n" + amc
 	logPrintf("Writing to prometheus.yml")
 	afero.WriteFile(FS, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }
@@ -41,6 +44,27 @@ func GetRemoteConfig() string {
 func GetGlobalConfig() string {
 	data := getDataFromEnvVars("GLOBAL")
 	return getConfigSection("global", data)
+}
+
+// GetAlertManagerConfig returns alerting section of the configuration
+func GetAlertManagerConfig() string {
+	alertmanagerURL := os.Getenv("ALERTMANAGER_URL")
+	url, err := url.Parse(alertmanagerURL)
+	if err != nil {
+		return ""
+	}
+	templateStr := `alerting:
+  alertmanagers:
+  - scheme: {{ .Scheme }}
+    static_configs:
+    - targets:
+      - {{ .Host }}`
+	tmpl, _ := template.New("").Parse(templateStr)
+
+	b := new(bytes.Buffer)
+	tmpl.Execute(b, url)
+	return b.String()
+
 }
 
 // GetScrapeConfig returns scrapes section of the configuration

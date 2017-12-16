@@ -22,7 +22,7 @@ func TestRunUnitTestSuite(t *testing.T) {
 	logPrintf = func(format string, v ...interface{}) {}
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
 	os.Setenv("ARG_CONFIG_FILE", "/etc/prometheus/prometheus.yml")
-	os.Setenv("ARG_STORAGE_TSDB_PATH", "/prometheus")
+	os.Setenv("ARG_STORAGE_LOCAL_PATH", "/prometheus")
 	os.Setenv("ARG_WEB_CONSOLE_LIBRARIES", "/usr/share/prometheus/console_libraries")
 	os.Setenv("ARG_WEB_CONSOLE_TEMPLATES", "/usr/share/prometheus/consoles")
 	suite.Run(t, s)

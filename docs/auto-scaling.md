@@ -129,7 +129,7 @@ The full definition of the stack that we just deployed can be found in [docker-f
       - GLOBAL_SCRAPE_INTERVAL=${SCRAPE_INTERVAL:-10s}
       - ARG_WEB_ROUTE-PREFIX=/monitor
       - ARG_WEB_EXTERNAL-URL=http://${DOMAIN:-localhost}/monitor
-      - ALERTMANAGER_URL=http://alert-manager:9093
+      - ARG_ALERTMANAGER_URL=http://alert-manager:9093
     ...
     deploy:
       labels:

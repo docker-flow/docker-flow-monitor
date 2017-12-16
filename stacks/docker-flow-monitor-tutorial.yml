@@ -7,7 +7,7 @@ services:
     environment:
       - LISTENER_ADDRESS=swarm-listener
       - GLOBAL_SCRAPE_INTERVAL=10s
-      - ALERTMANAGER_URL=http://alert-manager:9093
+      - ARG_ALERTMANAGER_URL=http://alert-manager:9093
     networks:
       - monitor
     ports:

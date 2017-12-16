@@ -40,7 +40,7 @@ The definition of the `monitor` service is as follows.
     environment:
       - LISTENER_ADDRESS=swarm-listener
       - GLOBAL_SCRAPE_INTERVAL=10s
-      - ALERTMANAGER_URL=http://alert-manager:9093
+      - ARG_ALERTMANAGER_URL=http://alert-manager:9093
     networks:
       - monitor
     ports:
@@ -105,7 +105,7 @@ Now we can open *Prometheus* from a browser.
 open "http://$(docker-machine ip swarm-1):9090"
 ```
 
-If you navigate to the *Status > Command-Line Flags* screen, you'll notice that *alertmanager.url* entry is already configured through the environment variable `ALERTMANAGER_URL`. Similarly, the *Status > Configuration* screen also has the configuration created through the environment variable `GLOBAL_SCRAPE_INTERVAL`.
+If you navigate to the *Status > Command-Line Flags* screen, you'll notice that *alertmanager.url* entry is already configured through the environment variable `ARG_ALERTMANAGER_URL`. Similarly, the *Status > Configuration* screen also has the configuration created through the environment variable `GLOBAL_SCRAPE_INTERVAL`.
 
 Now we can start collecting metrics.
 

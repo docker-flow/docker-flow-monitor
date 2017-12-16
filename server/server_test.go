@@ -36,10 +36,10 @@ func TestServerUnitTestSuite(t *testing.T) {
 	defer testServer.Close()
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
 	os.Setenv("ARG_CONFIG_FILE", "/etc/prometheus/prometheus.yml")
-	os.Setenv("ARG_STORAGE_TSDB_PATH", "/prometheus")
+	os.Setenv("ARG_STORAGE_LOCAL_PATH", "/prometheus")
 	os.Setenv("ARG_WEB_CONSOLE_LIBRARIES", "/usr/share/prometheus/console_libraries")
 	os.Setenv("ARG_WEB_CONSOLE_TEMPLATES", "/usr/share/prometheus/consoles")
-	os.Setenv("ALERTMANAGER_URL", "http://alert-manager:9093")
+	os.Setenv("ARG_ALERTMANAGER_URL", "http://alert-manager:9093")
 	suite.Run(t, s)
 }
 
@@ -96,11 +96,8 @@ func (s *ServerTestSuite) Test_Execute_ReturnsError_WhenHTTPListenAndServeFails(
 }
 
 func (s *ServerTestSuite) Test_Execute_WritesConfig() {
-	expected := `
-global:
+	expected := `global:
   scrape_interval: 5s
-
-
 alerting:
   alertmanagers:
   - scheme: http
@@ -555,10 +552,8 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_CallsWriteConfig() {
-	expected := `
-global:
+	expected := `global:
   scrape_interval: 5s
-
 scrape_configs:
   - job_name: "my-service"
     metrics_path: /metrics
@@ -566,11 +561,8 @@ scrape_configs:
       - names: ["tasks.my-service"]
         type: A
         port: 1234
-
-
 rule_files:
   - 'alert.rules'
-
 alerting:
   alertmanagers:
   - scheme: http
@@ -763,10 +755,8 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_CallsWriteConfig() {
-	expectedAfterGet := `
-global:
+	expectedAfterGet := `global:
   scrape_interval: 5s
-
 scrape_configs:
   - job_name: "my-service"
     metrics_path: /metrics
@@ -774,8 +764,6 @@ scrape_configs:
       - names: ["tasks.my-service"]
         type: A
         port: 1234
-
-
 alerting:
   alertmanagers:
   - scheme: http
@@ -795,11 +783,8 @@ alerting:
 	actual, _ := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(expectedAfterGet, string(actual))
 
-	expectedAfterDelete := `
-global:
+	expectedAfterDelete := `global:
   scrape_interval: 5s
-
-
 alerting:
   alertmanagers:
   - scheme: http

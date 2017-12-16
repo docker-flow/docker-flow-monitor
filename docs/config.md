@@ -22,7 +22,7 @@ prometheus web.route-prefix=/monitor web.external-url=http://localhost/monitor
 
 ```
 ARG_CONFIG_FILE=/etc/prometheus/prometheus.yml
-ARG_STORAGE_TSDB_PATH=/prometheus
+ARG_STORAGE_LOCAL_PATH=/prometheus
 ARG_WEB_CONSOLE_LIBRARIES=/usr/share/prometheus/console_libraries
 ARG_WEB_CONSOLE_TEMPLATES=/usr/share/prometheus/consoles
 ```

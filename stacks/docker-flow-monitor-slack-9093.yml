@@ -9,7 +9,7 @@ services:
       - GLOBAL_SCRAPE_INTERVAL=10s
       - ARG_WEB_ROUTE-PREFIX=/monitor
       - ARG_WEB_EXTERNAL-URL=http://${DOMAIN:-localhost}/monitor
-      - ALERTMANAGER_URL=http://alert-manager:9093
+      - ARG_ALERTMANAGER_URL=http://alert-manager:9093
     networks:
       - proxy
       - monitor

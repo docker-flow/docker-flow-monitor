@@ -8,10 +8,10 @@ services:
       - proxy
       - monitor
     environment:
-      - ARG_STORAGE_TSDB_PATH=/data
+      - ARG_STORAGE_LOCAL_PATH=/data
       - ARG_WEB_EXTERNAL-URL=http://prometheus.dockerflow.com
       - LISTENER_ADDRESS=swarm-listener
-      - ALERTMANAGER_URL=http://alert-manager:9093
+      - ARG_ALERTMANAGER_URL=http://alert-manager:9093
     volumes:
       - prom:/data
     deploy:

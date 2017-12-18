@@ -25,13 +25,16 @@ func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
 		afero.WriteFile(FS, "/etc/prometheus/alert.rules", []byte(GetAlertConfig(alerts)), 0644)
 	}
 
-	validConfigs := []string{}
+	config := ""
 	for _, c := range []string{gc, sc, rc, ruleFiles, amc} {
-		if c != "" {
-			validConfigs = append(validConfigs, c)
+		if len(c) > 0 {
+			if len(config) == 0 {
+				config = c
+			} else {
+				config += "\n" + c
+			}
 		}
 	}
-	config := strings.Join(validConfigs, "\n")
 
 	logPrintf("Writing to prometheus.yml")
 	afero.WriteFile(FS, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
@@ -77,24 +80,18 @@ func GetAlertManagerConfig() string {
 
 // GetScrapeConfig returns scrapes section of the configuration
 func GetScrapeConfig(scrapes map[string]Scrape) string {
-	mapConfig := getScrapeConfigFromMap(scrapes)
-	dirConfig := getScrapeConfigFromDir()
+	config := getScrapeConfigFromMap(scrapes)
 
-	validConfigs := []string{}
-	for _, c := range []string{mapConfig, dirConfig} {
-		if c != "" {
-			validConfigs = append(validConfigs, c)
+	if dirConfig := getScrapeConfigFromDir(); len(dirConfig) > 0 {
+		if len(config) == 0 {
+			config = dirConfig
+		} else {
+			config += "\n" + dirConfig
 		}
 	}
 
-	config := strings.Join(validConfigs, "\n")
-
 	if len(config) > 0 {
-		if strings.HasPrefix(config, "\n") {
-			config = fmt.Sprintf("scrape_configs:%s", config)
-		} else {
-			config = fmt.Sprintf("scrape_configs:\n%s", config)
-		}
+		config = fmt.Sprintf("scrape_configs:\n%s", config)
 	}
 	return config
 }
@@ -129,7 +126,7 @@ func getScrapeConfigFromDir() string {
 		dir += "/"
 	}
 
-	validConfigs := []string{}
+	config := ""
 	if files, err := afero.ReadDir(FS, dir); err == nil {
 		for _, file := range files {
 			if !strings.HasPrefix(file.Name(), "scrape_") {
@@ -137,14 +134,18 @@ func getScrapeConfigFromDir() string {
 			}
 			if content, err := afero.ReadFile(FS, dir+file.Name()); err == nil {
 				contentStr := string(content)
-				if contentStr != "" {
-					validConfigs = append(validConfigs, contentStr)
+				if len(contentStr) > 0 {
+					if len(config) > 0 {
+						config += "\n" + contentStr
+					} else {
+						config = contentStr
+					}
 				}
 
 			}
 		}
 	}
-	return strings.Join(validConfigs, "\n")
+	return config
 }
 
 func getScrapeConfigFromMap(scrapes map[string]Scrape) string {
@@ -166,7 +167,7 @@ func getScrapeConfigFromMap(scrapes map[string]Scrape) string {
 		tmpl, _ := template.New("").Parse(templateString)
 		var b bytes.Buffer
 		tmpl.Execute(&b, scrapes)
-		return b.String()
+		return strings.TrimPrefix(b.String(), "\n")
 
 	}
 	return ""

@@ -6,6 +6,7 @@ pages:
     - Auto-Scaling Services Using Instrumented Metrics: auto-scaling.md
   - Configuration: config.md
   - Usage: usage.md
+  - Migration Guide: migration.md
   - About:
     - Release Notes: release-notes.md
     - License: license.md

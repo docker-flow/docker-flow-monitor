@@ -1,4 +1,4 @@
-FROM golang:1.8 AS build
+FROM golang:1.9.2 AS build
 ADD . /src
 WORKDIR /src
 RUN go get -t github.com/stretchr/testify/suite
@@ -8,7 +8,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -o docker-flow-monitor
 
 
 
-FROM prom/prometheus:v1.8.1
+FROM prom/prometheus:v2.0.0
 
 ENV GLOBAL_SCRAPE_INTERVAL=10s \
     ARG_CONFIG_FILE=/etc/prometheus/prometheus.yml \
@@ -24,7 +24,10 @@ ENTRYPOINT ["docker-flow-monitor"]
 HEALTHCHECK --interval=5s CMD /bin/check.sh
 
 COPY --from=build /src/docker-flow-monitor /bin/docker-flow-monitor
-RUN chmod +x /bin/docker-flow-monitor
 COPY check.sh /bin/check.sh
+
+USER root
 RUN chmod +x /bin/check.sh
+RUN chmod +x /bin/docker-flow-monitor
+USER nobody
 

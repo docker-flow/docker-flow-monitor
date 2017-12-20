@@ -24,19 +24,15 @@ pipeline {
         branch "master"
       }
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: "docker",
-          usernameVariable: "USER",
-          passwordVariable: "PASS"
-        )]) {
-          sh "docker login -u $USER -p $PASS"
-        }
-        sh "docker tag vfarcic/docker-flow-monitor vfarcic/docker-flow-monitor:${currentBuild.displayName}"
+        dockerLogin()
+        sh "docker tag vfarcic/docker-flow-monitor vfarcic/docker-flow-monitor:2-${currentBuild.displayName}"
         sh "docker image push vfarcic/docker-flow-monitor:latest"
-        sh "docker image push vfarcic/docker-flow-monitor:${currentBuild.displayName}"
-        sh "docker tag vfarcic/docker-flow-monitor-docs vfarcic/docker-flow-monitor-docs:${currentBuild.displayName}"
+        sh "docker image push vfarcic/docker-flow-monitor:2-${currentBuild.displayName}"
+        sh "docker tag vfarcic/docker-flow-monitor-docs vfarcic/docker-flow-monitor-docs:2-${currentBuild.displayName}"
         sh "docker image push vfarcic/docker-flow-monitor-docs:latest"
-        sh "docker image push vfarcic/docker-flow-monitor-docs:${currentBuild.displayName}"
+        sh "docker image push vfarcic/docker-flow-monitor-docs:2-${currentBuild.displayName}"
+        dockerLogout()
+        dfReleaseGithub("docker-flow-monitor")
       }
     }
     stage("deploy") {
@@ -47,8 +43,8 @@ pipeline {
         label "prod"
       }
       steps {
-        sh "docker service update --image vfarcic/docker-flow-monitor:${currentBuild.displayName} monitor_monitor"
-        sh "docker service update --image vfarcic/docker-flow-monitor-docs:${currentBuild.displayName} monitor_docs"
+        sh "docker service update --image vfarcic/docker-flow-monitor:2-${currentBuild.displayName} monitor_monitor"
+        sh "docker service update --image vfarcic/docker-flow-monitor-docs:2-${currentBuild.displayName} monitor_docs"
       }
     }
   }

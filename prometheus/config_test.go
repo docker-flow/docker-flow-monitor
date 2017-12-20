@@ -2,10 +2,11 @@ package prometheus
 
 import (
 	"fmt"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/suite"
 	"os"
 	"testing"
+
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/suite"
 )
 
 type ConfigTestSuite struct {
@@ -18,9 +19,26 @@ func (s *ConfigTestSuite) SetupTest() {
 func TestConfigUnitTestSuite(t *testing.T) {
 	s := new(ConfigTestSuite)
 	logPrintlnOrig := logPrintf
-	defer func() { logPrintf = logPrintlnOrig }()
+	os.Setenv("ARG_ALERTMANAGER_URL", "http://alert-manager:9093")
+	defer func() {
+		logPrintf = logPrintlnOrig
+		os.Unsetenv("ARG_ALERTMANAGER_URL")
+	}()
 	logPrintf = func(format string, v ...interface{}) {}
 	suite.Run(t, s)
+}
+
+// GetAlertManagerConfig
+
+func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsAlertManagerTarget() {
+	expected := `alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - alert-manager:9093`
+	actual := GetAlertManagerConfig()
+	s.Equal(expected, actual)
 }
 
 // GetRemoteConfig
@@ -34,8 +52,7 @@ func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsEmptyString_WhenEnvVarsAre
 func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsRemoteWriteUrl() {
 	defer func() { os.Unsetenv("REMOTE_WRITE_URL") }()
 	os.Setenv("REMOTE_WRITE_URL", "http://acme.com/write")
-	expected := `
-remote_write:
+	expected := `remote_write:
   url: http://acme.com/write`
 	actual := GetRemoteConfig()
 
@@ -45,8 +62,7 @@ remote_write:
 func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsRemoteReadUrl() {
 	defer func() { os.Unsetenv("REMOTE_READ_URL") }()
 	os.Setenv("REMOTE_READ_URL", "http://acme.com/read")
-	expected := `
-remote_read:
+	expected := `remote_read:
   url: http://acme.com/read`
 	actual := GetRemoteConfig()
 
@@ -59,8 +75,7 @@ func (s *ConfigTestSuite) Test_GlobalConfig_ReturnsConfigWithData() {
 	scrapeIntervalOrig := os.Getenv("GLOBAL_SCRAPE_INTERVAL")
 	defer func() { os.Setenv("GLOBAL_SCRAPE_INTERVAL", scrapeIntervalOrig) }()
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "123s")
-	expected := `
-global:
+	expected := `global:
   scrape_interval: 123s`
 
 	actual := GetGlobalConfig()
@@ -77,8 +92,7 @@ func (s *ConfigTestSuite) Test_GlobalConfig_AllowsNestedEntries() {
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "123s")
 	os.Setenv("GLOBAL_EXTERNAL_LABELS-CLUSTER", "swarm")
 	os.Setenv("GLOBAL_EXTERNAL_LABELS-TYPE", "production")
-	expected := `
-global:
+	expected := `global:
   scrape_interval: 123s
   external_labels:
     cluster: swarm
@@ -98,8 +112,7 @@ global:
 // GetScrapeConfig
 
 func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigWithData() {
-	expected := `
-scrape_configs:
+	expected := `scrape_configs:
   - job_name: "service-1"
     metrics_path: /metrics
     dns_sd_configs:
@@ -116,8 +129,7 @@ scrape_configs:
     metrics_path: /something
     static_configs:
       - targets:
-        - service-3:4321
-`
+        - service-3:4321`
 	scrapes := map[string]Scrape{
 		"service-1": {ServiceName: "service-1", ScrapePort: 1234},
 		"service-2": {ServiceName: "service-2", ScrapePort: 5678},
@@ -143,10 +155,8 @@ func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigWithDataAndSecrets()
     metrics_path: /metrics
     dns_sd_configs:
       - names: ["tasks.service-3"]
-        port: 9999
-`
-	expected := fmt.Sprintf(`
-scrape_configs:
+        port: 9999`
+	expected := fmt.Sprintf(`scrape_configs:
   - job_name: "service-1"
     metrics_path: /metrics
     dns_sd_configs:
@@ -178,10 +188,8 @@ func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsOnlySecretsWithScrapePrefi
       - names: ["tasks.my-service"]
         type: A
         port: 5678`
-	expected := fmt.Sprintf(`
-scrape_configs:
-%s
-`,
+	expected := fmt.Sprintf(`scrape_configs:
+%s`,
 		job,
 	)
 	scrapes := map[string]Scrape{}
@@ -204,10 +212,8 @@ func (s *ConfigTestSuite) Test_GetScrapeConfig_ReturnsConfigsFromCustomDirectory
       - names: ["tasks.my-service"]
         type: A
         port: 5678`
-	expected := fmt.Sprintf(`
-scrape_configs:
-%s
-`,
+	expected := fmt.Sprintf(`scrape_configs:
+%s`,
 		job,
 	)
 	scrapes := map[string]Scrape{}
@@ -243,12 +249,15 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesConfig() {
 	gc := GetGlobalConfig()
 	sc := GetScrapeConfig(scrapes)
 	rc := GetRemoteConfig()
+	acm := GetAlertManagerConfig()
 	expected := fmt.Sprintf(`%s
+%s
 %s
 %s`,
 		gc,
 		sc,
 		rc,
+		acm,
 	)
 	println("000")
 	println(rc)
@@ -273,14 +282,11 @@ func (s *ConfigTestSuite) Test_WriteConfig_WritesAlerts() {
 		AlertIf:            "a>b",
 	}
 	gc := GetGlobalConfig()
+	acm := GetAlertManagerConfig()
 	expectedConfig := fmt.Sprintf(`%s
-
-
 rule_files:
   - 'alert.rules'
-`,
-		gc,
-	)
+%s`, gc, acm)
 	expectedAlerts := GetAlertConfig(alerts)
 
 	WriteConfig(map[string]Scrape{}, alerts)

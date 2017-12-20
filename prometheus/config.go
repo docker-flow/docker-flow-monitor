@@ -3,10 +3,12 @@ package prometheus
 import (
 	"bytes"
 	"fmt"
-	"github.com/spf13/afero"
+	"net/url"
 	"os"
 	"strings"
 	"text/template"
+
+	"github.com/spf13/afero"
 )
 
 // WriteConfig creates Prometheus configuration (`/etc/prometheus/prometheus.yml`) and rules (`/etc/prometheus/alert.rules`) files.
@@ -15,13 +17,25 @@ func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
 	gc := GetGlobalConfig()
 	sc := GetScrapeConfig(scrapes)
 	rc := GetRemoteConfig()
+	amc := GetAlertManagerConfig()
 	ruleFiles := ""
 	if len(alerts) > 0 {
 		logPrintf("Writing to alert.rules")
-		ruleFiles = "\nrule_files:\n  - 'alert.rules'\n"
+		ruleFiles = "rule_files:\n  - 'alert.rules'"
 		afero.WriteFile(FS, "/etc/prometheus/alert.rules", []byte(GetAlertConfig(alerts)), 0644)
 	}
-	config := gc + "\n" + sc + "\n" + rc + ruleFiles
+
+	config := ""
+	for _, c := range []string{gc, sc, rc, ruleFiles, amc} {
+		if len(c) > 0 {
+			if len(config) == 0 {
+				config = c
+			} else {
+				config += "\n" + c
+			}
+		}
+	}
+
 	logPrintf("Writing to prometheus.yml")
 	afero.WriteFile(FS, "/etc/prometheus/prometheus.yml", []byte(config), 0644)
 }
@@ -43,15 +57,41 @@ func GetGlobalConfig() string {
 	return getConfigSection("global", data)
 }
 
+// GetAlertManagerConfig returns alerting section of the configuration
+func GetAlertManagerConfig() string {
+	alertmanagerURL := os.Getenv("ARG_ALERTMANAGER_URL")
+	url, err := url.Parse(alertmanagerURL)
+	if err != nil {
+		return ""
+	}
+	templateStr := `alerting:
+  alertmanagers:
+  - scheme: {{ .Scheme }}
+    static_configs:
+    - targets:
+      - {{ .Host }}`
+	tmpl, _ := template.New("").Parse(templateStr)
+
+	b := new(bytes.Buffer)
+	tmpl.Execute(b, url)
+	return b.String()
+
+}
+
 // GetScrapeConfig returns scrapes section of the configuration
 func GetScrapeConfig(scrapes map[string]Scrape) string {
-	config := getScrapeConfigFromMap(scrapes) + getScrapeConfigFromDir()
-	if len(config) > 0 {
-		if !strings.HasPrefix(config, "\n") {
-			config = "\n" + config
+	config := getScrapeConfigFromMap(scrapes)
+
+	if dirConfig := getScrapeConfigFromDir(); len(dirConfig) > 0 {
+		if len(config) == 0 {
+			config = dirConfig
+		} else {
+			config += "\n" + dirConfig
 		}
-		config = `
-scrape_configs:` + config
+	}
+
+	if len(config) > 0 {
+		config = fmt.Sprintf("scrape_configs:\n%s", config)
 	}
 	return config
 }
@@ -78,7 +118,6 @@ func getDataFromEnvVars(prefix string) map[string]map[string]string {
 }
 
 func getScrapeConfigFromDir() string {
-	config := ""
 	dir := "/run/secrets/"
 	if len(os.Getenv("CONFIGS_DIR")) > 0 {
 		dir = os.Getenv("CONFIGS_DIR")
@@ -86,16 +125,23 @@ func getScrapeConfigFromDir() string {
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
+
+	config := ""
 	if files, err := afero.ReadDir(FS, dir); err == nil {
 		for _, file := range files {
 			if !strings.HasPrefix(file.Name(), "scrape_") {
 				continue
 			}
 			if content, err := afero.ReadFile(FS, dir+file.Name()); err == nil {
-				config += string(content)
-				if !strings.HasSuffix(config, "\n") {
-					config += "\n"
+				contentStr := string(content)
+				if len(contentStr) > 0 {
+					if len(config) > 0 {
+						config += "\n" + contentStr
+					} else {
+						config = contentStr
+					}
 				}
+
 			}
 		}
 	}
@@ -104,24 +150,24 @@ func getScrapeConfigFromDir() string {
 
 func getScrapeConfigFromMap(scrapes map[string]Scrape) string {
 	if len(scrapes) != 0 {
-		templateString := `{{range .}}
+		templateString := `
+{{- range . }}
   - job_name: "{{.ServiceName}}"
     metrics_path: {{if .MetricsPath}}{{.MetricsPath}}{{else}}/metrics{{end}}
-{{- if .ScrapeType}}
+{{- if .ScrapeType }}
     {{.ScrapeType}}:
       - targets:
         - {{.ServiceName}}:{{- .ScrapePort}}
-{{- else}}
+{{- else }}
     dns_sd_configs:
       - names: ["tasks.{{.ServiceName}}"]
         type: A
-        port: {{.ScrapePort -}}{{end -}}
-{{end}}
-`
+        port: {{.ScrapePort}}{{end}}
+{{- end}}`
 		tmpl, _ := template.New("").Parse(templateString)
 		var b bytes.Buffer
 		tmpl.Execute(&b, scrapes)
-		return b.String()
+		return strings.TrimPrefix(b.String(), "\n")
 
 	}
 	return ""
@@ -131,10 +177,7 @@ func getConfigSection(section string, data map[string]map[string]string) string 
 	if len(data) == 0 {
 		return ""
 	}
-	config := fmt.Sprintf(`
-%s:`,
-		section,
-	)
+	config := fmt.Sprintf(`%s:`, section)
 	for key, values := range data {
 		if len(values[""]) > 0 {
 			config += "\n  " + key + ": " + values[""]

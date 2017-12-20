@@ -1,10 +1,11 @@
 package prometheus
 
 import (
-	"github.com/spf13/afero"
 	"log"
 	"os/exec"
 	"strings"
+
+	"github.com/spf13/afero"
 )
 
 // FS defines file system used to read and write configuration files
@@ -14,7 +15,6 @@ var logPrintf = log.Printf
 
 func getArgFromEnv(env, prefix string) (key, value string) {
 	if strings.HasPrefix(env, prefix+"_") {
-		println(env)
 		values := strings.Split(env, "=")
 		for i, v := range values {
 			if i == 0 {

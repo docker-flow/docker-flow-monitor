@@ -11,11 +11,10 @@ import (
 func Run() error {
 	logPrintf("Starting Prometheus")
 	cmdString := "prometheus"
-	for _, e := range os.Environ() {
-		if key, value := getArgFromEnv(e, "ARG"); len(key) > 0 {
-			key = strings.Replace(key, "_", ".", -1)
-			cmdString = fmt.Sprintf("%s -%s=\"%s\"", cmdString, key, value)
-		}
+	flags := EnvToPrometheusFlags("ARG")
+	if len(flags) > 0 {
+		allFlags := strings.Join(flags, " ")
+		cmdString = fmt.Sprintf("%s %s", cmdString, allFlags)
 	}
 	cmd := exec.Command("/bin/sh", "-c", cmdString)
 	cmd.Stdout = os.Stdout

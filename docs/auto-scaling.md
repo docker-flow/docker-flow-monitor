@@ -321,19 +321,31 @@ You should see three alerts that correspond to the three labels define in the `m
 If you expand the *godemo_main_resp_time_above* alert, you'll see that DFM translated the service labels into the alert definition that follows.
 
 ```
-ALERT godemo_main_resp_tim_eabove
-  IF sum(rate(http_server_resp_time_bucket{job="go-demo_main",le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="go-demo_main"}[5m])) < 0.99
-  LABELS {receiver="system", scale="up", service="go-demo_main"}
-  ANNOTATIONS {summary="Response time of the service go-demo_main is above 0.1"}
+alert: godemo_main_resptimeabove
+expr: sum(rate(http_server_resp_time_bucket{job="go-demo_main",le="0.1"}[5m]))
+  / sum(rate(http_server_resp_time_count{job="go-demo_main"}[5m])) < 0.99
+labels:
+  receiver: system
+  scale: up
+  service: go-demo_main
+  type: service
+annotations:
+  summary: Response time of the service go-demo_main is above 0.1
 ```
 
 Similarly, the *godemo_main_resp_time_below* alert is defined as follows.
 
 ```
-ALERT godemo_main_resp_time_below
-  IF sum(rate(http_server_resp_time_bucket{job="go-demo_main",le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="go-demo_main"}[5m])) > 0.75
-  LABELS {receiver="system", scale="down", service="go-demo_main"}
-  ANNOTATIONS {summary="Response time of the service go-demo_main is below 0.025"}
+alert: godemo_main_resptimebelow
+expr: sum(rate(http_server_resp_time_bucket{job="go-demo_main",le="0.025"}[5m]))
+  / sum(rate(http_server_resp_time_count{job="go-demo_main"}[5m])) > 0.75
+labels:
+  receiver: system
+  scale: down
+  service: go-demo_main
+  type: service
+annotations:
+  summary: Response time of the service go-demo_main is below 0.025
 ```
 
 Let's confirm that the `go-demo` stack is up-and-running.

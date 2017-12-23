@@ -43,10 +43,10 @@ func WriteConfig(scrapes map[string]Scrape, alerts map[string]Alert) {
 // GetRemoteConfig returns remote_write and remote_read configs
 func GetRemoteConfig() string {
 	rw := getDataFromEnvVars("REMOTE_WRITE")
-	config := getConfigSection("remote_write", rw)
+	config := getConfigSectionArray("remote_write", rw)
 
 	rr := getDataFromEnvVars("REMOTE_READ")
-	config += getConfigSection("remote_read", rr)
+	config += getConfigSectionArray("remote_read", rr)
 
 	return config
 }
@@ -185,6 +185,23 @@ func getConfigSection(section string, data map[string]map[string]string) string 
 			config += "\n  " + key + ":"
 			for subKey, value := range values {
 				config += "\n    " + subKey + ": " + value
+			}
+		}
+	}
+	return config
+}
+
+func getConfigSectionArray(section string, data map[string]map[string]string) string {
+	if len(data) == 0 {
+		return ""
+	}
+	config := fmt.Sprintf(`%s:`, section)
+	for key, values := range data {
+		if len(values[""]) > 0 {
+			if config == fmt.Sprintf(`%s:`, section) {
+				config += "\n  - " + key + ": " + values[""]
+			} else {
+				config += "\n    " + key + ": " + values[""]
 			}
 		}
 	}

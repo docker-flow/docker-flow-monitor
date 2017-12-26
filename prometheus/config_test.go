@@ -56,15 +56,15 @@ func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsRemoteWriteUrl() {
 	}()
 	os.Setenv("REMOTE_WRITE_URL", "http://acme.com/write")
 	os.Setenv("REMOTE_WRITE_REMOTE_TIMEOUT", "30s")
-	expected_1 := `remote_write:
+	expected1 := `remote_write:
   - url: http://acme.com/write
     remote_timeout: 30s`
-	expected_2 := `remote_write:
+	expected2 := `remote_write:
   - remote_timeout: 30s
     url: http://acme.com/write`
 	actual := GetRemoteConfig()
 
-	s.Contains([]string{expected_1, expected_2}, actual)
+	s.Contains([]string{expected1, expected2}, actual)
 }
 
 func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsRemoteReadUrl() {
@@ -74,15 +74,31 @@ func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsRemoteReadUrl() {
 	}()
 	os.Setenv("REMOTE_READ_URL", "http://acme.com/read")
 	os.Setenv("REMOTE_READ_REMOTE_TIMEOUT", "30s")
-	expected_1 := `remote_read:
+	expected1 := `remote_read:
   - url: http://acme.com/read
     remote_timeout: 30s`
-	expected_2 := `remote_read:
+	expected2 := `remote_read:
   - remote_timeout: 30s
     url: http://acme.com/read`
 	actual := GetRemoteConfig()
 
-	s.Contains([]string{expected_1, expected_2}, actual)
+	s.Contains([]string{expected1, expected2}, actual)
+}
+
+func (s *ConfigTestSuite) Test_GetRemoteConfig_ReturnsRemoteReadRemoteWriteUrl() {
+	defer func() {
+		os.Unsetenv("REMOTE_READ_URL")
+		os.Unsetenv("REMOTE_WRITE_URL")
+	}()
+	os.Setenv("REMOTE_READ_URL", "http://acme.com/read")
+	os.Setenv("REMOTE_WRITE_URL", "http://acme.com/write")
+	expected := `remote_write:
+  - url: http://acme.com/write
+remote_read:
+  - url: http://acme.com/read`
+	actual := GetRemoteConfig()
+
+	s.Equal(expected, actual)
 }
 
 // GetGlobalConfig

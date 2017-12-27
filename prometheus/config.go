@@ -46,7 +46,13 @@ func GetRemoteConfig() string {
 	config := getConfigSectionArray("remote_write", rw)
 
 	rr := getDataFromEnvVars("REMOTE_READ")
-	config += getConfigSectionArray("remote_read", rr)
+	if rrc := getConfigSectionArray("remote_read", rr); len(rrc) != 0 {
+		if len(config) == 0 {
+			config = rrc
+		} else {
+			config += "\n" + rrc
+		}
+	}
 
 	return config
 }

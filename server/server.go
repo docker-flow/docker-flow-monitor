@@ -25,8 +25,9 @@ var logPrintf = log.Printf
 var listenerTimeout = 30 * time.Second
 
 type serve struct {
-	scrapes map[string]prometheus.Scrape
-	alerts  map[string]prometheus.Alert
+	scrapes    map[string]prometheus.Scrape
+	alerts     map[string]prometheus.Alert
+	configPath string
 }
 
 type response struct {
@@ -43,15 +44,20 @@ const serviceName = "SERVICE_NAME"
 
 // New returns instance of the `serve` structure
 var New = func() *serve {
+	promConfig := os.Getenv("ARG_CONFIG_FILE")
+	if len(promConfig) == 0 {
+		promConfig = "/etc/prometheus/prometheus.yml"
+	}
 	return &serve{
-		alerts:  make(map[string]prometheus.Alert),
-		scrapes: make(map[string]prometheus.Scrape),
+		alerts:     make(map[string]prometheus.Alert),
+		scrapes:    make(map[string]prometheus.Scrape),
+		configPath: promConfig,
 	}
 }
 
 func (s *serve) Execute() error {
 	s.InitialConfig()
-	prometheus.WriteConfig(s.scrapes, s.alerts)
+	prometheus.WriteConfig(s.configPath, s.scrapes, s.alerts)
 	go prometheus.Run()
 	address := "0.0.0.0:8080"
 	r := mux.NewRouter().StrictSlash(true)
@@ -86,7 +92,7 @@ func (s *serve) ReconfigureHandler(w http.ResponseWriter, req *http.Request) {
 	scrape := s.getScrape(req)
 	s.deleteAlerts(scrape.ServiceName)
 	alerts := s.getAlerts(req)
-	prometheus.WriteConfig(s.scrapes, s.alerts)
+	prometheus.WriteConfig(s.configPath, s.scrapes, s.alerts)
 	err := prometheus.Reload()
 	statusCode := http.StatusOK
 	resp := s.getResponse(&alerts, &scrape, err, statusCode)
@@ -103,7 +109,7 @@ func (s *serve) RemoveHandler(w http.ResponseWriter, req *http.Request) {
 	scrape := s.scrapes[serviceName]
 	delete(s.scrapes, serviceName)
 	alerts := s.deleteAlerts(serviceName)
-	prometheus.WriteConfig(s.scrapes, s.alerts)
+	prometheus.WriteConfig(s.configPath, s.scrapes, s.alerts)
 	err := prometheus.Reload()
 	statusCode := http.StatusOK
 	resp := s.getResponse(&alerts, &scrape, err, statusCode)

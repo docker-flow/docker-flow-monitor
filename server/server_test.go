@@ -100,10 +100,11 @@ func (s *ServerTestSuite) Test_Execute_WritesConfig() {
   scrape_interval: 5s
 alerting:
   alertmanagers:
-  - scheme: http
-    static_configs:
+  - static_configs:
     - targets:
-      - alert-manager:9093`
+      - alert-manager:9093
+    scheme: http
+`
 	fsOrig := prometheus.FS
 	defer func() { prometheus.FS = fsOrig }()
 	prometheus.FS = afero.NewMemMapFs()
@@ -554,21 +555,23 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
 func (s *ServerTestSuite) Test_ReconfigureHandler_CallsWriteConfig() {
 	expected := `global:
   scrape_interval: 5s
-scrape_configs:
-  - job_name: "my-service"
-    metrics_path: /metrics
-    dns_sd_configs:
-      - names: ["tasks.my-service"]
-        type: A
-        port: 1234
-rule_files:
-  - 'alert.rules'
 alerting:
   alertmanagers:
-  - scheme: http
-    static_configs:
+  - static_configs:
     - targets:
-      - alert-manager:9093`
+      - alert-manager:9093
+    scheme: http
+rule_files:
+- alert.rules
+scrape_configs:
+- job_name: my-service
+  metrics_path: /metrics
+  dns_sd_configs:
+  - names:
+    - tasks.my-service
+    type: A
+    port: 1234
+`
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234&alertName=my-alert&alertIf=my-if&alertFor=my-for"
 	req, _ := http.NewRequest("GET", addr, nil)
@@ -757,19 +760,21 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
 func (s *ServerTestSuite) Test_RemoveHandler_CallsWriteConfig() {
 	expectedAfterGet := `global:
   scrape_interval: 5s
-scrape_configs:
-  - job_name: "my-service"
-    metrics_path: /metrics
-    dns_sd_configs:
-      - names: ["tasks.my-service"]
-        type: A
-        port: 1234
 alerting:
   alertmanagers:
-  - scheme: http
-    static_configs:
+  - static_configs:
     - targets:
-      - alert-manager:9093`
+      - alert-manager:9093
+    scheme: http
+scrape_configs:
+- job_name: my-service
+  metrics_path: /metrics
+  dns_sd_configs:
+  - names:
+    - tasks.my-service
+    type: A
+    port: 1234
+`
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
 	req, _ := http.NewRequest("GET", addr, nil)
@@ -787,10 +792,11 @@ alerting:
   scrape_interval: 5s
 alerting:
   alertmanagers:
-  - scheme: http
-    static_configs:
+  - static_configs:
     - targets:
-      - alert-manager:9093`
+      - alert-manager:9093
+    scheme: http
+`
 	addr = "/v1/docker-flow-monitor?serviceName=my-service"
 	req, _ = http.NewRequest("DELETE", addr, nil)
 

@@ -265,7 +265,7 @@ var alertIfShortcutData = map[string]alertIfShortcut{
 		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}"},
 	},
 	"@node_mem_limit": {
-		expanded:    `(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > {{ index .Values 0 }}`,
+		expanded:    `(sum by (instance) (node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) - sum by (instance) (node_memory_MemFree{job="{{ .Alert.ServiceName }}"} + node_memory_Buffers{job="{{ .Alert.ServiceName }}"} + node_memory_Cached{job="{{ .Alert.ServiceName }}"})) / sum by (instance) (node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) > {{ index .Values 0 }}`,
 		annotations: map[string]string{"summary": "Memory of a node is over {{ index .Values 0 }}"},
 		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}"},
 	},
@@ -280,7 +280,7 @@ var alertIfShortcutData = map[string]alertIfShortcut{
 		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "down", "type": "node"},
 	},
 	"@node_fs_limit": {
-		expanded:    `(node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"} > {{ index .Values 0 }}`,
+		expanded:    `(node_filesystem_size{fstype="aufs", job="{{ .Alert.ServiceName }}"} - node_filesystem_free{fstype="aufs", job="{{ .Alert.ServiceName }}"}) / node_filesystem_size{fstype="aufs", job="{{ .Alert.ServiceName }}"} > {{ index .Values 0 }}`,
 		annotations: map[string]string{"summary": "Disk usage of a node is over {{ index .Values 0 }}"},
 		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}"},
 	},

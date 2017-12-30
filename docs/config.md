@@ -15,7 +15,7 @@ The formatting rules for the `ARG` variables are as follows:
 For example, if environment variables `ARG_WEB_ROUTE-PREFIX=/monitor` and `ARG_WEB_EXTERNAL-URL=http://localhost/monitor` are defined, Prometheus will be started with the arguments `web.route-prefix=/monitor` and `web.external-url=http://localhost/monitor`. The result would be Prometheus initialization equivalent to the command that follows.
 
 ```bash
-prometheus web.route-prefix=/monitor web.external-url=http://localhost/monitor
+prometheus --web.route-prefix=/monitor --web.external-url=http://localhost/monitor
 ```
 
 `ARG` variables defined by default are as follows.
@@ -27,30 +27,64 @@ ARG_WEB_CONSOLE_LIBRARIES=/usr/share/prometheus/console_libraries
 ARG_WEB_CONSOLE_TEMPLATES=/usr/share/prometheus/consoles
 ```
 
-## Global Configuration
+## Configuration
 
-Environment variables prefixed with `GLOBAL_` are used instead Prometheus global entries in the configuration.
+Environment variables prefixed with `GLOBAL__`, `ALERTING__`, `SCRAPE_CONFIGS__`, `REMOTE_WRITE__`, and `REMOTE_READ__` are used to configure Prometheus.
 
-The formatting rules for the `GLOBAL` variables are as follows:
+The formatting rules for these variable are as follows:
 
-1. Variable name has to be prefixed with `GLOBAL_`.
-2. Capital letters will be transformed to lower case.
+1. Environment keys will be transformed to lowercase.
+2. Double underscore is used to go one level deeper in a yaml dictionary.
+3. A single underscore followed by a number indicates the position of an array.
 
-For example, if environment variable `GLOBAL_SCRAPE_INTERVAL=10s` is defined, the resulting Prometheus configuration would be as follows.
+### Examples
 
-```
+The following are examples of using environmental variables to configure Prometheus. Pleaes consult the Prometheus configuration [documentation](https://prometheus.io/docs/prometheus/latest/configuration/configuration) for all configuration options.
+
+- `GLOBAL__SCRAPE_INTERVAL=10s`
+
+```yaml
 global:
   scrape_interval: 10s
 ```
 
-Nested values can be specified by separating them with `-`. For example, if environment variables `GLOBAL_EXTERNAL_LABELS-CLUSTER=swarm` and `GLOBAL_EXTERNAL_LABELS-TYPE=production` are defined, the resulting Prometheus configuration would be as follows.
+- `GLOBAL__EXTERNAL_LABELS=cluster=swarm`
 
-```
+```yaml
 global:
   external_labels:
     cluster: swarm
     type: production
 ```
+
+This is *NOT* `GLOBAL__EXTERNAL_LABELS__CLUSTER=swarm` because `CLUSTER` is not a standard Prometheus configuration. The `external_labels` option is a list of key values as shown in their documentation:
+
+```yaml
+external_labels:
+  [ <labelname>: <labelvalue> ... ]
+```
+
+- `REMOTE_WRITE_1__URL=http://first.acme.com/write`, `REMOTE_WRITE_1__REMOTE_TIMEOUT=10s`,
+`REMOTE_WRITE_2__URL=http://second.acme.com/write`
+
+```yaml
+remote_write:
+- url: http://acme.com/write
+  remote_timeout: 30s
+- url: http://second.acme.com/write
+```
+
+Trailing numbers in the `REMOTE_WRITE_1` and `REMOTE_WRITE_2` prefixes dictates the position of the array of dictionaries.
+
+- `REMOTE_WRITE_1__WRITE_RELABEL_CONFIGS_1__SOURCE_LABELS_1=label1`
+
+```yaml
+remote_write:
+- write_relabel_configs:
+  - source_labels: [label1]
+```
+
+## Scrape Environment Configuration
 
 It is possible to add servers that are not part of the Docker Swarm Cluster just adding the variables `SCRAPE_PORT` and `SERVICE_NAME` on the environment. The project is going to use the [static_configs](https://prometheus.io/docs/operating/configuration/#<static_config>) configuration.
 
@@ -68,18 +102,6 @@ curl `[IP_OF_ONE_OF_SWARM_NODES]:8080/v1/docker-flow-monitor/reconfigure?scrapeP
 ```
 
 Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.
-
-## Remote Read Configuration
-
-Environment variables prefixed with `REMOTE_READ_` are used instead Prometheus `remote_read` entries in the configuration.
-
-The formatting rules for the `REMOTE_READ` variables follow the same pattern as those used for [Global Configuration](#global-configuration)
-
-## Remote Write Configuration
-
-Environment variables prefixed with `REMOTE_WRITE_` are used instead Prometheus `remote_write` entries in the configuration.
-
-The formatting rules for the `REMOTE_WRITE` variables follow the same pattern as those used for [Global Configuration](#global-configuration)
 
 ## Scrapes
 

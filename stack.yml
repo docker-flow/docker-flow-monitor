@@ -8,7 +8,6 @@ services:
       - proxy
       - monitor
     environment:
-      - ARG_STORAGE_LOCAL_PATH=/data
       - ARG_WEB_EXTERNAL-URL=http://prometheus.dockerflow.com
       - LISTENER_ADDRESS=swarm-listener
       - ARG_ALERTMANAGER_URL=http://alert-manager:9093
@@ -28,9 +27,9 @@ services:
         - com.df.alertFor=30s
       resources:
         reservations:
-          memory: 2500M
+          memory: 1750M
         limits:
-          memory: 3500M
+          memory: 2250M
 
   alert-manager:
     image: prom/alertmanager
@@ -84,21 +83,21 @@ services:
         limits:
           memory: 20M
 
-  grafana:
-    image: grafana/grafana:${GRAFANA_TAG:-4.6.0}
-    networks:
-      - infra_default
-      - monitor
-    environment:
-#      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
-      - GF_SECURITY_ADMIN_USER=${GF_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GF_PASS:-admin}
-    deploy:
-      labels:
-        - com.df.notify=true
-        - com.df.distribute=true
-        - com.df.serviceDomain=grafana.dockerflow.com
-        - com.df.port=3000
+#   grafana:
+#     image: grafana/grafana:${GRAFANA_TAG:-4.6.0}
+#     networks:
+#       - infra_default
+#       - monitor
+#     environment:
+# #      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
+#       - GF_SECURITY_ADMIN_USER=${GF_USER:-admin}
+#       - GF_SECURITY_ADMIN_PASSWORD=${GF_PASS:-admin}
+#     deploy:
+#       labels:
+#         - com.df.notify=true
+#         - com.df.distribute=true
+#         - com.df.serviceDomain=grafana.dockerflow.com
+#         - com.df.port=3000
 
   cadvisor:
     image: google/cadvisor:${CADVISOR_TAG:-latest}

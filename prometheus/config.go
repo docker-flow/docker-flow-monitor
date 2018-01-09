@@ -79,7 +79,7 @@ func (c *Config) InsertAlertManagerURL(alertURL string) error {
 	amc := &AlertmanagerConfig{
 		Scheme: url.Scheme,
 		ServiceDiscoveryConfig: ServiceDiscoveryConfig{
-			StaticConfigs: []*TargetGroup{&TargetGroup{
+			StaticConfigs: []*TargetGroup{{
 				Targets: []string{url.Host},
 			}},
 		},
@@ -101,7 +101,7 @@ func (c *Config) InsertScrapes(scrapes map[string]Scrape) {
 		if s.ScrapeType == "static_configs" {
 			newScrape = &ScrapeConfig{
 				ServiceDiscoveryConfig: ServiceDiscoveryConfig{
-					StaticConfigs: []*TargetGroup{&TargetGroup{
+					StaticConfigs: []*TargetGroup{{
 						Targets: []string{fmt.Sprintf("%s:%d", s.ServiceName, s.ScrapePort)},
 					}},
 				},
@@ -111,7 +111,7 @@ func (c *Config) InsertScrapes(scrapes map[string]Scrape) {
 		} else {
 			newScrape = &ScrapeConfig{
 				ServiceDiscoveryConfig: ServiceDiscoveryConfig{
-					DNSSDConfigs: []*DNSSDConfig{&DNSSDConfig{
+					DNSSDConfigs: []*DNSSDConfig{{
 						Names: []string{fmt.Sprintf("tasks.%s", s.ServiceName)},
 						Port:  s.ScrapePort,
 						Type:  "A",
@@ -138,7 +138,7 @@ func (c *Config) InsertScrapesFromDir(dir string) {
 			if content, err := afero.ReadFile(FS, dir+file.Name()); err == nil {
 				sc := []*ScrapeConfig{}
 
-				// Trim for backwards compability
+				// Trim for backwards compatibility
 				content = normalizeScrapeFile(content)
 				err := yaml.Unmarshal(content, &sc)
 				if err != nil {

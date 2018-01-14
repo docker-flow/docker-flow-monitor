@@ -145,7 +145,7 @@ The full definition of the stack that we just deployed can be found in [docker-f
       - monitor
     secrets:
       - alert_manager_config
-    command: -config.file=/run/secrets/alert_manager_config -storage.path=/alertmanager
+    command: --config.file=/run/secrets/alert_manager_config --storage.path=/alertmanager
 
   swarm-listener:
     image: vfarcic/docker-flow-swarm-listener

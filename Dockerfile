@@ -12,7 +12,7 @@ FROM prom/prometheus:v2.0.0
 
 ENV GLOBAL_SCRAPE_INTERVAL=10s \
     ARG_CONFIG_FILE=/etc/prometheus/prometheus.yml \
-    ARG_STORAGE_LOCAL_PATH=/prometheus \
+    ARG_STORAGE_TSDB_PATH=/prometheus \
     ARG_WEB_CONSOLE_LIBRARIES=/usr/share/prometheus/console_libraries \
     ARG_WEB_CONSOLE_TEMPLATES=/usr/share/prometheus/consoles \
     CONFIGS_DIR="/run/secrets"

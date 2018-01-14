@@ -5,7 +5,6 @@ services:
   monitor:
     image: vfarcic/docker-flow-monitor
     environment:
-      - ARG_STORAGE_TSDB_PATH=/prometheus
       - LISTENER_ADDRESS=swarm-listener
       - GLOBAL_SCRAPE_INTERVAL=${SCRAPE_INTERVAL:-10s}
       - ARG_WEB_ROUTE-PREFIX=/monitor
@@ -37,7 +36,7 @@ services:
       - monitor
     secrets:
       - alert_manager_config
-    command: -config.file=/run/secrets/alert_manager_config -storage.path=/alertmanager
+    command: --config.file=/run/secrets/alert_manager_config --storage.path=/alertmanager
 
   swarm-listener:
     image: vfarcic/docker-flow-swarm-listener

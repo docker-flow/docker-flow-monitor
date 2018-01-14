@@ -57,7 +57,6 @@ func (s *RunTestSuite) Test_Run_AddsArguments() {
 		return nil
 	}
 
-	println("000")
 	Run()
 
 	s.Equal([]string{"/bin/sh", "-c", "prometheus --config.file=\"/etc/prometheus/prometheus.yml\" --storage.tsdb.path=\"/prometheus\" --web.console.libraries=\"/usr/share/prometheus/console_libraries\" --web.console.templates=\"/usr/share/prometheus/consoles\" --web.route-prefix=\"/something\""}, actualArgs)

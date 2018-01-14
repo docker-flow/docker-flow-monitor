@@ -40,6 +40,11 @@ func TestServerUnitTestSuite(t *testing.T) {
 	os.Setenv("ARG_WEB_CONSOLE_LIBRARIES", "/usr/share/prometheus/console_libraries")
 	os.Setenv("ARG_WEB_CONSOLE_TEMPLATES", "/usr/share/prometheus/consoles")
 	os.Setenv("ARG_ALERTMANAGER_URL", "http://alert-manager:9093")
+
+	shortcutsPathOrig := shortcutsPath
+	defer func() { shortcutsPath = shortcutsPathOrig }()
+	shortcutsPath = "../conf/shortcuts.yaml"
+
 	suite.Run(t, s)
 }
 

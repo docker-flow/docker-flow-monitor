@@ -3,7 +3,7 @@ ADD . /src
 WORKDIR /src
 RUN go get -t github.com/stretchr/testify/suite
 RUN go get -d -v -t
-RUN go test --cover ./... --run UnitTest
+RUN go test --cover ./... --run UnitTest -p 1
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o docker-flow-monitor
 
 

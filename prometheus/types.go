@@ -1,5 +1,7 @@
 package prometheus
 
+import "encoding/json"
+
 // ScrapeConfig configures a scraping unit for Prometheus.
 type ScrapeConfig struct {
 	// The job name to which the job label is set by default.
@@ -78,12 +80,12 @@ type RemoteWriteConfig struct {
 type TargetGroup struct {
 	// Targets is a list of targets identified by a label set. Each target is
 	// uniquely identifiable in the group by its address label.
-	Targets []string `yaml:"targets,omitempty"`
+	Targets []string `yaml:"targets,omitempty" json:"targets,omitempty"`
 	// Labels is a set of labels that is common across all targets in the group.
-	Labels map[string]string `yaml:"labels,omitempty"`
+	Labels map[string]string `yaml:"labels,omitempty" json:"labels,omitempty"`
 
 	// Source is an identifier that describes a group of targets.
-	Source string `yaml:"source,omitempty"`
+	Source string `yaml:"source,omitempty" json:"source,omitempty"`
 }
 
 // DNSSDConfig is the configuration for DNS based service discovery.
@@ -94,12 +96,23 @@ type DNSSDConfig struct {
 	Port            int      `yaml:"port"` // Ignored for SRV records
 }
 
+// SDConfig is the configuration for file based discovery.
+type SDConfig struct {
+	Files           []string `yaml:"files"`
+	RefreshInterval string   `yaml:"refresh_interval,omitempty"`
+}
+
+// FileStaticConfig configures File-based service discovery
+type FileStaticConfig []*TargetGroup
+
 // ServiceDiscoveryConfig configures lists of different service discovery mechanisms.
 type ServiceDiscoveryConfig struct {
 	// List of labeled target groups for this job.
 	StaticConfigs []*TargetGroup `yaml:"static_configs,omitempty"`
 	// List of DNS service discovery configurations.
 	DNSSDConfigs []*DNSSDConfig `yaml:"dns_sd_configs,omitempty"`
+	// List of file service discovery configurations.
+	FileSDConfigs []*SDConfig `yaml:"file_sd_configs,omitempty"`
 }
 
 // BasicAuth contains basic HTTP authentication credentials.
@@ -214,10 +227,72 @@ type Alert struct {
 	Replicas           int    `json:"replicas"`
 }
 
+// NodeIP defines a node/addr pair
+type NodeIP struct {
+	Name string `json:"name"`
+	Addr string `json:"addr"`
+}
+
+// NodeIPSet is a set of NodeIPs
+type NodeIPSet map[NodeIP]struct{}
+
+// Add node to set
+func (ns *NodeIPSet) Add(name, addr string) {
+	(*ns)[NodeIP{Name: name, Addr: addr}] = struct{}{}
+}
+
+// Equal returns true when NodeIPSets contain the same elements
+func (ns NodeIPSet) Equal(other NodeIPSet) bool {
+
+	if ns.Cardinality() != other.Cardinality() {
+		return false
+	}
+
+	for ip := range ns {
+		if _, ok := other[ip]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// Cardinality returns the size of set
+func (ns NodeIPSet) Cardinality() int {
+	return len(ns)
+}
+
+// MarshalJSON creates JSON array from NodeIPSet
+func (ns NodeIPSet) MarshalJSON() ([]byte, error) {
+	items := make([][2]string, 0, ns.Cardinality())
+
+	for elem := range ns {
+		items = append(items, [2]string{elem.Name, elem.Addr})
+	}
+	return json.Marshal(items)
+}
+
+// UnmarshalJSON recreates NodeIPSet from a JSON array
+func (ns *NodeIPSet) UnmarshalJSON(b []byte) error {
+
+	items := [][2]string{}
+	err := json.Unmarshal(b, &items)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range items {
+		(*ns)[NodeIP{Name: item[0], Addr: item[1]}] = struct{}{}
+	}
+
+	return nil
+}
+
 // Scrape defines data used to create scraping configuration snippet
 type Scrape struct {
-	MetricsPath string `json:"metricsPath,string,omitempty"`
-	ScrapePort  int    `json:"scrapePort,string,omitempty"`
-	ServiceName string `json:"serviceName"`
-	ScrapeType  string `json:"scrapeType"`
+	MetricsPath  string             `json:"metricsPath,string,omitempty"`
+	ScrapePort   int                `json:"scrapePort,string,omitempty"`
+	ServiceName  string             `json:"serviceName"`
+	ScrapeType   string             `json:"scrapeType"`
+	ScrapeLabels *map[string]string `json:"scrapeLabels,omitempty"`
+	NodeInfo     *NodeIPSet         `json:"nodeInfo,omitempty"`
 }

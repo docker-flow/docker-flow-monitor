@@ -396,10 +396,32 @@ func (s *serve) getNameFormatted(name string) string {
 func (s *serve) getScrape(req *http.Request) prometheus.Scrape {
 	scrape := prometheus.Scrape{}
 	decoder.Decode(&scrape, req.Form)
-	if s.isValidScrape(&scrape) {
-		s.scrapes[scrape.ServiceName] = scrape
-		logPrintf("Adding scrape %s\n%v", scrape.ServiceName, scrape)
+	if !s.isValidScrape(&scrape) {
+		return scrape
 	}
+
+	if nodeInfoStr := req.Form.Get("nodeInfo"); len(nodeInfoStr) > 0 {
+		nodeInfo := prometheus.NodeIPSet{}
+		json.Unmarshal([]byte(nodeInfoStr), &nodeInfo)
+		scrape.NodeInfo = &nodeInfo
+	}
+
+	if scrape.NodeInfo != nil && len(*scrape.NodeInfo) > 0 {
+		scrape.ScrapeLabels = &map[string]string{}
+		if targetLabels := os.Getenv("DF_SCRAPE_TARGET_LABELS"); len(targetLabels) > 0 {
+			labels := strings.Split(targetLabels, ",")
+			for _, label := range labels {
+				value := req.Form.Get(label)
+				if len(value) > 0 {
+					(*scrape.ScrapeLabels)[label] = value
+				}
+			}
+		}
+	}
+
+	s.scrapes[scrape.ServiceName] = scrape
+	logPrintf("Adding scrape %s\n%v", scrape.ServiceName, scrape)
+
 	return scrape
 }
 

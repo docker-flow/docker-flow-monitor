@@ -1,6 +1,7 @@
 package prometheus
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -530,6 +531,152 @@ func (s *ConfigTestSuite) Test_Writeconfig_WritesConfig() {
 	// Order of scrapes can be different
 	s.Contains(actualConfig.ScrapeConfigs, c.ScrapeConfigs[0])
 	s.Contains(actualConfig.ScrapeConfigs, c.ScrapeConfigs[1])
+}
+
+func (s *ConfigTestSuite) Test_Writeconfig_WithNodeInfo_WritesConfig() {
+	fsOrg := FS
+	defer func() {
+		FS = fsOrg
+	}()
+	FS = afero.NewMemMapFs()
+
+	nodeInfo1 := NodeIPSet{}
+	nodeInfo1.Add("node-1", "1.0.1.1")
+	nodeInfo1.Add("node-2", "1.0.1.2")
+	serviceLabels1 := map[string]string{
+		"env":    "prod",
+		"domain": "frontend",
+	}
+
+	nodeInfo2 := NodeIPSet{}
+	nodeInfo2.Add("node-1", "1.0.2.1")
+	nodeInfo2.Add("node-1", "1.0.2.2")
+	serviceLabels2 := map[string]string{
+		"env":    "dev",
+		"domain": "backend",
+	}
+
+	scrapes := map[string]Scrape{
+		"service-1": {
+			ServiceName:  "service-1",
+			ScrapePort:   1234,
+			ScrapeLabels: &serviceLabels1,
+			NodeInfo:     &nodeInfo1,
+		},
+		"service-2": {
+			ServiceName:  "service-2",
+			ScrapePort:   5678,
+			ScrapeLabels: &serviceLabels2,
+			NodeInfo:     &nodeInfo2,
+		},
+		"service-3": {
+			ServiceName: "service-3",
+			ScrapePort:  5432,
+		},
+	}
+	alerts := map[string]Alert{}
+
+	WriteConfig("/etc/prometheus/prometheus.yml", scrapes, alerts)
+	actual, err := afero.ReadFile(FS, "/etc/prometheus/prometheus.yml")
+	s.Require().NoError(err)
+
+	actualConfig := Config{}
+	err = yaml.Unmarshal(actual, &actualConfig)
+	s.Require().NoError(err)
+
+	s.Require().Len(actualConfig.ScrapeConfigs, 3)
+
+	var service1ScrapeConfig *ScrapeConfig
+	var service2ScrapeConfig *ScrapeConfig
+	var service3ScrapeConfig *ScrapeConfig
+
+	for _, sc := range actualConfig.ScrapeConfigs {
+		if sc.JobName == "service-1" {
+			service1ScrapeConfig = sc
+		} else if sc.JobName == "service-2" {
+			service2ScrapeConfig = sc
+		} else if sc.JobName == "service-3" {
+			service3ScrapeConfig = sc
+		}
+	}
+	s.Require().NotNil(service1ScrapeConfig)
+	s.Require().NotNil(service2ScrapeConfig)
+	s.Require().NotNil(service3ScrapeConfig)
+
+	s.Require().Len(service1ScrapeConfig.ServiceDiscoveryConfig.FileSDConfigs, 1)
+	s.Require().Len(service2ScrapeConfig.ServiceDiscoveryConfig.FileSDConfigs, 1)
+	s.Require().Len(service3ScrapeConfig.ServiceDiscoveryConfig.DNSSDConfigs, 1)
+
+	service1FileScrape := service1ScrapeConfig.ServiceDiscoveryConfig.FileSDConfigs[0]
+	service2FileScrape := service2ScrapeConfig.ServiceDiscoveryConfig.FileSDConfigs[0]
+	service3DNSScrape := service3ScrapeConfig.ServiceDiscoveryConfig.DNSSDConfigs[0]
+
+	s.Equal("/etc/prometheus/file_sd/service-1.json", service1FileScrape.Files[0])
+	s.Equal("/etc/prometheus/file_sd/service-2.json", service2FileScrape.Files[0])
+
+	s.Require().Len(service3DNSScrape.Names, 1)
+	s.Equal("tasks.service-3", service3DNSScrape.Names[0])
+	s.Equal(5432, service3DNSScrape.Port)
+	s.Equal("A", service3DNSScrape.Type)
+
+	actualSDService1Bytes, err := afero.ReadFile(FS, "/etc/prometheus/file_sd/service-1.json")
+	s.Require().NoError(err)
+	fsc1 := FileStaticConfig{}
+	err = json.Unmarshal(actualSDService1Bytes, &fsc1)
+	s.Require().NoError(err)
+
+	actualSDService2Bytes, err := afero.ReadFile(FS, "/etc/prometheus/file_sd/service-2.json")
+	s.Require().NoError(err)
+	fsc2 := FileStaticConfig{}
+	err = json.Unmarshal(actualSDService2Bytes, &fsc2)
+	s.Require().NoError(err)
+
+	var tgService1Node1 *TargetGroup
+	var tgService1Node2 *TargetGroup
+	var tgService2Node1 *TargetGroup
+	var tgService2Node2 *TargetGroup
+
+	for _, tg := range fsc1 {
+		for _, target := range tg.Targets {
+			if target == "1.0.1.1:1234" {
+				tgService1Node1 = tg
+				break
+			} else if target == "1.0.1.2:1234" {
+				tgService1Node2 = tg
+				break
+			}
+		}
+	}
+	for _, tg := range fsc2 {
+		for _, target := range tg.Targets {
+			if target == "1.0.2.1:5678" {
+				tgService2Node1 = tg
+				break
+			} else if target == "1.0.2.2:5678" {
+				tgService2Node2 = tg
+			}
+		}
+	}
+	s.Require().NotNil(tgService1Node1)
+	s.Require().NotNil(tgService1Node2)
+	s.Require().NotNil(tgService2Node1)
+	s.Require().NotNil(tgService2Node2)
+
+	s.Equal("prod", tgService1Node1.Labels["env"])
+	s.Equal("frontend", tgService1Node1.Labels["domain"])
+	s.Equal("service-1", tgService1Node1.Labels["service"])
+
+	s.Equal("prod", tgService1Node2.Labels["env"])
+	s.Equal("frontend", tgService1Node2.Labels["domain"])
+	s.Equal("service-1", tgService1Node2.Labels["service"])
+
+	s.Equal("dev", tgService2Node1.Labels["env"])
+	s.Equal("backend", tgService2Node1.Labels["domain"])
+	s.Equal("service-2", tgService2Node1.Labels["service"])
+
+	s.Equal("dev", tgService2Node2.Labels["env"])
+	s.Equal("backend", tgService2Node2.Labels["domain"])
+	s.Equal("service-2", tgService2Node2.Labels["service"])
 }
 
 func (s *ConfigTestSuite) Test_WriteConfig_WriteAlerts() {

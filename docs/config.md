@@ -103,8 +103,13 @@ curl `[IP_OF_ONE_OF_SWARM_NODES]:8080/v1/docker-flow-monitor/reconfigure?scrapeP
 
 Please consult [Prometheus Configuration](https://prometheus.io/docs/operating/configuration/) for more information about the available options.
 
-## Scrapes
+## Scrape Secret Configuration
 
 Additional scrapes can be added through files prefixed with `scrape_`. By default, all such files located in `/run/secrets` are automatically added to the `scrape_configs` section of the configuration. The directory can be changed by setting a different value to the environment variable `CONFIGS_DIR`.
 
 The simplest way to add scrape configs is to use Docker [secrets](https://docs.docker.com/engine/swarm/secrets/) or [configs](https://docs.docker.com/engine/swarm/configs/).
+
+
+## Scrape Label Configuration
+
+When using a version of [Docker Flow Swarm Listener](https://github.com/vfarcic/docker-flow-swarm-listener), DFSL, newer than `18.02.06-31`, you can configure DFSL to send node node hostnames to `Docker Flow Monitor`, DFM. This can be done by setting `DF_INCLUDE_NODE_IP_INFO` to `true` in the DFSL environment. DFM will automatically display the node hostnames as a label for each prometheus target. The `DF_SCRAPE_TARGET_LABELS` env variable allows for additional labels to be displayed. For example, if a service has env variables `com.df.env=prod` and `com.df.domain=frontend`, you can set `DF_SCRAPE_TARGET_LABELS=env,domain` in DFM to display the `prod` and `frontend` labels in prometheus.

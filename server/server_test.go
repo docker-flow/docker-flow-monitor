@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -308,6 +309,119 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts() {
 
 		s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 	}
+}
+
+func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts_CompoundOps() {
+	testData := []struct {
+		expected    string
+		shortcut    string
+		annotations map[string]string
+		labels      map[string]string
+	}{
+		{
+			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.75 unless sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99`,
+			`@resp_time_below:0.025,5m,0.75_unless_@resp_time_above:0.1,5m,0.99`,
+			map[string]string{"summary": "Response time of the service my-service is below 0.025 unless Response time of the service my-service is above 0.1"},
+			map[string]string{},
+		},
+		{
+			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.75 unless sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99`,
+			`@resp_time_below:0.025,5m,0.75_unless_@resp_time_above:0.1,5m,0.99`,
+			map[string]string{"summary": "Response time of the service my-service is below 0.025 unless Response time of the service my-service is above 0.1"},
+			map[string]string{"receiver": "system", "service": "my-service", "type": "service"},
+		},
+		{
+			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99 and container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
+			`@resp_time_above:0.1,5m,0.99_and_@service_mem_limit:0.8`,
+			map[string]string{"summary": "Response time of the service my-service is above 0.1 and Memory of the service my-service is over 0.8"},
+			map[string]string{"receiver": "system", "service": "my-service"},
+		},
+		{
+			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99 or container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
+			`@resp_time_above:0.1,5m,0.99_or_@service_mem_limit:0.8`,
+			map[string]string{"summary": "Response time of the service my-service is above 0.1 or Memory of the service my-service is over 0.8"},
+			map[string]string{"receiver": "system"},
+		},
+		{
+			`container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8 and sum(rate(http_server_resp_time_bucket{job="my-service", le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.75 unless sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99`,
+			`@service_mem_limit:0.8_and_@resp_time_below:0.025,5m,0.75_unless_@resp_time_above:0.1,5m,0.99`,
+			map[string]string{"summary": "Memory of the service my-service is over 0.8 and Response time of the service my-service is below 0.025 unless Response time of the service my-service is above 0.1"},
+			map[string]string{"receiver": "system"},
+		},
+	}
+
+	for _, data := range testData {
+		expected := prometheus.Alert{
+			AlertAnnotations:   data.annotations,
+			AlertFor:           "my-for",
+			AlertIf:            data.expected,
+			AlertLabels:        data.labels,
+			AlertName:          "my-alert",
+			AlertNameFormatted: "myservice_myalert",
+			ServiceName:        "my-service",
+			Replicas:           3,
+		}
+		rwMock := ResponseWriterMock{}
+		alertQueries := []string{}
+		for k, v := range data.labels {
+			alertQueries = append(alertQueries, fmt.Sprintf("%s=%s", k, v))
+		}
+		alertQueryStr := strings.Join(alertQueries, ",")
+		addr := fmt.Sprintf(
+			"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s&replicas=3",
+			expected.ServiceName,
+			expected.AlertName,
+			data.shortcut,
+			expected.AlertFor,
+		)
+		if len(alertQueries) > 0 {
+			addr += fmt.Sprintf("&alertLabels=%s", alertQueryStr)
+		}
+		req, _ := http.NewRequest("GET", addr, nil)
+
+		serve := New()
+		serve.ReconfigureHandler(rwMock, req)
+
+		s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
+	}
+}
+
+func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotExpandAnnotations_WhenTheyAreAlreadySet_CompoundOps() {
+	testData := struct {
+		expected    string
+		shortcut    string
+		annotations map[string]string
+		labels      map[string]string
+	}{
+		`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.75 unless sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99`,
+		`@resp_time_below:0.025,5m,0.75_unless_@resp_time_above:0.1,5m,0.99`,
+		map[string]string{"summary": "not-again"},
+		map[string]string{"receiver": "system", "service": "ugly-service"},
+	}
+	expected := prometheus.Alert{
+		AlertAnnotations:   testData.annotations,
+		AlertFor:           "my-for",
+		AlertIf:            testData.expected,
+		AlertLabels:        testData.labels,
+		AlertName:          "my-alert",
+		AlertNameFormatted: "myservice_myalert",
+		ServiceName:        "my-service",
+		Replicas:           3,
+	}
+	rwMock := ResponseWriterMock{}
+	addr := fmt.Sprintf(
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s&replicas=3&alertAnnotations=summary=not-again&alertLabels=service=ugly-service,receiver=system",
+		expected.ServiceName,
+		expected.AlertName,
+		testData.shortcut,
+		expected.AlertFor,
+	)
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.ReconfigureHandler(rwMock, req)
+
+	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotExpandAnnotationsAndLabels_WhenTheyAreAlreadySet() {

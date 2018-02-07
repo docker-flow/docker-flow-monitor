@@ -4,6 +4,7 @@ pages:
   - Tutorial:
     - Running Docker Flow Monitor: tutorial.md
     - Auto-Scaling Services Using Instrumented Metrics: auto-scaling.md
+    - Flexible Labeling with Docker Flow Monitor: tutorial-flexible-labeling.md
   - Configuration: config.md
   - Usage: usage.md
   - Migration Guide: migration.md

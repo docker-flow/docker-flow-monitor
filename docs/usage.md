@@ -62,6 +62,12 @@ Please visit [Alerting Overview](https://prometheus.io/docs/alerting/overview/) 
 !!! note
     I hope that the number of shortcuts will grow with time thanks to community contributions. Please create [an issue](https://github.com/vfarcic/docker-flow-monitor/issues) with the `alertIf` statement and the suggested shortcut and I'll add it to the code as soon as possible.
 
+### AlertIf Logical Operators
+
+The logical operators `and`, `unless`, and `or` can be used in combinations with AlertIf Parameter Shortcuts. For example, to create an alert that triggers when response time is low unless response time is high, set `alertIf=@resp_time_below:0.025,5m,0.75_unless_@resp_time_above:0.1,5m,0.99`. This alert prevents `@resp_time_below` from triggering while `@resp_time_above` is triggering. The `summary` annotation for this alert will be merged with the `and` operator: "Response time of the service my-service is below 0.025 unless Response time of the service my-service is above 0.1". When using logical operators, there are no default alert labels. The alert labels will have to be manually set by using the `alertLabels` query parameter.
+
+ More information on the logical operators can be found on Prometheus's querying [documentation](https://prometheus.io/docs/prometheus/latest/querying/operators/#logical-set-binary-operators).
+
 ## Remove
 
 !!! tip

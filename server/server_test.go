@@ -13,6 +13,7 @@ import (
 	"../prometheus"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/suite"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type ServerTestSuite struct {
@@ -464,6 +465,94 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsScrapeType() {
 	s.Equal(expected, serve.scrapes[expected.ServiceName])
 }
 
+func (s *ServerTestSuite) Test_ReconfigureHandler_WithNodeInfo() {
+	defer func() {
+		os.Unsetenv("DF_SCRAPE_TARGET_LABELS")
+	}()
+	os.Setenv("DF_SCRAPE_TARGET_LABELS", "env,domain")
+	nodeInfo := prometheus.NodeIPSet{}
+	nodeInfo.Add("node-1", "1.0.1.1")
+	nodeInfo.Add("node-2", "1.0.1.2")
+	expected := prometheus.Scrape{
+		ServiceName: "my-service",
+		ScrapePort:  1234,
+		ScrapeLabels: &map[string]string{
+			"env":    "prod",
+			"domain": "frontend",
+		},
+		NodeInfo: &nodeInfo,
+	}
+
+	nodeInfoBytes, err := json.Marshal(nodeInfo)
+	s.Require().NoError(err)
+
+	rwMock := ResponseWriterMock{}
+	addr, err := url.Parse("/v1/docker-flow-monitor")
+	s.Require().NoError(err)
+
+	q := addr.Query()
+	q.Add("serviceName", expected.ServiceName)
+	q.Add("scrapePort", fmt.Sprintf("%d", expected.ScrapePort))
+	q.Add("env", (*expected.ScrapeLabels)["env"])
+	q.Add("domain", (*expected.ScrapeLabels)["domain"])
+	q.Add("extra", "system")
+	q.Add("nodeInfo", string(nodeInfoBytes))
+	addr.RawQuery = q.Encode()
+
+	req, _ := http.NewRequest("GET", addr.String(), nil)
+	serve := New()
+	serve.ReconfigureHandler(rwMock, req)
+
+	targetScrape := serve.scrapes[expected.ServiceName]
+	s.Equal(expected.ServiceName, targetScrape.ServiceName)
+	s.Equal(expected.ScrapePort, targetScrape.ScrapePort)
+	s.Equal(expected.ScrapeLabels, targetScrape.ScrapeLabels)
+	s.Equal("", (*targetScrape.ScrapeLabels)["extra"])
+
+	s.Require().NotNil(targetScrape.NodeInfo)
+	s.True(expected.NodeInfo.Equal(*targetScrape.NodeInfo))
+
+}
+
+func (s *ServerTestSuite) Test_ReconfigureHandler_WithNodeInfo_NoTargetLabelsDefined() {
+	nodeInfo := prometheus.NodeIPSet{}
+	nodeInfo.Add("node-1", "1.0.1.1")
+	nodeInfo.Add("node-2", "1.0.1.2")
+	expected := prometheus.Scrape{
+		ServiceName:  "my-service",
+		ScrapePort:   1234,
+		ScrapeLabels: &map[string]string{},
+		NodeInfo:     &nodeInfo,
+	}
+
+	nodeInfoBytes, err := json.Marshal(nodeInfo)
+	s.Require().NoError(err)
+
+	rwMock := ResponseWriterMock{}
+	addr, err := url.Parse("/v1/docker-flow-monitor")
+	s.Require().NoError(err)
+
+	q := addr.Query()
+	q.Add("serviceName", expected.ServiceName)
+	q.Add("scrapePort", fmt.Sprintf("%d", expected.ScrapePort))
+	q.Add("env", "dev")
+	q.Add("domain", "frontend")
+	q.Add("nodeInfo", string(nodeInfoBytes))
+	addr.RawQuery = q.Encode()
+
+	req, _ := http.NewRequest("GET", addr.String(), nil)
+	serve := New()
+	serve.ReconfigureHandler(rwMock, req)
+
+	targetScrape := serve.scrapes[expected.ServiceName]
+	s.Equal(expected.ServiceName, targetScrape.ServiceName)
+	s.Equal(expected.ScrapePort, targetScrape.ScrapePort)
+	s.Equal(expected.ScrapeLabels, targetScrape.ScrapeLabels)
+
+	s.Require().NotNil(targetScrape.NodeInfo)
+	s.True(expected.NodeInfo.Equal(*targetScrape.NodeInfo))
+}
+
 func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddAlert_WhenAlertNameIsEmpty() {
 	rwMock := ResponseWriterMock{}
 	req, _ := http.NewRequest("GET", "/v1/docker-flow-monitor", nil)
@@ -584,6 +673,107 @@ scrape_configs:
 
 	actual, _ := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(expected, string(actual))
+}
+
+func (s *ServerTestSuite) Test_ReconfigureHandler_WithNodeInfo_CallsWriteConfig() {
+	fsOrig := prometheus.FS
+	defer func() {
+		os.Unsetenv("DF_SCRAPE_TARGET_LABELS")
+		prometheus.FS = fsOrig
+	}()
+	prometheus.FS = afero.NewMemMapFs()
+	os.Setenv("DF_SCRAPE_TARGET_LABELS", "env,domain")
+	expectedConfig := `global:
+  scrape_interval: 5s
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - alert-manager:9093
+    scheme: http
+rule_files:
+- alert.rules
+scrape_configs:
+- job_name: my-service
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/file_sd/my-service.json
+`
+	nodeInfo := prometheus.NodeIPSet{}
+	nodeInfo.Add("node-1", "1.0.1.1")
+	nodeInfo.Add("node-2", "1.0.1.2")
+	expected := prometheus.Scrape{
+		ServiceName: "my-service",
+		ScrapePort:  1234,
+		ScrapeLabels: &map[string]string{
+			"env":    "prod",
+			"domain": "frontend",
+		},
+		NodeInfo: &nodeInfo,
+	}
+
+	nodeInfoBytes, err := json.Marshal(nodeInfo)
+	s.Require().NoError(err)
+
+	rwMock := ResponseWriterMock{}
+	addr, err := url.Parse("/v1/docker-flow-monitor")
+	s.Require().NoError(err)
+
+	q := addr.Query()
+	q.Add("serviceName", expected.ServiceName)
+	q.Add("scrapePort", fmt.Sprintf("%d", expected.ScrapePort))
+	q.Add("env", (*expected.ScrapeLabels)["env"])
+	q.Add("domain", (*expected.ScrapeLabels)["domain"])
+	q.Add("nodeInfo", string(nodeInfoBytes))
+	q.Add("alertName", "my-alert")
+	q.Add("alertIf", "my-if")
+	q.Add("alertFor", "my-for")
+	addr.RawQuery = q.Encode()
+
+	req, _ := http.NewRequest("GET", addr.String(), nil)
+
+	serve := New()
+	serve.ReconfigureHandler(rwMock, req)
+
+	actualPrometheusConfig, err := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
+	s.Require().NoError(err)
+	s.Equal(expectedConfig, string(actualPrometheusConfig))
+
+	fileSDConfigByte, err := afero.ReadFile(prometheus.FS, "/etc/prometheus/file_sd/my-service.json")
+	s.Require().NoError(err)
+
+	fileSDconfig := prometheus.FileStaticConfig{}
+	err = json.Unmarshal(fileSDConfigByte, &fileSDconfig)
+	s.Require().NoError(err)
+
+	s.Require().Len(fileSDconfig, 2)
+
+	var targetGroup1 *prometheus.TargetGroup
+	var targetGroup2 *prometheus.TargetGroup
+	for _, tg := range fileSDconfig {
+		if tg == nil {
+			continue
+		}
+		for _, target := range tg.Targets {
+			if target == "1.0.1.1:1234" {
+				targetGroup1 = tg
+				break
+			} else if target == "1.0.1.2:1234" {
+				targetGroup2 = tg
+				break
+			}
+		}
+	}
+
+	s.Require().NotNil(targetGroup1)
+	s.Require().NotNil(targetGroup2)
+
+	s.Equal((*expected.ScrapeLabels)["env"], targetGroup1.Labels["env"])
+	s.Equal((*expected.ScrapeLabels)["domain"], targetGroup1.Labels["domain"])
+	s.Equal("node-1", targetGroup1.Labels["node"])
+
+	s.Equal((*expected.ScrapeLabels)["env"], targetGroup2.Labels["env"])
+	s.Equal("node-2", targetGroup2.Labels["node"])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_SendsReloadRequestToPrometheus() {
@@ -804,6 +994,157 @@ alerting:
 
 	actual, _ = afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(expectedAfterDelete, string(actual))
+}
+
+func (s *ServerTestSuite) Test_RemoveHandler_WithNodeInfo_CallsWriteConfig() {
+	fsOrig := prometheus.FS
+	defer func() {
+		prometheus.FS = fsOrig
+	}()
+	prometheus.FS = afero.NewMemMapFs()
+	nodeInfo1 := prometheus.NodeIPSet{}
+	nodeInfo1.Add("node-1", "1.0.1.1")
+	nodeInfo1.Add("node-2", "1.0.1.2")
+	expected1 := prometheus.Scrape{
+		ServiceName:  "my-service1",
+		ScrapePort:   1234,
+		ScrapeLabels: &map[string]string{},
+		NodeInfo:     &nodeInfo1,
+	}
+
+	nodeInfo2 := prometheus.NodeIPSet{}
+	nodeInfo2.Add("node-1", "1.0.2.1")
+	expected2 := prometheus.Scrape{
+		ServiceName:  "my-service2",
+		ScrapePort:   2341,
+		ScrapeLabels: &map[string]string{},
+		NodeInfo:     &nodeInfo2,
+	}
+
+	nodeInfoBytes1, err := json.Marshal(nodeInfo1)
+	s.Require().NoError(err)
+	nodeInfoBytes2, err := json.Marshal(nodeInfo2)
+	s.Require().NoError(err)
+
+	rwMock := ResponseWriterMock{}
+	addr, err := url.Parse("/v1/docker-flow-monitor")
+	s.Require().NoError(err)
+
+	q1 := addr.Query()
+	q1.Add("serviceName", expected1.ServiceName)
+	q1.Add("scrapePort", fmt.Sprintf("%d", expected1.ScrapePort))
+	q1.Add("nodeInfo", string(nodeInfoBytes1))
+
+	q2 := addr.Query()
+	q2.Add("serviceName", expected2.ServiceName)
+	q2.Add("scrapePort", fmt.Sprintf("%d", expected2.ScrapePort))
+	q2.Add("nodeInfo", string(nodeInfoBytes2))
+
+	serve := New()
+
+	addr.RawQuery = q1.Encode()
+	req1, _ := http.NewRequest("GET", addr.String(), nil)
+	serve.ReconfigureHandler(rwMock, req1)
+
+	addr.RawQuery = q2.Encode()
+	req2, _ := http.NewRequest("GET", addr.String(), nil)
+	serve.ReconfigureHandler(rwMock, req2)
+
+	actualPrometheusConfigBytes, err := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
+	s.Require().NoError(err)
+
+	actualPrometheusConfig := prometheus.Config{}
+	err = yaml.Unmarshal(actualPrometheusConfigBytes, &actualPrometheusConfig)
+	s.Require().NoError(err)
+	s.Len(actualPrometheusConfig.ScrapeConfigs, 2)
+
+	var sdConfig1 *prometheus.SDConfig
+	var sdConfig2 *prometheus.SDConfig
+
+	for _, sc := range actualPrometheusConfig.ScrapeConfigs {
+		if sc.JobName == "my-service1" {
+			s.Require().Len(sc.ServiceDiscoveryConfig.FileSDConfigs, 1)
+			sdConfig1 = sc.ServiceDiscoveryConfig.FileSDConfigs[0]
+		}
+		if sc.JobName == "my-service2" {
+			s.Require().Len(sc.ServiceDiscoveryConfig.FileSDConfigs, 1)
+			sdConfig2 = sc.ServiceDiscoveryConfig.FileSDConfigs[0]
+		}
+	}
+	s.Require().NotNil(sdConfig1)
+	s.Require().NotNil(sdConfig2)
+	s.Len(sdConfig1.Files, 1)
+	s.Len(sdConfig2.Files, 1)
+	s.Equal("/etc/prometheus/file_sd/my-service1.json", sdConfig1.Files[0])
+	s.Equal("/etc/prometheus/file_sd/my-service2.json", sdConfig2.Files[0])
+
+	// my-service1 has two servies
+	fileSDConfigService1Byte, err := afero.ReadFile(prometheus.FS, "/etc/prometheus/file_sd/my-service1.json")
+	s.Require().NoError(err)
+	fileSDconfig1 := prometheus.FileStaticConfig{}
+	err = json.Unmarshal(fileSDConfigService1Byte, &fileSDconfig1)
+	s.Require().NoError(err)
+	s.Require().Len(fileSDconfig1, 2)
+
+	// my-service2 has one servies
+	fileSDConfigService2Byte, err := afero.ReadFile(prometheus.FS, "/etc/prometheus/file_sd/my-service2.json")
+	s.Require().NoError(err)
+	fileSDconfig2 := prometheus.FileStaticConfig{}
+	err = json.Unmarshal(fileSDConfigService2Byte, &fileSDconfig2)
+	s.Require().NoError(err)
+	s.Require().Len(fileSDconfig2, 1)
+
+	// Delete my-service1
+	addrDelete1 := "/v1/docker-flow-monitor?serviceName=my-service1"
+	reqDelete1, _ := http.NewRequest("DELETE", addrDelete1, nil)
+
+	serve.RemoveHandler(rwMock, reqDelete1)
+
+	actualConfigBytes, _ := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
+	// Config did not change since there is still a service being scraped
+	actualPrometheusConfigAfter := prometheus.Config{}
+	err = yaml.Unmarshal(actualConfigBytes, &actualPrometheusConfigAfter)
+	s.Require().NoError(err)
+	s.Len(actualPrometheusConfigAfter.ScrapeConfigs, 1)
+
+	// my-service1 is gone
+	myService1Exists, err := afero.Exists(prometheus.FS, "/etc/prometheus/file_sd/my-service1.json")
+	s.Require().NoError(err)
+	s.False(myService1Exists)
+
+	fileSDConfigService2Byte, err = afero.ReadFile(prometheus.FS, "/etc/prometheus/file_sd/my-service2.json")
+	s.Require().NoError(err)
+	fileSDconfig2After := prometheus.FileStaticConfig{}
+	err = json.Unmarshal(fileSDConfigService2Byte, &fileSDconfig2After)
+	s.Require().NoError(err)
+
+	// my-service2 is still running running
+	s.Require().Len(fileSDconfig2After, 1)
+
+	// Delete my-service2
+	addrDelete2 := "/v1/docker-flow-monitor?serviceName=my-service2"
+	reqDelete2, _ := http.NewRequest("DELETE", addrDelete2, nil)
+
+	serve.RemoveHandler(rwMock, reqDelete2)
+
+	expectedConfigDelete := `global:
+  scrape_interval: 5s
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - alert-manager:9093
+    scheme: http
+`
+
+	actualConfig, _ := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")
+	// Config did not change since there is still a service being scraped
+	s.Equal(expectedConfigDelete, string(actualConfig))
+
+	// my-service2 is gone
+	myService2Exists, err := afero.Exists(prometheus.FS, "/etc/prometheus/file_sd/my-service2.json")
+	s.Require().NoError(err)
+	s.False(myService2Exists)
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_SendsReloadRequestToPrometheus() {

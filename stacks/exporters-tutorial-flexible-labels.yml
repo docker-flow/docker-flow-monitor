@@ -1,0 +1,50 @@
+version: "3"
+
+services:
+
+  cadvisor:
+    image: google/cadvisor
+    networks:
+      - monitor
+    volumes:
+      - /:/rootfs
+      - /var/run:/var/run
+      - /sys:/sys
+      - /var/lib/docker:/var/lib/docker
+    deploy:
+      mode: global
+      labels:
+        - com.df.notify=true
+        - com.df.scrapePort=8080
+        - com.df.scrapeNetwork=monitor
+        - com.df.env=prod
+        - com.df.metricType=system
+
+  node-exporter:
+    image: basi/node-exporter
+    networks:
+      - monitor
+    environment:
+      - HOST_HOSTNAME=/etc/host_hostname
+    volumes:
+      - /proc:/host/proc
+      - /sys:/host/sys
+      - /:/rootfs
+      - /etc/hostname:/etc/host_hostname
+    deploy:
+      mode: global
+      labels:
+        - com.df.notify=true
+        - com.df.scrapePort=9100
+        - com.df.alertName.1=mem_load
+        - com.df.alertIf.1=(sum by (instance) (node_memory_MemTotal) - sum by (instance) (node_memory_MemFree + node_memory_Buffers + node_memory_Cached)) / sum by (instance) (node_memory_MemTotal) > 0.8
+        - com.df.alertName.2=diskload
+        - com.df.alertIf.2=@node_fs_limit:0.8
+        - com.df.scrapeNetwork=monitor
+        - com.df.env=dev
+        - com.df.metricType=system
+    command: '--path.procfs="/host/proc" --path.sysfs="/host/sys" --collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)" --collector.textfile.directory="/etc/node-exporter/" --collector.conntrack --collector.diskstats --collector.entropy --collector.filefd --collector.filesystem --collector.loadavg --collector.mdadm --collector.meminfo --collector.netdev --collector.netstat --collector.stat --collector.textfile --collector.time --collector.vmstat --collector.ipvs'
+
+networks:
+  monitor:
+    external: true

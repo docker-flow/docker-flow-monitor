@@ -325,40 +325,136 @@ var alertIfShortcutData = map[string]alertIfShortcut{
 
 func (s *serve) formatAlert(alert *prometheus.Alert) {
 	alert.AlertNameFormatted = s.getNameFormatted(fmt.Sprintf("%s_%s", alert.ServiceName, alert.AlertName))
-	if strings.HasPrefix(alert.AlertIf, "@") {
+	if !strings.HasPrefix(alert.AlertIf, "@") {
+		return
+	}
+
+	_, bOp, _ := splitCompoundOp(alert.AlertIf)
+	if len(bOp) > 0 {
+		formatCompoundAlert(alert)
+	} else {
+		formatSingleAlert(alert)
+	}
+
+}
+
+func formatSingleAlert(alert *prometheus.Alert) {
+
+	value := ""
+	alertSplit := strings.Split(alert.AlertIf, ":")
+	shortcut := alertSplit[0]
+
+	if len(alertSplit) > 1 {
+		value = alertSplit[1]
+	}
+
+	data, ok := alertIfShortcutData[shortcut]
+	if !ok {
+		return
+	}
+
+	alert.AlertIf = replaceTags(data.expanded, alert, value)
+
+	if alert.AlertAnnotations == nil {
+		alert.AlertAnnotations = map[string]string{}
+	}
+	for k, v := range data.annotations {
+		if _, ok := alert.AlertAnnotations[k]; !ok {
+			alert.AlertAnnotations[k] = replaceTags(v, alert, value)
+		}
+	}
+
+	if alert.AlertLabels == nil {
+		alert.AlertLabels = map[string]string{}
+	}
+	for k, v := range data.labels {
+		if _, ok := alert.AlertLabels[k]; !ok {
+			alert.AlertLabels[k] = replaceTags(v, alert, value)
+		}
+	}
+}
+
+func formatCompoundAlert(alert *prometheus.Alert) {
+	alertIfStr := alert.AlertIf
+	alertAnnotations := map[string]string{}
+	immutableAnnotations := map[string]struct{}{}
+
+	// copy alert annotations and alert labels
+	if alert.AlertAnnotations != nil {
+		for k := range alert.AlertAnnotations {
+			immutableAnnotations[k] = struct{}{}
+		}
+	}
+
+	var alertIfFormattedBuffer bytes.Buffer
+
+	currentAlert, bOp, alertIfStr := splitCompoundOp(alertIfStr)
+
+	for len(currentAlert) > 0 {
 		value := ""
-		alertSplit := strings.Split(alert.AlertIf, ":")
+		alertSplit := strings.Split(currentAlert, ":")
 		shortcut := alertSplit[0]
 
 		if len(alertSplit) > 1 {
 			value = alertSplit[1]
 		}
-
 		data, ok := alertIfShortcutData[shortcut]
 		if !ok {
 			return
 		}
 
-		alert.AlertIf = replaceTags(data.expanded, alert, value)
-
-		if alert.AlertAnnotations == nil {
-			alert.AlertAnnotations = map[string]string{}
+		alertIfFormattedBuffer.WriteString(replaceTags(data.expanded, alert, value))
+		if len(bOp) > 0 {
+			alertIfFormattedBuffer.WriteString(fmt.Sprintf(" %s ", bOp))
 		}
+
 		for k, v := range data.annotations {
-			if _, ok := alert.AlertAnnotations[k]; !ok {
-				alert.AlertAnnotations[k] = replaceTags(v, alert, value)
+			if _, ok := immutableAnnotations[k]; ok {
+				continue
+			}
+			alertAnnotations[k] += replaceTags(v, alert, value)
+			if len(bOp) > 0 {
+				alertAnnotations[k] += fmt.Sprintf(" %s ", bOp)
 			}
 		}
+		currentAlert, bOp, alertIfStr = splitCompoundOp(alertIfStr)
+	}
 
-		if alert.AlertLabels == nil {
-			alert.AlertLabels = map[string]string{}
+	alert.AlertIf = alertIfFormattedBuffer.String()
+
+	if alert.AlertAnnotations == nil {
+		alert.AlertAnnotations = map[string]string{}
+	}
+
+	for k, v := range alertAnnotations {
+		if _, ok := immutableAnnotations[k]; ok {
+			continue
 		}
-		for k, v := range data.labels {
-			if _, ok := alert.AlertLabels[k]; !ok {
-				alert.AlertLabels[k] = replaceTags(v, alert, value)
-			}
+		alert.AlertAnnotations[k] = v
+	}
+
+}
+
+// splitCompoundOp find splits string into three pieces if it includes _unless_,
+// _and_, or _or_. For example, hello_and_world_or_earth will return [hello, and, world_or_earth]
+func splitCompoundOp(s string) (string, string, string) {
+	binaryOps := []string{"unless", "and", "or"}
+
+	minIdx := len(s)
+	minOp := ""
+	for _, bOp := range binaryOps {
+		idx := strings.Index(s, fmt.Sprintf("_%s_", bOp))
+		if idx != -1 && idx < minIdx {
+			minIdx = idx
+			minOp = bOp
 		}
 	}
+
+	if len(minOp) > 0 {
+		return s[:minIdx], minOp, s[minIdx+len(minOp)+2:]
+	}
+	return s, "", ""
+
 }
 
 func replaceTags(tag string, alert *prometheus.Alert, value string) string {
@@ -397,10 +493,32 @@ func (s *serve) getNameFormatted(name string) string {
 func (s *serve) getScrape(req *http.Request) prometheus.Scrape {
 	scrape := prometheus.Scrape{}
 	decoder.Decode(&scrape, req.Form)
-	if s.isValidScrape(&scrape) {
-		s.scrapes[scrape.ServiceName] = scrape
-		logPrintf("Adding scrape %s\n%v", scrape.ServiceName, scrape)
+	if !s.isValidScrape(&scrape) {
+		return scrape
 	}
+
+	if nodeInfoStr := req.Form.Get("nodeInfo"); len(nodeInfoStr) > 0 {
+		nodeInfo := prometheus.NodeIPSet{}
+		json.Unmarshal([]byte(nodeInfoStr), &nodeInfo)
+		scrape.NodeInfo = &nodeInfo
+	}
+
+	if scrape.NodeInfo != nil && len(*scrape.NodeInfo) > 0 {
+		scrape.ScrapeLabels = &map[string]string{}
+		if targetLabels := os.Getenv("DF_SCRAPE_TARGET_LABELS"); len(targetLabels) > 0 {
+			labels := strings.Split(targetLabels, ",")
+			for _, label := range labels {
+				value := req.Form.Get(label)
+				if len(value) > 0 {
+					(*scrape.ScrapeLabels)[label] = value
+				}
+			}
+		}
+	}
+
+	s.scrapes[scrape.ServiceName] = scrape
+	logPrintf("Adding scrape %s\n%v", scrape.ServiceName, scrape)
+
 	return scrape
 }
 

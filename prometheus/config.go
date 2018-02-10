@@ -2,6 +2,7 @@ package prometheus
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -18,14 +19,17 @@ import (
 // WriteConfig creates Prometheus configuration at configPath and writes alerts into /etc/prometheus/alert.rules
 func WriteConfig(configPath string, scrapes map[string]Scrape, alerts map[string]Alert) {
 	c := &Config{}
+	fileSDDir := "/etc/prometheus/file_sd"
+	alertRulesPath := "/etc/prometheus/alert.rules"
 
 	configDir := filepath.Dir(configPath)
 	FS.MkdirAll(configDir, 0755)
+	FS.MkdirAll(fileSDDir, 0755)
 	c.InsertScrapes(scrapes)
 
 	if len(alerts) > 0 {
 		logPrintf("Writing to alert.rules")
-		afero.WriteFile(FS, "/etc/prometheus/alert.rules", []byte(GetAlertConfig(alerts)), 0644)
+		afero.WriteFile(FS, alertRulesPath, []byte(GetAlertConfig(alerts)), 0644)
 		c.RuleFiles = []string{"alert.rules"}
 	}
 
@@ -35,6 +39,7 @@ func WriteConfig(configPath string, scrapes map[string]Scrape, alerts map[string
 			logPrintf("Unable to insert alertmanager url %s into prometheus config", alertmanagerURL)
 		}
 	}
+	c.CreateFileStaticConfig(scrapes, fileSDDir)
 
 	for _, e := range os.Environ() {
 		envSplit := strings.SplitN(e, "=", 2)
@@ -98,6 +103,9 @@ func (c *Config) InsertScrapes(scrapes map[string]Scrape) {
 		if len(metricsPath) == 0 {
 			metricsPath = "/metrics"
 		}
+		if s.NodeInfo != nil && len(*s.NodeInfo) > 0 {
+			continue
+		}
 		if s.ScrapeType == "static_configs" {
 			newScrape = &ScrapeConfig{
 				ServiceDiscoveryConfig: ServiceDiscoveryConfig{
@@ -150,6 +158,63 @@ func (c *Config) InsertScrapesFromDir(dir string) {
 
 	}
 
+}
+
+// CreateFileStaticConfig creates static config files
+func (c *Config) CreateFileStaticConfig(scrapes map[string]Scrape, fileSDDir string) {
+
+	staticFiles := map[string]struct{}{}
+	for _, s := range scrapes {
+		fsc := FileStaticConfig{}
+		if s.NodeInfo == nil {
+			continue
+		}
+		for n := range *s.NodeInfo {
+			tg := TargetGroup{}
+			tg.Targets = []string{fmt.Sprintf("%s:%d", n.Addr, s.ScrapePort)}
+			tg.Labels = map[string]string{}
+			if s.ScrapeLabels != nil {
+				for k, v := range *s.ScrapeLabels {
+					tg.Labels[k] = v
+				}
+			}
+			tg.Labels["node"] = n.Name
+			tg.Labels["service"] = s.ServiceName
+			fsc = append(fsc, &tg)
+		}
+
+		if len(fsc) == 0 {
+			continue
+		}
+
+		fscBytes, err := json.Marshal(fsc)
+		if err != nil {
+			continue
+		}
+		filePath := fmt.Sprintf("%s/%s.json", fileSDDir, s.ServiceName)
+		afero.WriteFile(FS, filePath, fscBytes, 0644)
+		newScrape := &ScrapeConfig{
+			ServiceDiscoveryConfig: ServiceDiscoveryConfig{
+				FileSDConfigs: []*SDConfig{{
+					Files: []string{filePath},
+				}},
+			},
+			JobName: s.ServiceName,
+		}
+		c.ScrapeConfigs = append(c.ScrapeConfigs, newScrape)
+		staticFiles[filePath] = struct{}{}
+	}
+
+	// Remove scrapes that are not in fileStaticServices
+	currentStaticFiles, err := afero.Glob(FS, fmt.Sprintf("%s/*.json", fileSDDir))
+	if err != nil {
+		return
+	}
+	for _, file := range currentStaticFiles {
+		if _, ok := staticFiles[file]; !ok {
+			FS.Remove(file)
+		}
+	}
 }
 
 func normalizeScrapeFile(content []byte) []byte {

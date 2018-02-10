@@ -216,8 +216,10 @@ type Alert struct {
 
 // Scrape defines data used to create scraping configuration snippet
 type Scrape struct {
-	MetricsPath string `json:"metricsPath,string,omitempty"`
-	ScrapePort  int    `json:"scrapePort,string,omitempty"`
-	ServiceName string `json:"serviceName"`
-	ScrapeType  string `json:"scrapeType"`
+	MetricsPath    string `json:"metricsPath,string,omitempty"`
+	ScrapeInterval string `json:"scrapeInterval,string,omitempty"`
+	ScrapeTimeout  string `json:"scrapeTimeout,string,omitempty"`
+	ScrapePort     int    `json:"scrapePort,string,omitempty"`
+	ServiceName    string `json:"serviceName"`
+	ScrapeType     string `json:"scrapeType"`
 }

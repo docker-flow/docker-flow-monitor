@@ -565,6 +565,8 @@ rule_files:
 - alert.rules
 scrape_configs:
 - job_name: my-service
+  scrape_interval: 15s
+  scrape_timeout: 11s
   metrics_path: /metrics
   dns_sd_configs:
   - names:
@@ -573,7 +575,7 @@ scrape_configs:
     port: 1234
 `
 	rwMock := ResponseWriterMock{}
-	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234&alertName=my-alert&alertIf=my-if&alertFor=my-for"
+	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234&scrapeInterval=15s&scrapeTimeout=11s&alertName=my-alert&alertIf=my-if&alertFor=my-for"
 	req, _ := http.NewRequest("GET", addr, nil)
 	fsOrig := prometheus.FS
 	defer func() { prometheus.FS = fsOrig }()

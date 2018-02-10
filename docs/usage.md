@@ -16,11 +16,13 @@ Query parameters that follow should be added to the base address **[MONITOR_IP]:
 |Query          |Description                                                                               |Required|
 |---------------|------------------------------------------------------------------------------------------|--------|
 |metricsPath    |The path of the metrics endpoint. Defaults to `/metrics`.                                 |No      |
+|scrapeInterval |How frequently to scrape targets from this job.                                           |No      |
+|scrapeTimeout  |Per-scrape timeout when scraping this job.                                                |No      |
 |scrapePort     |The port through which metrics are exposed.                                               |Yes     |
 |serviceName    |The name of the service that exports metrics.                                             |Yes     |
 |scrapeType     |A set of targets and parameters describing how to scrape metrics.                         |No      |
 
-You can find more about scrapeType's on [Scrape Config](https://prometheus.io/docs/operating/configuration/#scrape_config).
+You can find more about scrapeType's on [Scrape Config](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config).
 
 ### Alert Parameters
 

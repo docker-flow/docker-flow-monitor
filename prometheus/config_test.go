@@ -367,8 +367,20 @@ func (s *ConfigTestSuite) Test_InsertScrape_ConfigWithData() {
 
 	scrapes := map[string]Scrape{
 		"service-1": {ServiceName: "service-1", ScrapePort: 1234},
-		"service-2": {ServiceName: "service-2", ScrapePort: 5678},
-		"service-3": {ServiceName: "service-3", ScrapePort: 4321, ScrapeType: "static_configs", MetricsPath: "/something"},
+		"service-2": {
+			ServiceName:    "service-2",
+			ScrapePort:     5678,
+			ScrapeInterval: "32s",
+			ScrapeTimeout:  "11s",
+		},
+		"service-3": {
+			ServiceName:    "service-3",
+			ScrapeInterval: "23s",
+			ScrapeTimeout:  "21s",
+			ScrapePort:     4321,
+			ScrapeType:     "static_configs",
+			MetricsPath:    "/something",
+		},
 	}
 
 	c := &Config{}
@@ -382,13 +394,21 @@ func (s *ConfigTestSuite) Test_InsertScrape_ConfigWithData() {
 			s.Equal(expectedC.ScrapePort, sc.ServiceDiscoveryConfig.DNSSDConfigs[0].Port)
 			s.Equal("A", sc.ServiceDiscoveryConfig.DNSSDConfigs[0].Type)
 			s.Equal("/metrics", sc.MetricsPath)
-			s.Equal(fmt.Sprintf("tasks.%s", expectedC.ServiceName),
-				sc.ServiceDiscoveryConfig.DNSSDConfigs[0].Names[0])
+			s.Equal(
+				fmt.Sprintf("tasks.%s", expectedC.ServiceName),
+				sc.ServiceDiscoveryConfig.DNSSDConfigs[0].Names[0],
+			)
+			s.Equal(expectedC.ScrapeInterval, sc.ScrapeInterval)
+			s.Equal(expectedC.ScrapeTimeout, sc.ScrapeTimeout)
 		} else {
 			s.Equal(expectedC.ServiceName, sc.JobName)
 			s.Equal(expectedC.MetricsPath, sc.MetricsPath)
-			s.Equal(fmt.Sprintf("%s:%d", expectedC.ServiceName, expectedC.ScrapePort),
-				sc.ServiceDiscoveryConfig.StaticConfigs[0].Targets[0])
+			s.Equal(
+				fmt.Sprintf("%s:%d", expectedC.ServiceName, expectedC.ScrapePort),
+				sc.ServiceDiscoveryConfig.StaticConfigs[0].Targets[0],
+			)
+			s.Equal(expectedC.ScrapeInterval, sc.ScrapeInterval)
+			s.Equal(expectedC.ScrapeTimeout, sc.ScrapeTimeout)
 		}
 	}
 }

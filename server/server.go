@@ -173,6 +173,7 @@ func (s *serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, err
 	if port, err := strconv.Atoi(data["scrapePort"]); err == nil {
 		scrape.ScrapePort = port
 	}
+	scrape.ScrapeInterval = data["scrapeInterval"]
 	scrape.ServiceName = data["serviceName"]
 	scrape.ScrapeType = data["scrapeType"]
 

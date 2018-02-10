@@ -105,8 +105,6 @@ func (c *Config) InsertScrapes(scrapes map[string]Scrape) {
 						Targets: []string{fmt.Sprintf("%s:%d", s.ServiceName, s.ScrapePort)},
 					}},
 				},
-				JobName:     s.ServiceName,
-				MetricsPath: metricsPath,
 			}
 		} else {
 			newScrape = &ScrapeConfig{
@@ -117,10 +115,12 @@ func (c *Config) InsertScrapes(scrapes map[string]Scrape) {
 						Type:  "A",
 					}},
 				},
-				JobName:     s.ServiceName,
-				MetricsPath: metricsPath,
 			}
 		}
+		newScrape.JobName = s.ServiceName
+		newScrape.MetricsPath = metricsPath
+		newScrape.ScrapeInterval = s.ScrapeInterval
+		newScrape.ScrapeTimeout = s.ScrapeTimeout
 		c.ScrapeConfigs = append(c.ScrapeConfigs, newScrape)
 	}
 }

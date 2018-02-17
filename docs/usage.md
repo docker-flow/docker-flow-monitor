@@ -64,6 +64,23 @@ Please visit [Alerting Overview](https://prometheus.io/docs/alerting/overview/) 
 !!! note
     I hope that the number of shortcuts will grow with time thanks to community contributions. Please create [an issue](https://github.com/vfarcic/docker-flow-monitor/issues) with the `alertIf` statement and the suggested shortcut and I'll add it to the code as soon as possible.
 
+### AlertIf Secrets Configuration
+
+*Docker Flow Monitor* supports [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/) for adding custom alertIf shortcuts. Only secrets with names that start with `alertif-` or `alertif_` will be considered. `alertIf` shortcuts are configured as a yaml file with a series of dictionaries. The key of each dictionary is your custom `alertIf` shortcut which must begin with the `@` character. The value of each dictionary consist of three keys: `expanded`, `annotations` and `labels`. `expanded` contains the expanded alert using go [templates](https://golang.org/pkg/text/template/). `annotations` and `labels` contains a dictionary with the alert's annotations and labels. For example `@service_mem_limit` is defined by the following yaml:
+
+```yaml
+"@service_mem_limit":
+  expanded: container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"} > {{ index .Values 0 }}
+  annotations:
+    summary: Memory of the service {{ .Alert.ServiceName }} is over {{ index .Values 0 }}
+  labels:
+    receiver: system
+    service: "{{ .Alert.ServiceName }}"
+```
+
+!!! tip
+    AlertIf shortcuts defined in secrets will take priority over default shortcuts.
+
 ### AlertIf Logical Operators
 
 The logical operators `and`, `unless`, and `or` can be used in combinations with AlertIf Parameter Shortcuts. For example, to create an alert that triggers when response time is low unless response time is high, set `alertIf=@resp_time_below:0.025,5m,0.75_unless_@resp_time_above:0.1,5m,0.99`. This alert prevents `@resp_time_below` from triggering while `@resp_time_above` is triggering. The `summary` annotation for this alert will be merged with the `and` operator: "Response time of the service my-service is below 0.025 unless Response time of the service my-service is above 0.1". When using logical operators, there are no default alert labels. The alert labels will have to be manually set by using the `alertLabels` query parameter.

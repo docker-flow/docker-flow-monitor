@@ -17,12 +17,18 @@ import (
 	"../prometheus"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
+	"github.com/spf13/afero"
+	yaml "gopkg.in/yaml.v2"
 )
 
+// FS defines file system used to read and write configuration files
+var FS = afero.NewOsFs()
 var decoder = schema.NewDecoder()
 var mu = &sync.Mutex{}
 var logPrintf = log.Printf
 var listenerTimeout = 30 * time.Second
+var shortcutsPath = "/etc/dfm/shortcuts.yaml"
+var alertIfShortcutData map[string]AlertIfShortcut
 
 type serve struct {
 	scrapes    map[string]prometheus.Scrape
@@ -48,6 +54,7 @@ var New = func() *serve {
 	if len(promConfig) == 0 {
 		promConfig = "/etc/prometheus/prometheus.yml"
 	}
+	alertIfShortcutData = GetShortcuts()
 	return &serve{
 		alerts:     make(map[string]prometheus.Alert),
 		scrapes:    make(map[string]prometheus.Scrape),
@@ -254,10 +261,11 @@ func (s *serve) getAlerts(req *http.Request) []prometheus.Alert {
 	return alerts
 }
 
-type alertIfShortcut struct {
-	expanded    string
-	annotations map[string]string
-	labels      map[string]string
+// AlertIfShortcut defines how to expand a alertIf shortcut
+type AlertIfShortcut struct {
+	Expanded    string            `yaml:"expanded"`
+	Annotations map[string]string `yaml:"annotations"`
+	Labels      map[string]string `yaml:"labels"`
 }
 
 type alertTemplateInput struct {
@@ -265,62 +273,63 @@ type alertTemplateInput struct {
 	Values []string
 }
 
-var alertIfShortcutData = map[string]alertIfShortcut{
-	"@service_mem_limit": {
-		expanded:    `container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"} > {{ index .Values 0 }}`,
-		annotations: map[string]string{"summary": "Memory of the service {{ .Alert.ServiceName }} is over {{ index .Values 0 }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}"},
-	},
-	"@node_mem_limit": {
-		expanded:    `(sum by (instance) (node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) - sum by (instance) (node_memory_MemFree{job="{{ .Alert.ServiceName }}"} + node_memory_Buffers{job="{{ .Alert.ServiceName }}"} + node_memory_Cached{job="{{ .Alert.ServiceName }}"})) / sum by (instance) (node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) > {{ index .Values 0 }}`,
-		annotations: map[string]string{"summary": "Memory of a node is over {{ index .Values 0 }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}"},
-	},
-	"@node_mem_limit_total_above": {
-		expanded:    `(sum(node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) - sum(node_memory_MemFree{job="{{ .Alert.ServiceName }}"} + node_memory_Buffers{job="{{ .Alert.ServiceName }}"} + node_memory_Cached{job="{{ .Alert.ServiceName }}"})) / sum(node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) > {{ index .Values 0 }}`,
-		annotations: map[string]string{"summary": "Total memory of the nodes is over {{ index .Values 0 }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "node"},
-	},
-	"@node_mem_limit_total_below": {
-		expanded:    `(sum(node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) - sum(node_memory_MemFree{job="{{ .Alert.ServiceName }}"} + node_memory_Buffers{job="{{ .Alert.ServiceName }}"} + node_memory_Cached{job="{{ .Alert.ServiceName }}"})) / sum(node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) < {{ index .Values 0 }}`,
-		annotations: map[string]string{"summary": "Total memory of the nodes is below {{ index .Values 0 }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "down", "type": "node"},
-	},
-	"@node_fs_limit": {
-		expanded:    `(node_filesystem_size{fstype="aufs", job="{{ .Alert.ServiceName }}"} - node_filesystem_free{fstype="aufs", job="{{ .Alert.ServiceName }}"}) / node_filesystem_size{fstype="aufs", job="{{ .Alert.ServiceName }}"} > {{ index .Values 0 }}`,
-		annotations: map[string]string{"summary": "Disk usage of a node is over {{ index .Values 0 }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}"},
-	},
-	"@resp_time_above": {
-		expanded:    `sum(rate(http_server_resp_time_bucket{job="{{ .Alert.ServiceName }}", le="{{ index .Values 0 }}"}[{{ index .Values 1 }}])) / sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}"}[{{ index .Values 1 }}])) < {{ index .Values 2 }}`,
-		annotations: map[string]string{"summary": "Response time of the service {{ .Alert.ServiceName }} is above {{ index .Values 0 }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "service"},
-	},
-	"@resp_time_below": {
-		expanded:    `sum(rate(http_server_resp_time_bucket{job="{{ .Alert.ServiceName }}", le="{{ index .Values 0 }}"}[{{ index .Values 1 }}])) / sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}"}[{{ index .Values 1 }}])) > {{ index .Values 2 }}`,
-		annotations: map[string]string{"summary": "Response time of the service {{ .Alert.ServiceName }} is below {{ index .Values 0 }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "down", "type": "service"},
-	},
-	"@replicas_running": {
-		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}) != {{ .Alert.Replicas }}`,
-		annotations: map[string]string{"summary": "The number of running replicas of the service {{ .Alert.ServiceName }} is not {{ .Alert.Replicas }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "node"},
-	},
-	"@replicas_less_than": {
-		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}) < {{ .Alert.Replicas }}`,
-		annotations: map[string]string{"summary": "The number of running replicas of the service {{ .Alert.ServiceName }} is less than {{ .Alert.Replicas }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "node"},
-	},
-	"@replicas_more_than": {
-		expanded:    `count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}) > {{ .Alert.Replicas }}`,
-		annotations: map[string]string{"summary": "The number of running replicas of the service {{ .Alert.ServiceName }} is more than {{ .Alert.Replicas }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "scale": "up", "type": "node"},
-	},
-	"@resp_time_server_error": {
-		expanded:    `sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}", code=~"^5..$$"}[{{ index .Values 0 }}])) / sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}"}[{{ index .Values 0 }}])) > {{ index .Values 1 }}`,
-		annotations: map[string]string{"summary": "Error rate of the service {{ .Alert.ServiceName }} is above {{ index .Values 1 }}"},
-		labels:      map[string]string{"receiver": "system", "service": "{{ .Alert.ServiceName }}", "type": "errors"},
-	},
+// GetShortcuts returns shortcuts from a YAML file
+func GetShortcuts() map[string]AlertIfShortcut {
+	yamlData, err := afero.ReadFile(FS, shortcutsPath)
+	if err != nil {
+		logPrintf(err.Error())
+		return map[string]AlertIfShortcut{}
+	}
+	shortcuts := map[string]AlertIfShortcut{}
+	err = yaml.Unmarshal(yamlData, &shortcuts)
+
+	if err != nil {
+		logPrintf(err.Error())
+		return map[string]AlertIfShortcut{}
+	}
+
+	if isDir, err := afero.IsDir(FS, "/run/secrets"); err != nil || !isDir {
+		return shortcuts
+	}
+
+	// Load alertIf shortcuts from secrets
+	files, err := afero.ReadDir(FS, "/run/secrets")
+	if err != nil {
+		logPrintf(err.Error())
+		return shortcuts
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		lName := strings.ToLower(file.Name())
+		if !strings.HasPrefix(lName, "alertif-") &&
+			!strings.HasPrefix(lName, "alertif_") {
+			continue
+		}
+
+		path := fmt.Sprintf("/run/secrets/%s", file.Name())
+		yamlData, err = afero.ReadFile(FS, path)
+		if err != nil {
+			logPrintf("Unable to read %s, error: %v", path, err)
+			continue
+		}
+
+		secretShortcuts := map[string]AlertIfShortcut{}
+		err = yaml.Unmarshal(yamlData, &secretShortcuts)
+		if err != nil {
+			logPrintf("YAML decoding reading %s, error: %v", path, err)
+			continue
+		}
+		fmt.Println(secretShortcuts)
+
+		for k, v := range secretShortcuts {
+			shortcuts[k] = v
+		}
+	}
+
+	return shortcuts
 }
 
 func (s *serve) formatAlert(alert *prometheus.Alert) {
@@ -353,12 +362,12 @@ func formatSingleAlert(alert *prometheus.Alert) {
 		return
 	}
 
-	alert.AlertIf = replaceTags(data.expanded, alert, value)
+	alert.AlertIf = replaceTags(data.Expanded, alert, value)
 
 	if alert.AlertAnnotations == nil {
 		alert.AlertAnnotations = map[string]string{}
 	}
-	for k, v := range data.annotations {
+	for k, v := range data.Annotations {
 		if _, ok := alert.AlertAnnotations[k]; !ok {
 			alert.AlertAnnotations[k] = replaceTags(v, alert, value)
 		}
@@ -367,7 +376,7 @@ func formatSingleAlert(alert *prometheus.Alert) {
 	if alert.AlertLabels == nil {
 		alert.AlertLabels = map[string]string{}
 	}
-	for k, v := range data.labels {
+	for k, v := range data.Labels {
 		if _, ok := alert.AlertLabels[k]; !ok {
 			alert.AlertLabels[k] = replaceTags(v, alert, value)
 		}
@@ -403,12 +412,12 @@ func formatCompoundAlert(alert *prometheus.Alert) {
 			return
 		}
 
-		alertIfFormattedBuffer.WriteString(replaceTags(data.expanded, alert, value))
+		alertIfFormattedBuffer.WriteString(replaceTags(data.Expanded, alert, value))
 		if len(bOp) > 0 {
 			alertIfFormattedBuffer.WriteString(fmt.Sprintf(" %s ", bOp))
 		}
 
-		for k, v := range data.annotations {
+		for k, v := range data.Annotations {
 			if _, ok := immutableAnnotations[k]; ok {
 				continue
 			}

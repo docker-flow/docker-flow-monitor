@@ -28,16 +28,21 @@ func TestServerUnitTestSuite(t *testing.T) {
 	s := new(ServerTestSuite)
 	logPrintlnOrig := logPrintf
 	listenerTimeoutOrig := listenerTimeout
-	shortcutsPathOrig := shortcutsPath
+
+	fsOrig := FS
 	defer func() {
 		logPrintf = logPrintlnOrig
 		listenerTimeout = listenerTimeoutOrig
-		shortcutsPath = shortcutsPathOrig
+		FS = fsOrig
 	}()
 
 	listenerTimeout = 10 * time.Millisecond
 	logPrintf = func(format string, v ...interface{}) {}
-	shortcutsPath = "../conf/shortcuts.yaml"
+	FS = afero.NewMemMapFs()
+
+	// move ../confg/shortcuts.yaml file to `shortcutsPath`
+	shortcutData, _ := afero.ReadFile(afero.NewOsFs(), "../conf/shortcuts.yaml")
+	afero.WriteFile(FS, shortcutsPath, shortcutData, 0644)
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer testServer.Close()
@@ -198,6 +203,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_SetsStatusCodeTo200() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
+
 	expected := prometheus.Alert{
 		ServiceName:        "my-service",
 		AlertName:          "my-alert",
@@ -315,6 +321,89 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts() {
 
 		s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 	}
+}
+
+func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts_Configured_WithSecrets() {
+	alertIfSecret1 := `"@require":
+  expanded: "{{ .Alert.ServiceName }} == {{ .Alert.Replicas }}"
+  annotations:
+    summary: "{{ .Alert.ServiceName }} equals {{ .Alert.Replicas }}"
+  labels:
+    receiver: system
+    service: "{{ .Alert.ServiceName }}"
+"@unused":
+  expanded: not used
+  annotations:
+    summary: A summary
+`
+	alertIfSecret2 := `"@another":
+  expanded: "{{ .Alert.ServiceName }} != {{ index .Values 0 }}"
+  annotations:
+    summary: "{{ .Alert.ServiceName }} is not {{ index .Values 0 }}"
+  labels:
+    receiver: node
+`
+	err := afero.WriteFile(FS, "/run/secrets/alertif-first", []byte(alertIfSecret1), 0644)
+	if err != nil {
+		s.Fail(err.Error())
+	}
+	err = afero.WriteFile(FS, "/run/secrets/alertif_second", []byte(alertIfSecret2), 0644)
+	if err != nil {
+		s.Fail(err.Error())
+	}
+
+	// Check first alertIf secret
+	expected := prometheus.Alert{
+		AlertAnnotations: map[string]string{
+			"summary": "my-service equals 3"},
+		AlertFor: "my-for",
+		AlertIf:  "my-service == 3",
+		AlertLabels: map[string]string{
+			"receiver": "system", "service": "my-service"},
+		AlertName:          "my-alert1",
+		AlertNameFormatted: "myservice_myalert1",
+		ServiceName:        "my-service",
+		Replicas:           3,
+	}
+	rwMock := ResponseWriterMock{}
+	addr := fmt.Sprintf(
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=@require&alertFor=%s&replicas=3",
+		expected.ServiceName,
+		expected.AlertName,
+		expected.AlertFor,
+	)
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.ReconfigureHandler(rwMock, req)
+
+	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
+
+	// Check second alertIf secret
+	expected = prometheus.Alert{
+		AlertAnnotations: map[string]string{
+			"summary": "my-service is not 1"},
+		AlertFor: "my-for",
+		AlertIf:  "my-service != 1",
+		AlertLabels: map[string]string{
+			"receiver": "node"},
+		AlertName:          "my-alert2",
+		AlertNameFormatted: "myservice_myalert2",
+		ServiceName:        "my-service",
+		Replicas:           3,
+	}
+	rwMock = ResponseWriterMock{}
+	addr = fmt.Sprintf(
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=@another:1&alertFor=%s&replicas=3",
+		expected.ServiceName,
+		expected.AlertName,
+		expected.AlertFor,
+	)
+	req, _ = http.NewRequest("GET", addr, nil)
+
+	serve.ReconfigureHandler(rwMock, req)
+
+	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts_CompoundOps() {

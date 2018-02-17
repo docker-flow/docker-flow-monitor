@@ -277,13 +277,56 @@ type alertTemplateInput struct {
 func GetShortcuts() map[string]AlertIfShortcut {
 	yamlData, err := afero.ReadFile(FS, shortcutsPath)
 	if err != nil {
+		logPrintf(err.Error())
 		return map[string]AlertIfShortcut{}
 	}
-	shortcuts := make(map[string]AlertIfShortcut)
+	shortcuts := map[string]AlertIfShortcut{}
 	err = yaml.Unmarshal(yamlData, &shortcuts)
 
 	if err != nil {
+		logPrintf(err.Error())
 		return map[string]AlertIfShortcut{}
+	}
+
+	if isDir, err := afero.IsDir(FS, "/run/secrets"); err != nil || !isDir {
+		return shortcuts
+	}
+
+	// Load alertIf shortcuts from secrets
+	files, err := afero.ReadDir(FS, "/run/secrets")
+	if err != nil {
+		logPrintf(err.Error())
+		return shortcuts
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		lName := strings.ToLower(file.Name())
+		if !strings.HasPrefix(lName, "alertif-") &&
+			!strings.HasPrefix(lName, "alertif_") {
+			continue
+		}
+
+		path := fmt.Sprintf("/run/secrets/%s", file.Name())
+		yamlData, err = afero.ReadFile(FS, path)
+		if err != nil {
+			logPrintf("Unable to read %s, error: %v", path, err)
+			continue
+		}
+
+		secretShortcuts := map[string]AlertIfShortcut{}
+		err = yaml.Unmarshal(yamlData, &secretShortcuts)
+		if err != nil {
+			logPrintf("YAML decoding reading %s, error: %v", path, err)
+			continue
+		}
+		fmt.Println(secretShortcuts)
+
+		for k, v := range secretShortcuts {
+			shortcuts[k] = v
+		}
 	}
 
 	return shortcuts

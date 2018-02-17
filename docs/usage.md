@@ -66,7 +66,7 @@ Please visit [Alerting Overview](https://prometheus.io/docs/alerting/overview/) 
 
 ### AlertIf Secrets Configuration
 
-*Docker Flow Monitor* supports [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/) for adding custom alertIf shortcuts. Only secrets with names that start with `alertif-` or `alertif_` will be considered. `alertIf` shortcuts are configured as a yaml file with a series of dictionarie. The key of each dictionary must begin with `@`. The value of each dictionary consist of three keys: `expanded`, `annotations` and `labels`. The value of `expanded` contains the expanded alert. `annotations` and `labels` contains a dictionary with the alert's annotations and labels. For example `@service_mem_limit` is defined by the following yaml:
+*Docker Flow Monitor* supports [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/) for adding custom alertIf shortcuts. Only secrets with names that start with `alertif-` or `alertif_` will be considered. `alertIf` shortcuts are configured as a yaml file with a series of dictionaries. The key of each dictionary is your custom `alertIf` shortcut which must begin with the `@` character. The value of each dictionary consist of three keys: `expanded`, `annotations` and `labels`. `expanded` contains the expanded alert using go [templates](https://golang.org/pkg/text/template/). `annotations` and `labels` contains a dictionary with the alert's annotations and labels. For example `@service_mem_limit` is defined by the following yaml:
 
 ```yaml
 "@service_mem_limit":
@@ -77,6 +77,9 @@ Please visit [Alerting Overview](https://prometheus.io/docs/alerting/overview/) 
     receiver: system
     service: "{{ .Alert.ServiceName }}"
 ```
+
+!!! tip
+    AlertIf shortcuts defined in secrets will take priority over default shortcuts.
 
 ### AlertIf Logical Operators
 

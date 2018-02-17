@@ -28,12 +28,17 @@ func TestServerUnitTestSuite(t *testing.T) {
 	s := new(ServerTestSuite)
 	logPrintlnOrig := logPrintf
 	listenerTimeoutOrig := listenerTimeout
+	shortcutsPathOrig := shortcutsPath
 	defer func() {
 		logPrintf = logPrintlnOrig
 		listenerTimeout = listenerTimeoutOrig
+		shortcutsPath = shortcutsPathOrig
 	}()
+
 	listenerTimeout = 10 * time.Millisecond
 	logPrintf = func(format string, v ...interface{}) {}
+	shortcutsPath = "../conf/shortcuts.yaml"
+
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer testServer.Close()
 	os.Setenv("GLOBAL_SCRAPE_INTERVAL", "5s")
@@ -42,6 +47,7 @@ func TestServerUnitTestSuite(t *testing.T) {
 	os.Setenv("ARG_WEB_CONSOLE_LIBRARIES", "/usr/share/prometheus/console_libraries")
 	os.Setenv("ARG_WEB_CONSOLE_TEMPLATES", "/usr/share/prometheus/consoles")
 	os.Setenv("ARG_ALERTMANAGER_URL", "http://alert-manager:9093")
+
 	suite.Run(t, s)
 }
 

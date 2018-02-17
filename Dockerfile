@@ -25,6 +25,7 @@ HEALTHCHECK --interval=5s CMD /bin/check.sh
 
 COPY --from=build /src/docker-flow-monitor /bin/docker-flow-monitor
 COPY check.sh /bin/check.sh
+COPY conf/shortcuts.yaml /etc/dfm/shortcuts.yaml
 
 USER root
 RUN chmod +x /bin/check.sh

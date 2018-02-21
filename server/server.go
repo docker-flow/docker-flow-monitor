@@ -97,7 +97,7 @@ func (s *serve) ReconfigureHandler(w http.ResponseWriter, req *http.Request) {
 	logPrintf("Processing " + req.URL.String())
 	req.ParseForm()
 	scrape := s.getScrape(req)
-	s.deleteAlerts(scrape.ServiceName)
+	s.deleteAlerts(scrape.ServiceName, false)
 	alerts := s.getAlerts(req)
 	prometheus.WriteConfig(s.configPath, s.scrapes, s.alerts)
 	err := prometheus.Reload()
@@ -115,7 +115,7 @@ func (s *serve) RemoveHandler(w http.ResponseWriter, req *http.Request) {
 	serviceName := req.URL.Query().Get("serviceName")
 	scrape := s.scrapes[serviceName]
 	delete(s.scrapes, serviceName)
-	alerts := s.deleteAlerts(serviceName)
+	alerts := s.deleteAlerts(serviceName, true)
 	prometheus.WriteConfig(s.configPath, s.scrapes, s.alerts)
 	err := prometheus.Reload()
 	statusCode := http.StatusOK
@@ -241,6 +241,8 @@ func (s *serve) getAlerts(req *http.Request) []prometheus.Alert {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
 		annotations := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertAnnotations.%d", i)))
 		labels := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertLabels.%d", i)))
+		persistant := req.URL.Query().Get(fmt.Sprintf("alertPersistent.%d", i)) == "true"
+
 		alert := prometheus.Alert{
 			ServiceName:      alertDecode.ServiceName,
 			AlertName:        alertName,
@@ -249,6 +251,7 @@ func (s *serve) getAlerts(req *http.Request) []prometheus.Alert {
 			AlertAnnotations: annotations,
 			AlertLabels:      labels,
 			Replicas:         replicas,
+			AlertPersistent:  persistant,
 		}
 		s.formatAlert(&alert)
 		if !s.isValidAlert(&alert) {
@@ -322,7 +325,6 @@ func GetShortcuts() map[string]AlertIfShortcut {
 			logPrintf("YAML decoding reading %s, error: %v", path, err)
 			continue
 		}
-		fmt.Println(secretShortcuts)
 
 		for k, v := range secretShortcuts {
 			shortcuts[k] = v
@@ -483,13 +485,16 @@ func (s *serve) isValidAlert(alert *prometheus.Alert) bool {
 	return len(alert.AlertName) > 0 && len(alert.AlertIf) > 0
 }
 
-func (s *serve) deleteAlerts(serviceName string) []prometheus.Alert {
+func (s *serve) deleteAlerts(
+	serviceName string, keepPersistantAlerts bool) []prometheus.Alert {
 	alerts := []prometheus.Alert{}
 	serviceNameFormatted := s.getNameFormatted(serviceName)
 	for k, v := range s.alerts {
 		if strings.HasPrefix(k, serviceNameFormatted) {
-			alerts = append(alerts, v)
-			delete(s.alerts, k)
+			if !keepPersistantAlerts || !v.AlertPersistent {
+				alerts = append(alerts, v)
+				delete(s.alerts, k)
+			}
 		}
 	}
 	return alerts

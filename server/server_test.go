@@ -231,6 +231,57 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
 }
 
+func (s *ServerTestSuite) Test_ReconfigureHandler_UpdatesPersistantAlert() {
+	// When service is reconfigured, all alert, including persistant alerts, will be removed
+	// and queried again.
+	expected := prometheus.Alert{
+		ServiceName:        "my-service",
+		AlertName:          "my-alert",
+		AlertIf:            "a>b",
+		AlertFor:           "my-for",
+		AlertNameFormatted: "myservice_myalert",
+		AlertAnnotations:   map[string]string{"a1": "v1", "a2": "v2"},
+		AlertLabels:        map[string]string{"l1": "v1"},
+		AlertPersistent:    true,
+	}
+	rwMock := ResponseWriterMock{}
+	addr := fmt.Sprintf(
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s&alertAnnotations=%s&alertLabels=%s&alertPersistent=%t",
+		expected.ServiceName,
+		expected.AlertName,
+		url.QueryEscape(expected.AlertIf),
+		expected.AlertFor,
+		url.QueryEscape("a1=v1,a2=v2"),
+		url.QueryEscape("l1=v1"),
+		expected.AlertPersistent,
+	)
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.ReconfigureHandler(rwMock, req)
+
+	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
+
+	// Change alert slightly
+	expected.AlertIf = "a<b"
+	rwMock = ResponseWriterMock{}
+	addr = fmt.Sprintf(
+		"/v1/docker-flow-monitor?serviceName=%s&alertName=%s&alertIf=%s&alertFor=%s&alertAnnotations=%s&alertLabels=%s&alertPersistent=%t",
+		expected.ServiceName,
+		expected.AlertName,
+		url.QueryEscape(expected.AlertIf),
+		expected.AlertFor,
+		url.QueryEscape("a1=v1,a2=v2"),
+		url.QueryEscape("l1=v1"),
+		expected.AlertPersistent,
+	)
+	req, _ = http.NewRequest("GET", addr, nil)
+
+	serve.ReconfigureHandler(rwMock, req)
+
+	s.Equal(expected, serve.alerts[expected.AlertNameFormatted])
+}
+
 func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts() {
 	testData := []struct {
 		expected    string
@@ -604,11 +655,12 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsMultipleAlerts() {
 			AlertAnnotations:   map[string]string{"annotation": fmt.Sprintf("annotation-value-%d", i)},
 			AlertLabels:        map[string]string{"label": fmt.Sprintf("label-value-%d", i)},
 			Replicas:           3,
+			AlertPersistent:    i == 2,
 		})
 	}
 	rwMock := ResponseWriterMock{}
 	addr := fmt.Sprintf(
-		"/v1/docker-flow-monitor?serviceName=%s&alertName.1=%s&alertIf.1=%s&alertFor.1=%s&alertName.2=%s&alertIf.2=%s&alertFor.2=%s&alertAnnotations.1=%s&alertAnnotations.2=%s&alertLabels.1=%s&alertLabels.2=%s&replicas=3",
+		"/v1/docker-flow-monitor?serviceName=%s&alertName.1=%s&alertIf.1=%s&alertFor.1=%s&alertName.2=%s&alertIf.2=%s&alertFor.2=%s&alertAnnotations.1=%s&alertAnnotations.2=%s&alertLabels.1=%s&alertLabels.2=%s&replicas=3&alertPersistent.2=true",
 		expected[0].ServiceName,
 		expected[0].AlertName,
 		expected[0].AlertIf,
@@ -1121,6 +1173,21 @@ func (s *ServerTestSuite) Test_RemoveHandler_RemovesAlerts() {
 	serve.RemoveHandler(rwMock, req)
 
 	s.Len(serve.alerts, 1)
+}
+
+func (s *ServerTestSuite) Test_RemoveHandler_KeepsPersistantAlerts() {
+
+	rwMock := ResponseWriterMock{}
+	addr := "/v1/docker-flow-monitor?serviceName=my-service-1"
+	req, _ := http.NewRequest("DELETE", addr, nil)
+
+	serve := New()
+	serve.alerts["myservice1alert1"] = prometheus.Alert{ServiceName: "my-service-1", AlertName: "my-alert-1", AlertPersistent: true}
+	serve.alerts["myservice1alert2"] = prometheus.Alert{ServiceName: "my-service-1", AlertName: "my-alert-2"}
+	serve.alerts["myservice2alert1"] = prometheus.Alert{ServiceName: "my-service-2", AlertName: "my-alert-1"}
+	serve.RemoveHandler(rwMock, req)
+
+	s.Len(serve.alerts, 2)
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {

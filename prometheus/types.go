@@ -222,6 +222,7 @@ type Alert struct {
 	AlertIf            string            `json:"alertIf,omitempty"`
 	AlertLabels        map[string]string `json:"alertLabels,omitempty"`
 	AlertName          string            `json:"alertName"`
+	AlertPersistent    bool              `json:"alertPersistent"`
 	AlertNameFormatted string
 	ServiceName        string `json:"serviceName"`
 	Replicas           int    `json:"replicas"`

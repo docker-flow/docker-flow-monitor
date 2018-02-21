@@ -37,6 +37,7 @@ You can find more about scrapeType's on [Scrape Config](https://prometheus.io/do
 |alertLabels    |This parameter is translated to Prometheus alert `LABELS` statement. It allows specifying a set of additional labels to be attached to the alert. Multiple labels can be separated with comma (`,`).<br>**Example:** `severity=high,receiver=system`|No|
 |alertName      |The name of the alert. It is combined with the `serviceName` thus producing an unique identifier.<br>**Example:** `memoryAlert`|Yes|
 |serviceName    |The name of the service. It is combined with the `alertName` thus producing an unique identifier.<br>**Example:** `go-demo`|Yes|
+|alertPersistent|When set to *true*, the alert will persist when the service is scaled to zero replicas.<br>**Example:** `true`|No|
 
 Those parameters can be indexed so that multiple alerts can be defined for a service. Indexing is sequential and starts from 1. An example of indexed `alertName` could be `alertName.1=memload` and `alertName.2=diskload`.
 

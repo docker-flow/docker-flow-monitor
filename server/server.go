@@ -241,7 +241,7 @@ func (s *serve) getAlerts(req *http.Request) []prometheus.Alert {
 		alertName := req.URL.Query().Get(fmt.Sprintf("alertName.%d", i))
 		annotations := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertAnnotations.%d", i)))
 		labels := s.getMapFromString(req.URL.Query().Get(fmt.Sprintf("alertLabels.%d", i)))
-		persistant := req.URL.Query().Get(fmt.Sprintf("alertPersistent.%d", i)) == "true"
+		persistent := req.URL.Query().Get(fmt.Sprintf("alertPersistent.%d", i)) == "true"
 
 		alert := prometheus.Alert{
 			ServiceName:      alertDecode.ServiceName,
@@ -251,7 +251,7 @@ func (s *serve) getAlerts(req *http.Request) []prometheus.Alert {
 			AlertAnnotations: annotations,
 			AlertLabels:      labels,
 			Replicas:         replicas,
-			AlertPersistent:  persistant,
+			AlertPersistent:  persistent,
 		}
 		s.formatAlert(&alert)
 		if !s.isValidAlert(&alert) {

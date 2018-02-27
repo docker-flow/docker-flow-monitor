@@ -1,0 +1,115 @@
+version: "3.3"
+
+services:
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.0.1
+    environment:
+      - xpack.security.enabled=false
+    volumes:
+      - es:/usr/share/elasticsearch/data
+    networks:
+      - default
+    deploy:
+      labels:
+        - com.df.distribute=true
+        - com.df.notify=true
+        - com.df.port=80
+        - com.df.alertName=mem_limit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=30s
+      resources:
+        reservations:
+          memory: 3000M
+        limits:
+          memory: 3500M
+      placement:
+        constraints: [node.role == worker]
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:6.0.1
+    networks:
+      - default
+    deploy:
+      labels:
+        - com.df.distribute=true
+        - com.df.notify=true
+        - com.df.port=80
+        - com.df.alertName=mem_limit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=30s
+      resources:
+        reservations:
+          memory: 600M
+        limits:
+          memory: 1000M
+    configs:
+      - logstash.conf
+    command: logstash -f /logstash.conf
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.0.1
+    networks:
+      - default
+      - proxy
+    environment:
+      - xpack.security.enabled=false
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    deploy:
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.usersPassEncrypted=false
+        - com.df.usersSecret=admin
+        - com.df.servicePath=/app,/elasticsearch,/api,/ui,/bundles,/plugins,/status,/es_admin
+        - com.df.port=5601
+        - com.df.alertName=mem_limit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=30s
+      resources:
+        reservations:
+          memory: 600M
+        limits:
+          memory: 1000M
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:6.0.1
+    networks:
+      - default
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers
+    deploy:
+      mode: global
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.alertName=mem_limit
+        - com.df.alertIf=@service_mem_limit:0.8
+        - com.df.alertFor=30s
+      resources:
+        reservations:
+          memory: 32M
+        limits:
+          memory: 128M
+    configs:
+      - source: filebeat.yml
+        target: /usr/share/filebeat/filebeat.yml
+
+networks:
+  proxy:
+    external: true
+  default:
+    external: false
+
+volumes:
+  es:
+    driver: cloudstor:aws
+    external: false
+
+configs:
+  logstash.conf:
+    external: true
+  filebeat.yml:
+    external: true

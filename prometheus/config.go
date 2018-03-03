@@ -258,134 +258,155 @@ var sliceRegex = regexp.MustCompile("^(.+)_(\\d+)$")
 func insertWithLocation(obj reflect.Value, location []string, value string, index int) error {
 	switch obj.Kind() {
 	case reflect.Ptr:
-		if obj.IsNil() {
-			newObj := reflect.New(obj.Type().Elem())
-			obj.Set(newObj)
-		}
-		objElem := obj.Elem()
-		return insertWithLocation(objElem, location, value, index)
+		return insertWithLocationPtr(obj, location, value, index)
 	case reflect.Struct:
-		t := reflect.TypeOf(obj.Interface())
-		if index >= len(location) {
-			return fmt.Errorf("incorrect env location")
-		}
-		targetTag := location[index]
-		for i := 0; i < t.NumField(); i++ {
-			tField := t.Field(i)
-			tags := tField.Tag.Get("yaml")
-			tagsSplit := strings.Split(tags, ",")
-			tag := tagsSplit[0]
-
-			// struct or primitive
-			if targetTag == tag {
-				v := obj.Field(i)
-				return insertWithLocation(v, location, value, index+1)
-			}
-
-			// slice
-			rootTagR := sliceRegex.FindAllStringSubmatch(targetTag, 1)
-			if len(rootTagR) == 1 && len(rootTagR[0]) == 3 {
-				rootTag := rootTagR[0][1]
-				if rootTag == tag {
-					v := obj.Field(i)
-					return insertWithLocation(v, location, value, index)
-				}
-			}
-
-			// inline struct (always last element)
-			if tagsSplit[len(tagsSplit)-1] == "inline" {
-				v := obj.Field(i)
-				err := insertWithLocation(v, location, value, index)
-				if err != nil {
-					continue
-				}
-			}
-		}
-		return fmt.Errorf("Unable to find tag: %s", targetTag)
+		return insertWithLocationStruct(obj, location, value, index)
 	case reflect.Slice:
-		if index >= len(location) {
-			return fmt.Errorf("Incorrect env location")
-		}
-		targetTag := location[index]
-		sliceTag := sliceRegex.FindAllStringSubmatch(targetTag, 1)
-		if len(sliceTag) == 0 || len(sliceTag[0]) != 3 {
-			return fmt.Errorf("Array tag must be of the form: label_NUM")
-		}
-		indexValue, err := strconv.Atoi(sliceTag[0][2])
-		if err != nil {
-			return fmt.Errorf("Array tag must end with a number")
-		}
-		if obj.Len() < indexValue {
-			newVP := reflect.New(obj.Type()).Elem()
-			newVP.Set(reflect.MakeSlice(obj.Type(), indexValue, indexValue))
-			reflect.Copy(newVP, obj)
-			obj.Set(newVP)
-		}
-		return insertWithLocation(obj.Index(indexValue-1), location, value, index+1)
+		return insertWithLocationSlice(obj, location, value, index)
 	case reflect.Map:
-		// All Maps are map[string]string or map[string][]string
-		keyValue := strings.Split(value, "=")
-		if len(keyValue) != 2 {
-			return fmt.Errorf("Value for map must be of the form: key=value")
-		}
-		if obj.IsNil() {
-			obj.Set(reflect.MakeMap(obj.Type()))
-		}
-
-		// handle map[string][]string
-		key := keyValue[0]
-		sliceTag := sliceRegex.FindAllStringSubmatch(key, 1)
-		if len(sliceTag) == 1 && len(sliceTag[0]) == 3 {
-			location = append(location, sliceTag[0][0])
-			key = sliceTag[0][1]
-		}
-
-		newV := reflect.New(obj.Type().Elem()).Elem()
-
-		if newV.Kind() == reflect.Slice {
-			previousV := obj.MapIndex(reflect.ValueOf(key))
-			if previousV.IsValid() {
-				pLen := previousV.Len()
-				newV.Set(reflect.MakeSlice(obj.Type().Elem(), pLen, pLen))
-				reflect.Copy(newV, previousV)
-			}
-		}
-
-		err := insertWithLocation(newV, location, keyValue[1], index)
-		if err != nil {
-			return err
-		}
-		obj.SetMapIndex(reflect.ValueOf(key), newV)
+		return insertWithLocationMap(obj, location, value, index)
 	default:
-		objI := obj.Interface()
-		switch objI.(type) {
-		case string:
-			obj.SetString(value)
-		case bool:
-			v, err := strconv.ParseBool(value)
-			if err != nil {
-				return fmt.Errorf("Non bool value")
+		return insertWithLocationDefault(obj, location, value, index)
+	}
+}
+
+func insertWithLocationDefault(obj reflect.Value, location []string, value string, index int) error {
+	objI := obj.Interface()
+	switch objI.(type) {
+	case string:
+		obj.SetString(value)
+	case bool:
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("Non bool value")
+		}
+		obj.Set(reflect.ValueOf(v))
+	case int:
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("Non int value")
+		}
+		obj.Set(reflect.ValueOf(v))
+	case uint64:
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("Non int value")
+		}
+		obj.Set(reflect.ValueOf(uint64(v)))
+	case uint:
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("Non int value")
+		}
+		obj.Set(reflect.ValueOf(uint(v)))
+	}
+	return nil
+}
+
+func insertWithLocationPtr(obj reflect.Value, location []string, value string, index int) error {
+	if obj.IsNil() {
+		newObj := reflect.New(obj.Type().Elem())
+		obj.Set(newObj)
+	}
+	objElem := obj.Elem()
+	return insertWithLocation(objElem, location, value, index)
+}
+
+func insertWithLocationStruct(obj reflect.Value, location []string, value string, index int) error {
+	t := reflect.TypeOf(obj.Interface())
+	if index >= len(location) {
+		return fmt.Errorf("incorrect env location")
+	}
+	targetTag := location[index]
+	for i := 0; i < t.NumField(); i++ {
+		tField := t.Field(i)
+		tags := tField.Tag.Get("yaml")
+		tagsSplit := strings.Split(tags, ",")
+		tag := tagsSplit[0]
+
+		// struct or primitive
+		if targetTag == tag {
+			v := obj.Field(i)
+			return insertWithLocation(v, location, value, index+1)
+		}
+
+		// slice
+		rootTagR := sliceRegex.FindAllStringSubmatch(targetTag, 1)
+		if len(rootTagR) == 1 && len(rootTagR[0]) == 3 {
+			rootTag := rootTagR[0][1]
+			if rootTag == tag {
+				v := obj.Field(i)
+				return insertWithLocation(v, location, value, index)
 			}
-			obj.Set(reflect.ValueOf(v))
-		case int:
-			v, err := strconv.Atoi(value)
+		}
+
+		// inline struct (always last element)
+		if tagsSplit[len(tagsSplit)-1] == "inline" {
+			v := obj.Field(i)
+			err := insertWithLocation(v, location, value, index)
 			if err != nil {
-				return fmt.Errorf("Non int value")
+				continue
 			}
-			obj.Set(reflect.ValueOf(v))
-		case uint64:
-			v, err := strconv.Atoi(value)
-			if err != nil {
-				return fmt.Errorf("Non int value")
-			}
-			obj.Set(reflect.ValueOf(uint64(v)))
-		case uint:
-			v, err := strconv.Atoi(value)
-			if err != nil {
-				return fmt.Errorf("Non int value")
-			}
-			obj.Set(reflect.ValueOf(uint(v)))
 		}
 	}
+	return fmt.Errorf("Unable to find tag: %s", targetTag)
+}
+
+func insertWithLocationSlice(obj reflect.Value, location []string, value string, index int) error {
+	if index >= len(location) {
+		return fmt.Errorf("Incorrect env location")
+	}
+	targetTag := location[index]
+	sliceTag := sliceRegex.FindAllStringSubmatch(targetTag, 1)
+	if len(sliceTag) == 0 || len(sliceTag[0]) != 3 {
+		return fmt.Errorf("Array tag must be of the form: label_NUM")
+	}
+	indexValue, err := strconv.Atoi(sliceTag[0][2])
+	if err != nil {
+		return fmt.Errorf("Array tag must end with a number")
+	}
+	if obj.Len() < indexValue {
+		newVP := reflect.New(obj.Type()).Elem()
+		newVP.Set(reflect.MakeSlice(obj.Type(), indexValue, indexValue))
+		reflect.Copy(newVP, obj)
+		obj.Set(newVP)
+	}
+	return insertWithLocation(obj.Index(indexValue-1), location, value, index+1)
+}
+
+func insertWithLocationMap(obj reflect.Value, location []string, value string, index int) error {
+	// All Maps are map[string]string or map[string][]string
+	keyValue := strings.Split(value, "=")
+	if len(keyValue) != 2 {
+		return fmt.Errorf("Value for map must be of the form: key=value")
+	}
+	if obj.IsNil() {
+		obj.Set(reflect.MakeMap(obj.Type()))
+	}
+
+	// handle map[string][]string
+	key := keyValue[0]
+	sliceTag := sliceRegex.FindAllStringSubmatch(key, 1)
+	if len(sliceTag) == 1 && len(sliceTag[0]) == 3 {
+		location = append(location, sliceTag[0][0])
+		key = sliceTag[0][1]
+	}
+
+	newV := reflect.New(obj.Type().Elem()).Elem()
+
+	if newV.Kind() == reflect.Slice {
+		previousV := obj.MapIndex(reflect.ValueOf(key))
+		if previousV.IsValid() {
+			pLen := previousV.Len()
+			newV.Set(reflect.MakeSlice(obj.Type().Elem(), pLen, pLen))
+			reflect.Copy(newV, previousV)
+		}
+	}
+
+	err := insertWithLocation(newV, location, keyValue[1], index)
+	if err != nil {
+		return err
+	}
+	obj.SetMapIndex(reflect.ValueOf(key), newV)
 	return nil
 }

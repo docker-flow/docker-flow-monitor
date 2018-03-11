@@ -232,7 +232,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_UpdatesPersistantAlert() {
-	// When service is reconfigured, all alert, including persistant alerts, will be removed
+	// When service is reconfigured, all alert, including persistent alerts, will be removed
 	// and queried again.
 	expected := prometheus.Alert{
 		ServiceName:        "my-service",

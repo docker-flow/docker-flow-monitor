@@ -21,9 +21,21 @@ eval $(docker-machine env swarm-1)
 
 ## Deploying Docker Flow Monitor
 
-We will deploy [stacks/docker-flow-monitor-flexible-labels.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-flexible-labels.yml) stack that contains three services: `monitor`, `alert-manager` and `swarm-listener`. The `swarm-listener` service includes an additional environment variable: `DF_INCLUDE_NODE_IP_INFO=true`. This configures `swarm-listener` to send node and ip information to `mointor`.
+We will deploy [stacks/docker-flow-monitor-flexible-labels.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-flexible-labels.yml) stack that contains three services: `monitor`, `alert-manager` and `swarm-listener`. The `swarm-listener` service includes an additional environment variable: `DF_INCLUDE_NODE_IP_INFO=true`. This configures `swarm-listener` to send node information to `monitor` as labels. The node's hostname will be included in every metric from the exporter with the label: `node`.
 
-The `monitor` service includes the environment variable: `DF_SCRAPE_TARGET_LABELS=env,metricType`. This sets up flexible labeling for exporters. If an exporter defines a deploy label `com.df.env` or `com.df.metricType`, that label will be used by `monitor`.
+In this tutorial, we will set up two additional labels: `env` and `metricType`. To enable these labels, we add the the environment variable: `DF_SCRAPE_TARGET_LABELS=env,metricType` to the `monitor` service:
+
+```yaml
+...
+  monitor:
+    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    environment:
+      ...
+      - DF_SCRAPE_TARGET_LABELS=env,metricType
+...
+```
+
+This sets up flexible labeling for our exporters. If an exporter defines a deploy label `com.df.env` or `com.df.metricType`, that label will be used by `monitor`.
 
 Let's deploy the `monitor` stack:
 

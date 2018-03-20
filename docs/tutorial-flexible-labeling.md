@@ -21,9 +21,45 @@ eval $(docker-machine env swarm-1)
 
 ## Deploying Docker Flow Monitor
 
-We will deploy [stacks/docker-flow-monitor-flexible-labels.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-flexible-labels.yml) stack that contains three services: `monitor`, `alert-manager` and `swarm-listener`. The `swarm-listener` service includes an additional environment variable: `DF_INCLUDE_NODE_IP_INFO=true`. This configures `swarm-listener` to send node and ip information to `mointor`.
+We will deploy [stacks/docker-flow-monitor-flexible-labels.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-flexible-labels.yml) stack that contains three services: `monitor`, `alert-manager` and `swarm-listener`. The `swarm-listener` service includes an additional environment variable: `DF_INCLUDE_NODE_IP_INFO=true`. This configures `swarm-listener` to send node information to `monitor` as labels. The node's hostname will be included in every metric from the exporter with the label: `node`.
 
-The `monitor` service includes the environment variable: `DF_SCRAPE_TARGET_LABELS=env,metricType`. This sets up flexible labeling for exporters. If an exporter defines a deploy label `com.df.env` or `com.df.metricType`, that label will be used by `monitor`.
+In this tutorial, we will set up two additional labels: `env` and `metricType`. To enable these labels, we add the the environment variable: `DF_SCRAPE_TARGET_LABELS=env,metricType` to the `monitor` service:
+
+```yaml
+...
+  monitor:
+    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    environment:
+      - DF_SCRAPE_TARGET_LABELS=env,metricType
+...
+```
+
+This sets up flexible labeling for our exporters. If an exporter defines a deploy label `com.df.env` or `com.df.metricType`, that label will be used by `monitor`.
+
+We will also configure DFM to include node and engine labels in our targets by adding the environment variable: `DF_NODE_TARGET_LABELS=aws_region,role`. `aws_region` will be a label we will manually add to our nodes, and `role` is a label that is already included by DFSL. For a full list of all default node labels, please consult the [Node Notification docs](http://swarmlistener.dockerflow.com/usage/#node-notification).
+
+!!! info
+    Only `[a-zA-Z0-9_]` are valid characters in prometheus labels.
+
+To get the nodes information, DFSL is configured to send node events to DFM by setting `DF_NOTIFY_CREATE_NODE_URL` and `DF_NOTIFY_REMOVE_NODE_URL`:
+
+```yaml
+...
+  monitor:
+    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    environment:
+      - DF_NODE_TARGET_LABELS=aws_region,role
+      - DF_GET_NODES_URL=http://swarm-listener:8080/v1/docker-flow-swarm-listener/get-nodes
+  ...
+  swarm-listener:
+    image: vfarcic/docker-flow-swarm-listener
+    environment:
+      ...
+      - DF_NOTIFY_CREATE_NODE_URL=http://monitor:8080/v1/docker-flow-monitor/node/reconfigure
+      - DF_NOTIFY_REMOVE_NODE_URL=http://monitor:8080/v1/docker-flow-monitor/node/remove
+      - DF_INCLUDE_NODE_IP_INFO=true
+...
+```
 
 Let's deploy the `monitor` stack:
 
@@ -33,6 +69,16 @@ docker network create -d overlay monitor
 docker stack deploy \
     -c stacks/docker-flow-monitor-flexible-labels.yml \
     monitor
+```
+
+## Adding Labels to Nodes
+
+We will now add the `aws_region` labels to our nodes. For DFM to recognize the labels, the labels must to be prefixed by `com.df.`:
+
+```bash
+docker node update --label-add com.df.aws_region=us-east swarm-1
+docker node update --label-add com.df.aws_region=us-east swarm-2
+docker node update --label-add com.df.aws_region=us-west swarm-3
 ```
 
 ## Collecting Metrics and Defining Alerts
@@ -95,9 +141,9 @@ open "http://$(docker-machine ip swarm-1):9090/targets"
 
 You should see a targets page similar to the following:
 
-![Flexiable Labeling Targets Page](img/flexiable-labeling-targets-page.png)
+![Flexiable Labeling Targets Page](img/flexiable-labeling-targets-page.jpg)
 
-Each service is labeled with its associated `com.df.env` or `com.df.metricType` deploy label. In addition, the `node` label is the hostname the service is running on.
+Each service is labeled with its associated `com.df.env` or `com.df.metricType` deploy label. In addition, the `node` label is the hostname the service is running on. The node labels `aws_region` and `role` are also included for each target.
 
 ## What Now?
 

@@ -538,7 +538,8 @@ func (s *ConfigTestSuite) Test_Writeconfig_WritesConfig() {
 	c.InsertEnv("REMOTE_READ_URL", "http://acme.com/read")
 	c.InsertScrapes(scrapes)
 
-	WriteConfig("/etc/prometheus/prometheus.yml", scrapes, alerts)
+	nodeLabels := map[string]map[string]string{}
+	WriteConfig("/etc/prometheus/prometheus.yml", scrapes, alerts, nodeLabels)
 	actual, _ := afero.ReadFile(FS, "/etc/prometheus/prometheus.yml")
 
 	actualConfig := Config{}
@@ -553,6 +554,102 @@ func (s *ConfigTestSuite) Test_Writeconfig_WritesConfig() {
 	s.Contains(actualConfig.ScrapeConfigs, c.ScrapeConfigs[1])
 }
 
+func (s *ConfigTestSuite) Test_Writeconfig_WithNodeInfoAndNodes_WritesConfig() {
+	fsOrg := FS
+	defer func() {
+		FS = fsOrg
+	}()
+	FS = afero.NewMemMapFs()
+
+	nodeInfo1 := NodeIPSet{}
+	nodeInfo1.Add("node-1", "1.0.1.1", "nodeid1")
+	nodeInfo1.Add("node-2", "1.0.1.2", "nodeid2")
+	serviceLabels1 := map[string]string{
+		"env":    "prod",
+		"domain": "frontend",
+	}
+
+	scrapes := map[string]Scrape{
+		"service-1": {
+			ServiceName:  "service-1",
+			ScrapePort:   1234,
+			ScrapeLabels: &serviceLabels1,
+			NodeInfo:     nodeInfo1,
+		},
+	}
+	alerts := map[string]Alert{}
+
+	nodeLabels := map[string]map[string]string{
+		"nodeid1": map[string]string{
+			"awsregion": "us-east",
+			"role":      "manager",
+		},
+		"nodeid2": map[string]string{
+			"awsregion": "us-west",
+			"role":      "worker",
+		},
+	}
+	WriteConfig("/etc/prometheus/prometheus.yml", scrapes, alerts, nodeLabels)
+	actual, err := afero.ReadFile(FS, "/etc/prometheus/prometheus.yml")
+	s.Require().NoError(err)
+
+	actualConfig := Config{}
+	err = yaml.Unmarshal(actual, &actualConfig)
+	s.Require().NoError(err)
+
+	s.Require().Len(actualConfig.ScrapeConfigs, 1)
+
+	var service1ScrapeConfig *ScrapeConfig
+
+	for _, sc := range actualConfig.ScrapeConfigs {
+		if sc.JobName == "service-1" {
+			service1ScrapeConfig = sc
+		}
+	}
+	s.Require().NotNil(service1ScrapeConfig)
+
+	s.Require().Len(service1ScrapeConfig.ServiceDiscoveryConfig.FileSDConfigs, 1)
+
+	service1FileScrape := service1ScrapeConfig.ServiceDiscoveryConfig.FileSDConfigs[0]
+
+	s.Equal("/etc/prometheus/file_sd/service-1.json", service1FileScrape.Files[0])
+
+	actualSDService1Bytes, err := afero.ReadFile(FS, "/etc/prometheus/file_sd/service-1.json")
+	s.Require().NoError(err)
+	fsc1 := FileStaticConfig{}
+	err = json.Unmarshal(actualSDService1Bytes, &fsc1)
+	s.Require().NoError(err)
+
+	var tgService1Node1 *TargetGroup
+	var tgService1Node2 *TargetGroup
+
+	for _, tg := range fsc1 {
+		for _, target := range tg.Targets {
+			if target == "1.0.1.1:1234" {
+				tgService1Node1 = tg
+				break
+			} else if target == "1.0.1.2:1234" {
+				tgService1Node2 = tg
+				break
+			}
+		}
+	}
+	s.Require().NotNil(tgService1Node1)
+	s.Require().NotNil(tgService1Node2)
+
+	s.Equal("prod", tgService1Node1.Labels["env"])
+	s.Equal("frontend", tgService1Node1.Labels["domain"])
+	s.Equal("service-1", tgService1Node1.Labels["service"])
+	s.Equal("us-east", tgService1Node1.Labels["awsregion"])
+	s.Equal("manager", tgService1Node1.Labels["role"])
+
+	s.Equal("prod", tgService1Node2.Labels["env"])
+	s.Equal("frontend", tgService1Node2.Labels["domain"])
+	s.Equal("service-1", tgService1Node2.Labels["service"])
+	s.Equal("us-west", tgService1Node2.Labels["awsregion"])
+	s.Equal("worker", tgService1Node2.Labels["role"])
+}
+
 func (s *ConfigTestSuite) Test_Writeconfig_WithNodeInfo_WritesConfig() {
 	fsOrg := FS
 	defer func() {
@@ -561,16 +658,16 @@ func (s *ConfigTestSuite) Test_Writeconfig_WithNodeInfo_WritesConfig() {
 	FS = afero.NewMemMapFs()
 
 	nodeInfo1 := NodeIPSet{}
-	nodeInfo1.Add("node-1", "1.0.1.1")
-	nodeInfo1.Add("node-2", "1.0.1.2")
+	nodeInfo1.Add("node-1", "1.0.1.1", "id1")
+	nodeInfo1.Add("node-2", "1.0.1.2", "id2")
 	serviceLabels1 := map[string]string{
 		"env":    "prod",
 		"domain": "frontend",
 	}
 
 	nodeInfo2 := NodeIPSet{}
-	nodeInfo2.Add("node-1", "1.0.2.1")
-	nodeInfo2.Add("node-1", "1.0.2.2")
+	nodeInfo2.Add("node-1", "1.0.2.1", "id1")
+	nodeInfo2.Add("node-1", "1.0.2.2", "id1")
 	serviceLabels2 := map[string]string{
 		"env":    "dev",
 		"domain": "backend",
@@ -581,13 +678,13 @@ func (s *ConfigTestSuite) Test_Writeconfig_WithNodeInfo_WritesConfig() {
 			ServiceName:  "service-1",
 			ScrapePort:   1234,
 			ScrapeLabels: &serviceLabels1,
-			NodeInfo:     &nodeInfo1,
+			NodeInfo:     nodeInfo1,
 		},
 		"service-2": {
 			ServiceName:  "service-2",
 			ScrapePort:   5678,
 			ScrapeLabels: &serviceLabels2,
-			NodeInfo:     &nodeInfo2,
+			NodeInfo:     nodeInfo2,
 		},
 		"service-3": {
 			ServiceName: "service-3",
@@ -596,7 +693,8 @@ func (s *ConfigTestSuite) Test_Writeconfig_WithNodeInfo_WritesConfig() {
 	}
 	alerts := map[string]Alert{}
 
-	WriteConfig("/etc/prometheus/prometheus.yml", scrapes, alerts)
+	nodeLabels := map[string]map[string]string{}
+	WriteConfig("/etc/prometheus/prometheus.yml", scrapes, alerts, nodeLabels)
 	actual, err := afero.ReadFile(FS, "/etc/prometheus/prometheus.yml")
 	s.Require().NoError(err)
 
@@ -698,7 +796,6 @@ func (s *ConfigTestSuite) Test_Writeconfig_WithNodeInfo_WritesConfig() {
 	s.Equal("backend", tgService2Node2.Labels["domain"])
 	s.Equal("service-2", tgService2Node2.Labels["service"])
 }
-
 func (s *ConfigTestSuite) Test_WriteConfig_WriteAlerts() {
 	fsOrig := FS
 	defer func() { FS = fsOrig }()
@@ -716,7 +813,8 @@ func (s *ConfigTestSuite) Test_WriteConfig_WriteAlerts() {
 	cYAML, _ := yaml.Marshal(c)
 	expectedAlerts := GetAlertConfig(alerts)
 
-	WriteConfig("/etc/prometheus/prometheus.yml", map[string]Scrape{}, alerts)
+	nodeLabels := map[string]map[string]string{}
+	WriteConfig("/etc/prometheus/prometheus.yml", map[string]Scrape{}, alerts, nodeLabels)
 
 	actualConfig, _ := afero.ReadFile(FS, "/etc/prometheus/prometheus.yml")
 	s.Equal(cYAML, actualConfig)

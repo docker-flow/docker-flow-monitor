@@ -104,7 +104,7 @@ The definition of the `cadvisor` service contains additional deploy labels:
 
 The `com.df.scrapeNetwork` deploy label tells `swarm-listener` to use `cadvisor`'s IP on the `monitor` network. This is important because the `monitor` service is using the `monitor` network to scrape `cadvisor`. The `com.df.env=prod` and `com.df.metricType=system` deploy labels configures flexible labeling for `cadvisor`.
 
-The second service, `node-exporter` is also configured with flexiable labels:
+The second service, `node-exporter` is also configured with flexible labels:
 
 ```yaml
   node-exporter:
@@ -141,7 +141,7 @@ open "http://$(docker-machine ip swarm-1):9090/targets"
 
 You should see a targets page similar to the following:
 
-![Flexiable Labeling Targets Page](img/flexiable-labeling-targets-page.jpg)
+![Flexible Labeling Targets Page](img/flexible-labeling-targets-page.jpg)
 
 Each service is labeled with its associated `com.df.env` or `com.df.metricType` deploy label. In addition, the `node` label is the hostname the service is running on. The node labels `aws_region` and `role` are also included for each target.
 

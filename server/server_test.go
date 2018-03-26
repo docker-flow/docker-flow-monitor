@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -19,9 +20,28 @@ import (
 
 type ServerTestSuite struct {
 	suite.Suite
+	reloadCalledNum int
+
+	reloadOrig func() error
+	runOrig    func() error
 }
 
 func (s *ServerTestSuite) SetupTest() {
+	s.reloadOrig = prometheus.Reload
+	s.runOrig = prometheus.Run
+	s.reloadCalledNum = 0
+	prometheus.Reload = func() error {
+		s.reloadCalledNum++
+		return nil
+	}
+	prometheus.Run = func() error {
+		return nil
+	}
+}
+
+func (s *ServerTestSuite) TearDownTest() {
+	prometheus.Reload = s.reloadOrig
+	prometheus.Run = s.runOrig
 }
 
 func TestServerUnitTestSuite(t *testing.T) {
@@ -183,11 +203,6 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_SetsContentHeaderToJson() {
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_SetsStatusCodeTo200() {
 	actual := 0
-	reloadOrig := prometheus.Reload
-	defer func() { prometheus.Reload = reloadOrig }()
-	prometheus.Reload = func() error {
-		return nil
-	}
 	rwMock := ResponseWriterMock{
 		WriteHeaderMock: func(status int) {
 			actual = status
@@ -200,6 +215,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_SetsStatusCodeTo200() {
 	serve.ReconfigureHandler(rwMock, req)
 
 	s.Equal(200, actual)
+	s.Equal(1, s.reloadCalledNum)
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlert() {
@@ -732,8 +748,8 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_WithNodeInfo() {
 	}()
 	os.Setenv("DF_SCRAPE_TARGET_LABELS", "env,domain")
 	nodeInfo := prometheus.NodeIPSet{}
-	nodeInfo.Add("node-1", "1.0.1.1")
-	nodeInfo.Add("node-2", "1.0.1.2")
+	nodeInfo.Add("node-1", "1.0.1.1", "id1")
+	nodeInfo.Add("node-2", "1.0.1.2", "id2")
 	expected := prometheus.Scrape{
 		ServiceName: "my-service",
 		ScrapePort:  1234,
@@ -741,7 +757,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_WithNodeInfo() {
 			"env":    "prod",
 			"domain": "frontend",
 		},
-		NodeInfo: &nodeInfo,
+		NodeInfo: nodeInfo,
 	}
 
 	nodeInfoBytes, err := json.Marshal(nodeInfo)
@@ -771,19 +787,19 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_WithNodeInfo() {
 	s.Equal("", (*targetScrape.ScrapeLabels)["extra"])
 
 	s.Require().NotNil(targetScrape.NodeInfo)
-	s.True(expected.NodeInfo.Equal(*targetScrape.NodeInfo))
+	s.True(expected.NodeInfo.Equal(targetScrape.NodeInfo))
 
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_WithNodeInfo_NoTargetLabelsDefined() {
 	nodeInfo := prometheus.NodeIPSet{}
-	nodeInfo.Add("node-1", "1.0.1.1")
-	nodeInfo.Add("node-2", "1.0.1.2")
+	nodeInfo.Add("node-1", "1.0.1.1", "id1")
+	nodeInfo.Add("node-2", "1.0.1.2", "id2")
 	expected := prometheus.Scrape{
 		ServiceName:  "my-service",
 		ScrapePort:   1234,
 		ScrapeLabels: &map[string]string{},
-		NodeInfo:     &nodeInfo,
+		NodeInfo:     nodeInfo,
 	}
 
 	nodeInfoBytes, err := json.Marshal(nodeInfo)
@@ -811,7 +827,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_WithNodeInfo_NoTargetLabelsDef
 	s.Equal(expected.ScrapeLabels, targetScrape.ScrapeLabels)
 
 	s.Require().NotNil(targetScrape.NodeInfo)
-	s.True(expected.NodeInfo.Equal(*targetScrape.NodeInfo))
+	s.True(expected.NodeInfo.Equal(targetScrape.NodeInfo))
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_DoesNotAddAlert_WhenAlertNameIsEmpty() {
@@ -860,11 +876,6 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_AddsAlertNameFormatted() {
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
-	reloadOrig := prometheus.Reload
-	defer func() { prometheus.Reload = reloadOrig }()
-	prometheus.Reload = func() error {
-		return nil
-	}
 	expected := response{
 		Status: http.StatusOK,
 		Alerts: []prometheus.Alert{{
@@ -900,6 +911,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsJson() {
 	serve.ReconfigureHandler(rwMock, req)
 
 	s.Equal(expected, actual)
+	s.Equal(1, s.reloadCalledNum)
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_CallsWriteConfig() {
@@ -963,8 +975,8 @@ scrape_configs:
     - /etc/prometheus/file_sd/my-service.json
 `
 	nodeInfo := prometheus.NodeIPSet{}
-	nodeInfo.Add("node-1", "1.0.1.1")
-	nodeInfo.Add("node-2", "1.0.1.2")
+	nodeInfo.Add("node-1", "1.0.1.1", "id1")
+	nodeInfo.Add("node-2", "1.0.1.2", "id2")
 	expected := prometheus.Scrape{
 		ServiceName: "my-service",
 		ScrapePort:  1234,
@@ -972,7 +984,7 @@ scrape_configs:
 			"env":    "prod",
 			"domain": "frontend",
 		},
-		NodeInfo: &nodeInfo,
+		NodeInfo: nodeInfo,
 	}
 
 	nodeInfoBytes, err := json.Marshal(nodeInfo)
@@ -1040,13 +1052,6 @@ scrape_configs:
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_SendsReloadRequestToPrometheus() {
-	reloadOrig := prometheus.Reload
-	defer func() { prometheus.Reload = reloadOrig }()
-	called := false
-	prometheus.Reload = func() error {
-		called = true
-		return nil
-	}
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service&scrapePort=1234"
 	req, _ := http.NewRequest("GET", addr, nil)
@@ -1054,10 +1059,14 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_SendsReloadRequestToPrometheus
 	serve := New()
 	serve.ReconfigureHandler(rwMock, req)
 
-	s.True(called)
+	s.Equal(1, s.reloadCalledNum)
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsNokWhenPrometheusReloadFails() {
+	prometheus.Reload = func() error {
+		s.reloadCalledNum++
+		return errors.New("Prometheus error")
+	}
 	actualResponse := response{}
 	rwMock := ResponseWriterMock{
 		WriteMock: func(content []byte) (int, error) {
@@ -1075,6 +1084,10 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsNokWhenPrometheusReload
 }
 
 func (s *ServerTestSuite) Test_ReconfigureHandler_ReturnsStatusCodeFromPrometheus() {
+	prometheus.Reload = func() error {
+		s.reloadCalledNum++
+		return errors.New("Prometheus error")
+	}
 	actualResponse := response{}
 	actualStatus := 0
 	rwMock := ResponseWriterMock{
@@ -1191,11 +1204,6 @@ func (s *ServerTestSuite) Test_RemoveHandler_KeepsPersistantAlerts() {
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
-	reloadOrig := prometheus.Reload
-	defer func() { prometheus.Reload = reloadOrig }()
-	prometheus.Reload = func() error {
-		return nil
-	}
 	expected := response{
 		Status: http.StatusOK,
 		Alerts: []prometheus.Alert{
@@ -1223,6 +1231,7 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsJson() {
 	serve.RemoveHandler(rwMock, req)
 
 	s.Equal(expected, actual)
+	s.Equal(1, s.reloadCalledNum)
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_CallsWriteConfig() {
@@ -1281,22 +1290,22 @@ func (s *ServerTestSuite) Test_RemoveHandler_WithNodeInfo_CallsWriteConfig() {
 	}()
 	prometheus.FS = afero.NewMemMapFs()
 	nodeInfo1 := prometheus.NodeIPSet{}
-	nodeInfo1.Add("node-1", "1.0.1.1")
-	nodeInfo1.Add("node-2", "1.0.1.2")
+	nodeInfo1.Add("node-1", "1.0.1.1", "id1")
+	nodeInfo1.Add("node-2", "1.0.1.2", "id2")
 	expected1 := prometheus.Scrape{
 		ServiceName:  "my-service1",
 		ScrapePort:   1234,
 		ScrapeLabels: &map[string]string{},
-		NodeInfo:     &nodeInfo1,
+		NodeInfo:     nodeInfo1,
 	}
 
 	nodeInfo2 := prometheus.NodeIPSet{}
-	nodeInfo2.Add("node-1", "1.0.2.1")
+	nodeInfo2.Add("node-1", "1.0.2.1", "id1")
 	expected2 := prometheus.Scrape{
 		ServiceName:  "my-service2",
 		ScrapePort:   2341,
 		ScrapeLabels: &map[string]string{},
-		NodeInfo:     &nodeInfo2,
+		NodeInfo:     nodeInfo2,
 	}
 
 	nodeInfoBytes1, err := json.Marshal(nodeInfo1)
@@ -1426,13 +1435,6 @@ alerting:
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_SendsReloadRequestToPrometheus() {
-	called := false
-	reloadOrig := prometheus.Reload
-	defer func() { prometheus.Reload = reloadOrig }()
-	prometheus.Reload = func() error {
-		called = true
-		return nil
-	}
 	rwMock := ResponseWriterMock{}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service"
 	req, _ := http.NewRequest("DELETE", addr, nil)
@@ -1443,10 +1445,14 @@ func (s *ServerTestSuite) Test_RemoveHandler_SendsReloadRequestToPrometheus() {
 	serve := New()
 	serve.RemoveHandler(rwMock, req)
 
-	s.True(called)
+	s.Equal(1, s.reloadCalledNum)
 }
 
 func (s *ServerTestSuite) Test_RemoveHandler_ReturnsNokWhenPrometheusReloadFails() {
+
+	prometheus.Reload = func() error {
+		return errors.New("Prometheus failed loading")
+	}
 	actualResponse := response{}
 	rwMock := ResponseWriterMock{
 		WriteMock: func(content []byte) (int, error) {
@@ -1474,6 +1480,9 @@ func (s *ServerTestSuite) Test_RemoveHandler_ReturnsStatusCodeFromPrometheus() {
 		WriteHeaderMock: func(header int) {
 			actualStatus = header
 		},
+	}
+	prometheus.Reload = func() error {
+		return errors.New("Prometheus failed loading")
 	}
 	addr := "/v1/docker-flow-monitor?serviceName=my-service"
 	req, _ := http.NewRequest("DELETE", addr, nil)
@@ -1695,6 +1704,194 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsAlerts() {
 	serve.InitialConfig()
 
 	s.Equal(expected, serve.alerts)
+}
+
+func (s *ServerTestSuite) Test_InitialConfig_CallsWriteConfig() {
+	expected := map[string]map[string]string{
+		"node1id": map[string]string{
+			"awsregion": "us-east",
+			"role":      "worker",
+		},
+		"node2id": map[string]string{
+			"awsregion": "us-west",
+			"role":      "manager",
+		},
+		"node3id": map[string]string{
+			"role":     "manager",
+			"back_end": "placeholder",
+		},
+	}
+
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		resp := []map[string]string{}
+		resp = append(resp, map[string]string{
+			"id":           "node1id",
+			"hostname":     "node1hostname",
+			"address":      "10.0.0.1",
+			"versionIndex": "24",
+			"state":        "up",
+			"role":         "worker",
+			"availability": "active",
+			"awsregion":    "us-east",
+		})
+		resp = append(resp, map[string]string{
+			"id":           "node2id",
+			"hostname":     "node2hostname",
+			"address":      "10.0.1.1",
+			"versionIndex": "24",
+			"state":        "up",
+			"role":         "manager",
+			"availability": "active",
+			"awsregion":    "us-west",
+		})
+
+		// Does not have awsregion
+		resp = append(resp, map[string]string{
+			"id":           "node3id",
+			"hostname":     "node3hostname",
+			"address":      "10.0.2.1",
+			"versionIndex": "24",
+			"state":        "up",
+			"role":         "manager",
+			"availability": "active",
+			"back_end":     "placeholder",
+		})
+		js, _ := json.Marshal(resp)
+		w.Write(js)
+	}))
+
+	defer func() {
+		os.Unsetenv("DF_GET_NODES_URL")
+		os.Unsetenv("DF_NODE_TARGET_LABELS")
+	}()
+	os.Setenv("DF_GET_NODES_URL", testServer.URL)
+	os.Setenv("DF_NODE_TARGET_LABELS", "awsregion,role,back_end")
+
+	serve := New()
+	err := serve.InitialConfig()
+	s.Require().NoError(err)
+
+	s.Equal(expected, serve.nodeLabels)
+}
+
+// ReconfigureNodeHandler
+
+func (s *ServerTestSuite) Test_ReconfigureNodeHandler_AddsNodes_WithoutNodeID() {
+
+	actual := 0
+	rwMock := ResponseWriterMock{
+		WriteHeaderMock: func(status int) {
+			actual = status
+		},
+	}
+	addr := "/v1/docker-flow-monitor/node/reconfigure?role=worker&hostname=node1hostname&awsregion=us-east1&address=1.0.0.1"
+	req, _ := http.NewRequest("GET", addr, nil)
+	serve := New()
+	serve.ReconfigureNodeHandler(rwMock, req)
+
+	s.Equal(http.StatusBadRequest, actual)
+}
+
+func (s *ServerTestSuite) Test_ReconfigureNodeHandler_AddsNodes_CallsWriteConfig() {
+	fsOrig := prometheus.FS
+	defer func() {
+		os.Unsetenv("DF_NODE_TARGET_LABELS")
+		prometheus.FS = fsOrig
+	}()
+	os.Setenv("DF_NODE_TARGET_LABELS", "awsregion,role")
+	prometheus.FS = afero.NewMemMapFs()
+	nodeInfo := prometheus.NodeIPSet{}
+	nodeInfo.Add("node-1", "1.0.1.1", "node1id")
+	expectedScrape := prometheus.Scrape{
+		ServiceName:  "my-service",
+		ScrapePort:   1234,
+		ScrapeLabels: &map[string]string{},
+		NodeInfo:     nodeInfo,
+	}
+	expectedNodeLabel := map[string]map[string]string{
+		"node1id": map[string]string{
+			"awsregion": "us-east1",
+			"role":      "worker",
+		},
+	}
+
+	rwMock := ResponseWriterMock{}
+	addr := "/v1/docker-flow-monitor/node/reconfigure?role=worker&id=node1id&hostname=node1hostname&awsregion=us-east1&address=1.0.0.1"
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+
+	// Insert scrape for testing
+	serve.scrapes[expectedScrape.ServiceName] = expectedScrape
+	serve.ReconfigureNodeHandler(rwMock, req)
+
+	s.Equal(expectedNodeLabel, serve.nodeLabels)
+
+	// Check static file for node labels
+	myServiceExists, err := afero.Exists(prometheus.FS, "/etc/prometheus/file_sd/my-service.json")
+	s.Require().NoError(err)
+	s.True(myServiceExists)
+
+	fileSDConfigServiceByte, err := afero.ReadFile(prometheus.FS, "/etc/prometheus/file_sd/my-service.json")
+	s.Require().NoError(err)
+	fileSDconfig := prometheus.FileStaticConfig{}
+	err = json.Unmarshal(fileSDConfigServiceByte, &fileSDconfig)
+	s.Require().NoError(err)
+	s.Require().Len(fileSDconfig, 1)
+
+	var serviceNode1Tg *prometheus.TargetGroup
+
+	for _, tg := range fileSDconfig {
+		for _, target := range tg.Targets {
+			if target == "1.0.1.1:1234" {
+				serviceNode1Tg = tg
+				break
+			}
+		}
+	}
+	s.Require().NotNil(serviceNode1Tg)
+
+	s.Equal("us-east1", serviceNode1Tg.Labels["awsregion"])
+	s.Equal("worker", serviceNode1Tg.Labels["role"])
+
+}
+
+// RemoveNodeHandler
+
+func (s *ServerTestSuite) Test_ReconfigureNodeHandler_RemoveNodes_WithoutNodeID() {
+
+	actual := 0
+	rwMock := ResponseWriterMock{
+		WriteHeaderMock: func(status int) {
+			actual = status
+		},
+	}
+	addr := "/v1/docker-flow-monitor/node/reconfigure?role=worker&hostname=node1hostname&awsregion=us-east1&address=1.0.0.1"
+	req, _ := http.NewRequest("GET", addr, nil)
+	serve := New()
+	serve.RemoveNodeHandler(rwMock, req)
+
+	s.Equal(http.StatusBadRequest, actual)
+}
+
+func (s *ServerTestSuite) Test_RemoveNodeHandler_RemoveNodes() {
+
+	// Add node
+	rwMock := ResponseWriterMock{}
+	addr := "/v1/docker-flow-monitor/node/reconfigure?role=worker&id=node1id&hostname=node1hostname&awsregion=us-east1&address=1.0.0.1"
+	req, _ := http.NewRequest("GET", addr, nil)
+
+	serve := New()
+	serve.ReconfigureNodeHandler(rwMock, req)
+
+	// Remove node
+	addr = "/v1/docker-flow-monitor/node/remove?id=node1id&hostname=node1hostname&awsregion=us-east1"
+	req, _ = http.NewRequest("DELETE", addr, nil)
+
+	serve.RemoveNodeHandler(rwMock, req)
+
+	s.Len(serve.nodeLabels, 0)
 }
 
 // Mock

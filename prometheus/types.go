@@ -232,14 +232,15 @@ type Alert struct {
 type NodeIP struct {
 	Name string `json:"name"`
 	Addr string `json:"addr"`
+	ID   string `json:"id"`
 }
 
 // NodeIPSet is a set of NodeIPs
 type NodeIPSet map[NodeIP]struct{}
 
 // Add node to set
-func (ns *NodeIPSet) Add(name, addr string) {
-	(*ns)[NodeIP{Name: name, Addr: addr}] = struct{}{}
+func (ns NodeIPSet) Add(name, addr, id string) {
+	ns[NodeIP{Name: name, Addr: addr, ID: id}] = struct{}{}
 }
 
 // Equal returns true when NodeIPSets contain the same elements
@@ -264,10 +265,10 @@ func (ns NodeIPSet) Cardinality() int {
 
 // MarshalJSON creates JSON array from NodeIPSet
 func (ns NodeIPSet) MarshalJSON() ([]byte, error) {
-	items := make([][2]string, 0, ns.Cardinality())
+	items := make([][]string, 0, ns.Cardinality())
 
 	for elem := range ns {
-		items = append(items, [2]string{elem.Name, elem.Addr})
+		items = append(items, []string{elem.Name, elem.Addr, elem.ID})
 	}
 	return json.Marshal(items)
 }
@@ -275,14 +276,18 @@ func (ns NodeIPSet) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON recreates NodeIPSet from a JSON array
 func (ns *NodeIPSet) UnmarshalJSON(b []byte) error {
 
-	items := [][2]string{}
+	items := [][]string{}
 	err := json.Unmarshal(b, &items)
 	if err != nil {
 		return err
 	}
 
 	for _, item := range items {
-		(*ns)[NodeIP{Name: item[0], Addr: item[1]}] = struct{}{}
+		nodeIP := NodeIP{Name: item[0], Addr: item[1]}
+		if len(item) == 3 {
+			nodeIP.ID = item[2]
+		}
+		(*ns)[nodeIP] = struct{}{}
 	}
 
 	return nil
@@ -297,5 +302,5 @@ type Scrape struct {
 	ScrapeTimeout  string             `json:"scrapeTimeout,string,omitempty"`
 	ScrapeType     string             `json:"scrapeType"`
 	ServiceName    string             `json:"serviceName"`
-	NodeInfo       *NodeIPSet         `json:"nodeInfo,omitempty"`
+	NodeInfo       NodeIPSet          `json:"nodeInfo,omitempty"`
 }

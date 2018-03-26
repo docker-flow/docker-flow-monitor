@@ -110,6 +110,54 @@ Additional scrapes can be added through files prefixed with `scrape_`. By defaul
 The simplest way to add scrape configs is to use Docker [secrets](https://docs.docker.com/engine/swarm/secrets/) or [configs](https://docs.docker.com/engine/swarm/configs/).
 
 
-## Scrape Label Configuration
+## Scrape Label Configuration With Service and Node Labels
 
-When using a version of [Docker Flow Swarm Listener](https://github.com/vfarcic/docker-flow-swarm-listener), DFSL, newer than `18.02.06-31`, you can configure DFSL to send node node hostnames to `Docker Flow Monitor`, DFM. This can be done by setting `DF_INCLUDE_NODE_IP_INFO` to `true` in the DFSL environment. DFM will automatically display the node hostnames as a label for each prometheus target. The `DF_SCRAPE_TARGET_LABELS` env variable allows for additional labels to be displayed. For example, if a service has env variables `com.df.env=prod` and `com.df.domain=frontend`, you can set `DF_SCRAPE_TARGET_LABELS=env,domain` in DFM to display the `prod` and `frontend` labels in prometheus.
+When using a version of [Docker Flow Swarm Listener](https://github.com/vfarcic/docker-flow-swarm-listener), DFSL, newer than `18.03.20-39`, you can configure DFSL to send node information to `Docker Flow Monitor`, DFM. This can be done by setting `DF_INCLUDE_NODE_IP_INFO` to `true` in the DFSL environment. DFM will automatically display the node hostnames as a label for each prometheus target. The `DF_SCRAPE_TARGET_LABELS` env variable allows for additional labels to be displayed.
+
+In addition to service labels, DFM can be configured to import node and engine labels prefixed with `com.df.` as prometheus labels for our targets. First, configure DFSL to push node events to DFM by setting the following environment variables in DFSL:
+
+1. `DF_NOTIFY_CREATE_NODE_URL=[MONITOR_DNS]:[MONITOR_PORT]/v1/docker-flow-monitor/node/reconfigure`
+2. `DF_NOTIFY_REMOVE_NODE_URL=[MONITOR_DNS]:[MONITOR_PORT]/v1/docker-flow-monitor/node/remove`
+
+Next set the following environment variables in DFM:
+
+1. `DF_GET_NODES_URL=[SWARM_LISTENER_DNS]:[SWARM_LISTENER_PORT]/v1/docker-flow-swarm-listener/get-nodes`
+2. `DF_NODE_TARGET_LABELS` to a comma seperate list of labels use.
+
+!!! info
+    Only `[a-zA-Z0-9_]` are valid characters in prometheus labels in `DF_NODE_TARGET_LABELS` and `DF_SCRAPE_TARGET_LABELS`.
+
+For example, the stack file, [stacks/docker-flow-monitor-flexible-labels.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-flexible-labels.yml), configures DFM and DFSL to use service and node labels as prometheus labels. The `swarm-listener` service is defined as follows:
+
+```yaml
+services:
+...
+  swarm-listener:
+    image: vfarcic/docker-flow-swarm-listener
+    environment:
+      - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
+      - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove
+      - DF_NOTIFY_CREATE_NODE_URL=http://monitor:8080/v1/docker-flow-monitor/node/reconfigure
+      - DF_NOTIFY_REMOVE_NODE_URL=http://monitor:8080/v1/docker-flow-monitor/node/remove
+      - DF_INCLUDE_NODE_IP_INFO=true
+...
+```
+
+The `DF_NOTIFY_*` environment variables defined in `swarm-listener` configures it to send service and node notifications to the `monitor` service. Setting `DF_INCLUDE_NODE_IP_INFO` to `true` configures `swarm-listener` to send node information for service changes.
+
+The `monitor` service is defined as follows:
+
+```yaml
+services:
+  monitor:
+    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    environment:
+      ...
+      - DF_SCRAPE_TARGET_LABELS=env,metricType
+      - DF_NODE_TARGET_LABELS=aws_region,role
+      - DF_GET_NODES_URL=http://swarm-listener:8080/v1/docker-flow-swarm-listener/get-nodes
+```
+
+The environment variable `DF_GET_NODES_URL` configures `monitor` to query `swarm-listener` for all nodes during startup. `DF_SCRAPE_TARGET_LABELS=env,metricType` configures `monitor` to use service labels `com.df.env` and `com.df.metricType` as prometheus labels with the `com.df.` prefix removed: `env` and `metricType` respectively. `DF_NODE_TARGET_LABELS=aws_region,role` configures `monitor` to use node label `com.df.aws_region` as a prometheus label with `com.df.` prefix remove: `aws_region`. The `role` target label is used by DFSL to denote the role of the node: `manager` and `worker`. For a complete list of node labels used by DFSL, head over to the [Docker Flow Swarm Listener Usage Docs](http://swarmlistener.dockerflow.com/usage/#node-notification).
+
+For more information, please visit the [Flexible Labeling Tutorial](tutorial-flexible-labeling.md) to learn more about this feature!

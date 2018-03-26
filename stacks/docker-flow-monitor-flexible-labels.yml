@@ -9,6 +9,8 @@ services:
       - GLOBAL_SCRAPE_INTERVAL=10s
       - ARG_ALERTMANAGER_URL=http://alert-manager:9093
       - DF_SCRAPE_TARGET_LABELS=env,metricType
+      - DF_NODE_TARGET_LABELS=aws_region,role
+      - DF_GET_NODES_URL=http://swarm-listener:8080/v1/docker-flow-swarm-listener/get-nodes
     networks:
       - monitor
     ports:
@@ -28,6 +30,8 @@ services:
     environment:
       - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
       - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove
+      - DF_NOTIFY_CREATE_NODE_URL=http://monitor:8080/v1/docker-flow-monitor/node/reconfigure
+      - DF_NOTIFY_REMOVE_NODE_URL=http://monitor:8080/v1/docker-flow-monitor/node/remove
       - DF_INCLUDE_NODE_IP_INFO=true
     deploy:
       placement:

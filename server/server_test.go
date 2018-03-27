@@ -311,6 +311,11 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts() {
 			map[string]string{"summary": "Memory of the service my-service is over 0.8"},
 			map[string]string{"receiver": "system", "service": "my-service"},
 		}, {
+			`(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}-container_memory_cache{container_label_com_docker_swarm_service_name="my-service"})/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
+			`@service_mem_limit_nobuff:0.8`,
+			map[string]string{"summary": "Memory without buffer of the service my-service is over 0.8"},
+			map[string]string{"receiver": "system", "service": "my-service"},
+		}, {
 			`(sum by (instance) (node_memory_MemTotal{job="my-service"}) - sum by (instance) (node_memory_MemFree{job="my-service"} + node_memory_Buffers{job="my-service"} + node_memory_Cached{job="my-service"})) / sum by (instance) (node_memory_MemTotal{job="my-service"}) > 0.8`,
 			`@node_mem_limit:0.8`,
 			map[string]string{"summary": "Memory of a node is over 0.8"},
@@ -499,15 +504,33 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts_CompoundOps()
 			map[string]string{"receiver": "system", "service": "my-service"},
 		},
 		{
+			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99 and (container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}-container_memory_cache{container_label_com_docker_swarm_service_name="my-service"})/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
+			`@resp_time_above:0.1,5m,0.99_and_@service_mem_limit_nobuff:0.8`,
+			map[string]string{"summary": "Response time of the service my-service is above 0.1 and Memory without buffer of the service my-service is over 0.8"},
+			map[string]string{"receiver": "system", "service": "my-service"},
+		},
+		{
 			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99 or container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
 			`@resp_time_above:0.1,5m,0.99_or_@service_mem_limit:0.8`,
 			map[string]string{"summary": "Response time of the service my-service is above 0.1 or Memory of the service my-service is over 0.8"},
 			map[string]string{"receiver": "system"},
 		},
 		{
+			`sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99 or (container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}-container_memory_cache{container_label_com_docker_swarm_service_name="my-service"})/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
+			`@resp_time_above:0.1,5m,0.99_or_@service_mem_limit_nobuff:0.8`,
+			map[string]string{"summary": "Response time of the service my-service is above 0.1 or Memory without buffer of the service my-service is over 0.8"},
+			map[string]string{"receiver": "system"},
+		},
+		{
 			`container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8 and sum(rate(http_server_resp_time_bucket{job="my-service", le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.75 unless sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99`,
 			`@service_mem_limit:0.8_and_@resp_time_below:0.025,5m,0.75_unless_@resp_time_above:0.1,5m,0.99`,
 			map[string]string{"summary": "Memory of the service my-service is over 0.8 and Response time of the service my-service is below 0.025 unless Response time of the service my-service is above 0.1"},
+			map[string]string{"receiver": "system"},
+		},
+		{
+			`(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}-container_memory_cache{container_label_com_docker_swarm_service_name="my-service"})/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8 and sum(rate(http_server_resp_time_bucket{job="my-service", le="0.025"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) > 0.75 unless sum(rate(http_server_resp_time_bucket{job="my-service", le="0.1"}[5m])) / sum(rate(http_server_resp_time_count{job="my-service"}[5m])) < 0.99`,
+			`@service_mem_limit_nobuff:0.8_and_@resp_time_below:0.025,5m,0.75_unless_@resp_time_above:0.1,5m,0.99`,
+			map[string]string{"summary": "Memory without buffer of the service my-service is over 0.8 and Response time of the service my-service is below 0.025 unless Response time of the service my-service is above 0.1"},
 			map[string]string{"receiver": "system"},
 		},
 	}

@@ -298,6 +298,24 @@ func (s *serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, err
 	scrape.ServiceName = data["serviceName"]
 	scrape.ScrapeType = data["scrapeType"]
 
+	if nodeInfoStr, ok := data["nodeInfo"]; ok && len(nodeInfoStr) > 0 {
+		nodeInfo := prometheus.NodeIPSet{}
+		json.Unmarshal([]byte(nodeInfoStr), &nodeInfo)
+		scrape.NodeInfo = nodeInfo
+	}
+
+	if scrape.NodeInfo != nil && len(scrape.NodeInfo) > 0 {
+		if targetLabels := os.Getenv("DF_SCRAPE_TARGET_LABELS"); len(targetLabels) > 0 {
+			scrape.ScrapeLabels = &map[string]string{}
+			labels := strings.Split(targetLabels, ",")
+			for _, label := range labels {
+				if value, ok := data[label]; ok && len(value) > 0 {
+					(*scrape.ScrapeLabels)[label] = value
+				}
+			}
+		}
+	}
+
 	if s.isValidScrape(&scrape) {
 		return scrape, nil
 	}
@@ -649,8 +667,8 @@ func (s *serve) getScrape(req *http.Request) prometheus.Scrape {
 	}
 
 	if scrape.NodeInfo != nil && len(scrape.NodeInfo) > 0 {
-		scrape.ScrapeLabels = &map[string]string{}
 		if targetLabels := os.Getenv("DF_SCRAPE_TARGET_LABELS"); len(targetLabels) > 0 {
+			scrape.ScrapeLabels = &map[string]string{}
 			labels := strings.Split(targetLabels, ",")
 			for _, label := range labels {
 				value := req.Form.Get(label)

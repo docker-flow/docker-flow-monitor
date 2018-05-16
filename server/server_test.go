@@ -821,7 +821,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_WithNodeInfo_NoTargetLabelsDef
 	expected := prometheus.Scrape{
 		ServiceName:  "my-service",
 		ScrapePort:   1234,
-		ScrapeLabels: &map[string]string{},
+		ScrapeLabels: nil,
 		NodeInfo:     nodeInfo,
 	}
 

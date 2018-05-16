@@ -27,6 +27,24 @@ ARG_WEB_CONSOLE_LIBRARIES=/usr/share/prometheus/console_libraries
 ARG_WEB_CONSOLE_TEMPLATES=/usr/share/prometheus/consoles
 ```
 
+The `ARG_ALERTMANAGER_URL` environment variable accepts a comma separated list of alertmanagers:
+
+```
+ARG_ALERTMANAGER_URL=http://alert-manager:9093,http://alert-manager2:9093
+```
+
+These urls are configured in Prometheus's config file as `static_configs`:
+
+```yaml
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - alert-manager:9093
+      - alert-manager2:9093
+    scheme: http
+```
+
 ## Configuration
 
 Environment variables prefixed with `GLOBAL__`, `ALERTING__`, `SCRAPE_CONFIGS__`, `REMOTE_WRITE__`, and `REMOTE_READ__` are used to configure Prometheus.

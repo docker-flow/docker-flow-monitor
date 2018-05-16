@@ -338,8 +338,7 @@ remote_read:
 func (s *ConfigTestSuite) Test_InsertAlertManagerURL() {
 	c := &Config{}
 
-	err := c.InsertAlertManagerURL("http://alert-manager:9093")
-	s.Require().NoError(err)
+	c.InsertAlertManagerURL("http://alert-manager:9093")
 
 	s.Require().Len(c.AlertingConfig.AlertmanagerConfigs, 1)
 	acc := c.AlertingConfig.AlertmanagerConfigs[0]
@@ -357,6 +356,35 @@ func (s *ConfigTestSuite) Test_InsertAlertManagerURL() {
   - static_configs:
     - targets:
       - alert-manager:9093
+    scheme: http
+`
+
+	s.Equal(expected, string(cYAML))
+
+}
+
+func (s *ConfigTestSuite) Test_InsertAlertManagerURL_TwoUrls() {
+	c := &Config{}
+
+	c.InsertAlertManagerURL("http://alert-manager:9093,http://alert-manager2:9093")
+
+	s.Require().Len(c.AlertingConfig.AlertmanagerConfigs, 1)
+	acc := c.AlertingConfig.AlertmanagerConfigs[0]
+	s.Equal("http", acc.Scheme)
+
+	s.Require().Len(acc.ServiceDiscoveryConfig.StaticConfigs, 1)
+	sc := acc.ServiceDiscoveryConfig.StaticConfigs[0]
+	s.Equal("alert-manager:9093", sc.Targets[0])
+
+	cYAML, err := yaml.Marshal(c)
+	s.Require().NoError(err)
+
+	expected := `alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - alert-manager:9093
+      - alert-manager2:9093
     scheme: http
 `
 

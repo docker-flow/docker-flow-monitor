@@ -34,11 +34,9 @@ func WriteConfig(configPath string, scrapes map[string]Scrape,
 		c.RuleFiles = []string{"alert.rules"}
 	}
 
-	alertmanagerURL := os.Getenv("ARG_ALERTMANAGER_URL")
-	if len(alertmanagerURL) != 0 {
-		if err := c.InsertAlertManagerURL(alertmanagerURL); err != nil {
-			logPrintf("Unable to insert alertmanager url %s into prometheus config", alertmanagerURL)
-		}
+	alertmanagerURLs := os.Getenv("ARG_ALERTMANAGER_URL")
+	if len(alertmanagerURLs) != 0 {
+		c.InsertAlertManagerURL(alertmanagerURLs)
 	}
 	c.CreateFileStaticConfig(scrapes, nodeLabels, fileSDDir)
 
@@ -76,23 +74,29 @@ func (c *Config) InsertEnv(envKey string, envValue string) error {
 }
 
 // InsertAlertManagerURL inserts alert into config
-func (c *Config) InsertAlertManagerURL(alertURL string) error {
-	url, err := url.Parse(alertURL)
-	if err != nil {
-		return fmt.Errorf("Unable to parse url %s", alertURL)
+func (c *Config) InsertAlertManagerURL(alertURLs string) {
+	alertURLSlice := strings.Split(alertURLs, ",")
+	schemesToHosts := map[string][]string{}
+
+	for _, alertURL := range alertURLSlice {
+		url, err := url.Parse(alertURL)
+		if err != nil {
+			logPrintf("Unable to insert alertmanager url %s into prometheus config", alertURL)
+		}
+		schemesToHosts[url.Scheme] = append(schemesToHosts[url.Scheme], url.Host)
 	}
 
-	amc := &AlertmanagerConfig{
-		Scheme: url.Scheme,
-		ServiceDiscoveryConfig: ServiceDiscoveryConfig{
-			StaticConfigs: []*TargetGroup{{
-				Targets: []string{url.Host},
-			}},
-		},
+	for scheme, hosts := range schemesToHosts {
+		amc := &AlertmanagerConfig{
+			Scheme: scheme,
+			ServiceDiscoveryConfig: ServiceDiscoveryConfig{
+				StaticConfigs: []*TargetGroup{{
+					Targets: hosts,
+				}},
+			},
+		}
+		c.AlertingConfig.AlertmanagerConfigs = append(c.AlertingConfig.AlertmanagerConfigs, amc)
 	}
-
-	c.AlertingConfig.AlertmanagerConfigs = append(c.AlertingConfig.AlertmanagerConfigs, amc)
-	return nil
 }
 
 // InsertScrapes inserts scrapes into config

@@ -333,7 +333,7 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts() {
 			`count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}) > 3`,
 			`@replicas_more_than`,
 			map[string]string{"summary": "The number of running replicas of the service my-service is more than 3"},
-			map[string]string{"receiver": "system", "service": "my-service", "scale": "up", "type": "node"},
+			map[string]string{"receiver": "system", "service": "my-service", "scale": "down", "type": "node"},
 		}, {
 			`count(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}) < 3`,
 			`@replicas_less_than`,
@@ -344,6 +344,11 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts() {
 			`@resp_time_server_error:5m,0.001`,
 			map[string]string{"summary": "Error rate of the service my-service is above 0.001"},
 			map[string]string{"receiver": "system", "service": "my-service", "type": "errors"},
+			// }, {
+			// 	`(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}-container_memory_cache{container_label_com_docker_swarm_service_name="my-service"})/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
+			// 	`@service_mem_limit_nobuff:0.8`,
+			// 	map[string]string{"summary": "Error rate of the service my-service is above 0.001"},
+			// 	map[string]string{"receiver": "system", "service": "my-service", "type": "errors"},
 		},
 	}
 	for _, data := range testData {

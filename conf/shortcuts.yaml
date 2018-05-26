@@ -80,7 +80,7 @@
   labels:
     receiver: system
     service: "{{ .Alert.ServiceName }}"
-    scale: up
+    scale: down
     type: node
 "@resp_time_server_error":
   expanded: sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}", code=~"^5..$$"}[{{ index .Values 0 }}])) / sum(rate(http_server_resp_time_count{job="{{ .Alert.ServiceName }}"}[{{ index .Values 0 }}])) > {{ index .Values 1 }}

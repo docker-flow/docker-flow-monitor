@@ -365,11 +365,11 @@ func (s *ServerTestSuite) Test_ReconfigureHandler_ExpandsShortcuts() {
 			`@resp_time_server_error:5m,0.001`,
 			map[string]string{"summary": "Error rate of the service my-service is above 0.001"},
 			map[string]string{"receiver": "system", "service": "my-service", "type": "errors"},
-			// }, {
-			// 	`(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}-container_memory_cache{container_label_com_docker_swarm_service_name="my-service"})/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
-			// 	`@service_mem_limit_nobuff:0.8`,
-			// 	map[string]string{"summary": "Error rate of the service my-service is above 0.001"},
-			// 	map[string]string{"receiver": "system", "service": "my-service", "type": "errors"},
+		}, {
+			`(container_memory_usage_bytes{container_label_com_docker_swarm_service_name="my-service"}-container_memory_cache{container_label_com_docker_swarm_service_name="my-service"})/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="my-service"} > 0.8`,
+			`@service_mem_limit_nobuff:0.8`,
+			map[string]string{"summary": "Memory without buffer of the service my-service is over 0.8"},
+			map[string]string{"receiver": "system", "service": "my-service"},
 		},
 	}
 	for _, data := range testData {

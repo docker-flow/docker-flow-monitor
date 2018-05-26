@@ -8,7 +8,7 @@ import (
 )
 
 // Run starts `prometheus` process
-func Run() error {
+var Run = func() error {
 	logPrintf("Starting Prometheus")
 	cmdString := "prometheus"
 	flags := EnvToPrometheusFlags("ARG")

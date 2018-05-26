@@ -17,7 +17,8 @@ import (
 )
 
 // WriteConfig creates Prometheus configuration at configPath and writes alerts into /etc/prometheus/alert.rules
-func WriteConfig(configPath string, scrapes map[string]Scrape, alerts map[string]Alert) {
+func WriteConfig(configPath string, scrapes map[string]Scrape,
+	alerts map[string]Alert, nodeLabels map[string]map[string]string) {
 	c := &Config{}
 	fileSDDir := "/etc/prometheus/file_sd"
 	alertRulesPath := "/etc/prometheus/alert.rules"
@@ -33,13 +34,11 @@ func WriteConfig(configPath string, scrapes map[string]Scrape, alerts map[string
 		c.RuleFiles = []string{"alert.rules"}
 	}
 
-	alertmanagerURL := os.Getenv("ARG_ALERTMANAGER_URL")
-	if len(alertmanagerURL) != 0 {
-		if err := c.InsertAlertManagerURL(alertmanagerURL); err != nil {
-			logPrintf("Unable to insert alertmanager url %s into prometheus config", alertmanagerURL)
-		}
+	alertmanagerURLs := os.Getenv("ARG_ALERTMANAGER_URL")
+	if len(alertmanagerURLs) != 0 {
+		c.InsertAlertManagerURL(alertmanagerURLs)
 	}
-	c.CreateFileStaticConfig(scrapes, fileSDDir)
+	c.CreateFileStaticConfig(scrapes, nodeLabels, fileSDDir)
 
 	for _, e := range os.Environ() {
 		envSplit := strings.SplitN(e, "=", 2)
@@ -75,23 +74,29 @@ func (c *Config) InsertEnv(envKey string, envValue string) error {
 }
 
 // InsertAlertManagerURL inserts alert into config
-func (c *Config) InsertAlertManagerURL(alertURL string) error {
-	url, err := url.Parse(alertURL)
-	if err != nil {
-		return fmt.Errorf("Unable to parse url %s", alertURL)
+func (c *Config) InsertAlertManagerURL(alertURLs string) {
+	alertURLSlice := strings.Split(alertURLs, ",")
+	schemesToHosts := map[string][]string{}
+
+	for _, alertURL := range alertURLSlice {
+		url, err := url.Parse(alertURL)
+		if err != nil {
+			logPrintf("Unable to insert alertmanager url %s into prometheus config", alertURL)
+		}
+		schemesToHosts[url.Scheme] = append(schemesToHosts[url.Scheme], url.Host)
 	}
 
-	amc := &AlertmanagerConfig{
-		Scheme: url.Scheme,
-		ServiceDiscoveryConfig: ServiceDiscoveryConfig{
-			StaticConfigs: []*TargetGroup{{
-				Targets: []string{url.Host},
-			}},
-		},
+	for scheme, hosts := range schemesToHosts {
+		amc := &AlertmanagerConfig{
+			Scheme: scheme,
+			ServiceDiscoveryConfig: ServiceDiscoveryConfig{
+				StaticConfigs: []*TargetGroup{{
+					Targets: hosts,
+				}},
+			},
+		}
+		c.AlertingConfig.AlertmanagerConfigs = append(c.AlertingConfig.AlertmanagerConfigs, amc)
 	}
-
-	c.AlertingConfig.AlertmanagerConfigs = append(c.AlertingConfig.AlertmanagerConfigs, amc)
-	return nil
 }
 
 // InsertScrapes inserts scrapes into config
@@ -103,7 +108,7 @@ func (c *Config) InsertScrapes(scrapes map[string]Scrape) {
 		if len(metricsPath) == 0 {
 			metricsPath = "/metrics"
 		}
-		if s.NodeInfo != nil && len(*s.NodeInfo) > 0 {
+		if s.NodeInfo != nil && len(s.NodeInfo) > 0 {
 			continue
 		}
 		if s.ScrapeType == "static_configs" {
@@ -161,7 +166,7 @@ func (c *Config) InsertScrapesFromDir(dir string) {
 }
 
 // CreateFileStaticConfig creates static config files
-func (c *Config) CreateFileStaticConfig(scrapes map[string]Scrape, fileSDDir string) {
+func (c *Config) CreateFileStaticConfig(scrapes map[string]Scrape, nodeLabels map[string]map[string]string, fileSDDir string) {
 
 	staticFiles := map[string]struct{}{}
 	for _, s := range scrapes {
@@ -169,7 +174,7 @@ func (c *Config) CreateFileStaticConfig(scrapes map[string]Scrape, fileSDDir str
 		if s.NodeInfo == nil {
 			continue
 		}
-		for n := range *s.NodeInfo {
+		for n := range s.NodeInfo {
 			tg := TargetGroup{}
 			tg.Targets = []string{fmt.Sprintf("%s:%d", n.Addr, s.ScrapePort)}
 			tg.Labels = map[string]string{}
@@ -180,6 +185,13 @@ func (c *Config) CreateFileStaticConfig(scrapes map[string]Scrape, fileSDDir str
 			}
 			tg.Labels["node"] = n.Name
 			tg.Labels["service"] = s.ServiceName
+
+			// If there is a node id add nodeLabels[n.ID] to service
+			if labels, ok := nodeLabels[n.ID]; len(n.ID) > 0 && ok && labels != nil {
+				for k, v := range labels {
+					tg.Labels[k] = v
+				}
+			}
 			fsc = append(fsc, &tg)
 		}
 

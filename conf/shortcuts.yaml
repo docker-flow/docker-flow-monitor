@@ -5,6 +5,13 @@
   labels:
     receiver: system
     service: "{{ .Alert.ServiceName }}"
+"@service_mem_limit_nobuff":
+  expanded: (container_memory_usage_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"}-container_memory_cache{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"})/container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="{{ .Alert.ServiceName }}"} > {{ index .Values 0 }}
+  annotations:
+    summary: Memory without buffer of the service {{ .Alert.ServiceName }} is over {{ index .Values 0 }}
+  labels:
+    receiver: system
+    service: "{{ .Alert.ServiceName }}"
 "@node_mem_limit":
   expanded: (sum by (instance) (node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) - sum by (instance) (node_memory_MemFree{job="{{ .Alert.ServiceName }}"} + node_memory_Buffers{job="{{ .Alert.ServiceName }}"} + node_memory_Cached{job="{{ .Alert.ServiceName }}"})) / sum by (instance) (node_memory_MemTotal{job="{{ .Alert.ServiceName }}"}) > {{ index .Values 0 }}
   annotations:

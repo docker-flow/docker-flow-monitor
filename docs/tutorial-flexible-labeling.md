@@ -10,7 +10,7 @@
 We'll create a Swarm cluster consisting of three nodes created with Docker Machine.
 
 ```bash
-git clone https://github.com/vfarcic/docker-flow-monitor.git
+git clone https://github.com/docker-flow/docker-flow-monitor.git
 
 cd docker-flow-monitor
 
@@ -21,14 +21,14 @@ eval $(docker-machine env swarm-1)
 
 ## Deploying Docker Flow Monitor
 
-We will deploy [stacks/docker-flow-monitor-flexible-labels.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-flexible-labels.yml) stack that contains three services: `monitor`, `alert-manager` and `swarm-listener`. The `swarm-listener` service includes an additional environment variable: `DF_INCLUDE_NODE_IP_INFO=true`. This configures `swarm-listener` to send node information to `monitor` as labels. The node's hostname will be included in every metric from the exporter with the label: `node`.
+We will deploy [stacks/docker-flow-monitor-flexible-labels.yml](https://github.com/docker-flow/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-flexible-labels.yml) stack that contains three services: `monitor`, `alert-manager` and `swarm-listener`. The `swarm-listener` service includes an additional environment variable: `DF_INCLUDE_NODE_IP_INFO=true`. This configures `swarm-listener` to send node information to `monitor` as labels. The node's hostname will be included in every metric from the exporter with the label: `node`.
 
 In this tutorial, we will set up two additional labels: `env` and `metricType`. To enable these labels, we add the the environment variable: `DF_SCRAPE_TARGET_LABELS=env,metricType` to the `monitor` service:
 
 ```yaml
 ...
   monitor:
-    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    image: dockerflow/docker-flow-monitor:${TAG:-latest}
     environment:
       - DF_SCRAPE_TARGET_LABELS=env,metricType
 ...
@@ -46,7 +46,7 @@ To get the nodes information, DFSL is configured to send node events to DFM by s
 ```yaml
 ...
   monitor:
-    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    image: dockerflow/docker-flow-monitor:${TAG:-latest}
     environment:
       - DF_NODE_TARGET_LABELS=aws_region,role
       - DF_GET_NODES_URL=http://swarm-listener:8080/v1/docker-flow-swarm-listener/get-nodes
@@ -83,7 +83,7 @@ docker node update --label-add com.df.aws_region=us-west swarm-3
 
 ## Collecting Metrics and Defining Alerts
 
-We will deploy exporters stack defined in [stacks/exporters-tutorial-flexible-labels.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/exporters-tutorial-flexible-labels.yml),  two containing two services: `cadvisor` and `node-exporter`.
+We will deploy exporters stack defined in [stacks/exporters-tutorial-flexible-labels.yml](https://github.com/docker-flow/docker-flow-monitor/blob/master/stacks/exporters-tutorial-flexible-labels.yml),  two containing two services: `cadvisor` and `node-exporter`.
 
 The definition of the `cadvisor` service contains additional deploy labels:
 
@@ -147,7 +147,7 @@ Each service is labeled with its associated `com.df.env` or `com.df.metricType` 
 
 ## What Now?
 
-*Docker Flow Monitors*'s flexible labeling feature provides more information about your services. Please consult the documentation for any additional information you might need. Feel free to open [an issue](https://github.com/vfarcic/docker-flow-monitor/issues) if you require additional info, if you find a bug, or if you have a feature request.
+*Docker Flow Monitors*'s flexible labeling feature provides more information about your services. Please consult the documentation for any additional information you might need. Feel free to open [an issue](https://github.com/docker-flow/docker-flow-monitor/issues) if you require additional info, if you find a bug, or if you have a feature request.
 
 Before you go, please remove the cluster we created and free those resources for something else.
 

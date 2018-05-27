@@ -1,6 +1,6 @@
 # Configuring Docker Flow Monitor
 
-*Docker Flow Monitor* can be configured through Docker environment variables and/or by creating a new image based on `vfarcic/docker-flow-monitor`.
+*Docker Flow Monitor* can be configured through Docker environment variables and/or by creating a new image based on `dockerflow/docker-flow-monitor`.
 
 ## Startup Arguments
 
@@ -145,7 +145,7 @@ Next set the following environment variables in DFM:
 !!! info
     Only `[a-zA-Z0-9_]` are valid characters in prometheus labels in `DF_NODE_TARGET_LABELS` and `DF_SCRAPE_TARGET_LABELS`.
 
-For example, the stack file, [stacks/docker-flow-monitor-flexible-labels.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-flexible-labels.yml), configures DFM and DFSL to use service and node labels as prometheus labels. The `swarm-listener` service is defined as follows:
+For example, the stack file, [stacks/docker-flow-monitor-flexible-labels.yml](https://github.com/docker-flow/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-flexible-labels.yml), configures DFM and DFSL to use service and node labels as prometheus labels. The `swarm-listener` service is defined as follows:
 
 ```yaml
 services:
@@ -168,7 +168,7 @@ The `monitor` service is defined as follows:
 ```yaml
 services:
   monitor:
-    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    image: dockerflow/docker-flow-monitor:${TAG:-latest}
     environment:
       ...
       - DF_SCRAPE_TARGET_LABELS=env,metricType

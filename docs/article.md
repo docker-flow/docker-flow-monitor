@@ -34,10 +34,10 @@ Before we move into a brave new world, let's explore how would we do a tradition
 
 ## Setting Up Prometheus
 
-We'll start by cloning [vfarcic/docker-flow-monitor](https://github.com/vfarcic/docker-flow-monitor) repository. It contains all the scripts and Docker stacks we'll use throughout this article.
+We'll start by cloning [docker-flow/docker-flow-monitor](https://github.com/docker-flow/docker-flow-monitor) repository. It contains all the scripts and Docker stacks we'll use throughout this article.
 
 ```bash
-git clone https://github.com/vfarcic/docker-flow-monitor.git
+git clone https://github.com/docker-flow/docker-flow-monitor.git
 
 cd docker-flow-monitor
 ```
@@ -125,7 +125,7 @@ version: "3"
 services:
 
   monitor:
-    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    image: dockerflow/docker-flow-monitor:${TAG:-latest}
     environment:
       - GLOBAL_SCRAPE_INTERVAL=10s
     ports:
@@ -178,7 +178,7 @@ version: "3"
 services:
 
   monitor:
-    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    image: dockerflow/docker-flow-monitor:${TAG:-latest}
     environment:
       - GLOBAL_SCRAPE_INTERVAL=10s
       - ARG_WEB_ROUTE-PREFIX=/monitor
@@ -195,7 +195,7 @@ services:
         - com.df.port=9090
 
   swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
+    image: dockerflow/docker-flow-swarm-listener
     networks:
       - monitor
     volumes:
@@ -711,7 +711,7 @@ The configuration defines `route` with `slack` as the receiver of the alerts. In
 
 Please consult [alerting documentation](https://prometheus.io/docs/alerting/configuration/) for more information about Alert Manager configuration options.
 
-The image we'll use is already built and available from [vfarcic/alert-manager:demo](https://hub.docker.com/r/vfarcic/alert-manager/tags).
+The image we'll use is already built and available from [dockerflow/alert-manager:demo](https://hub.docker.com/r/dockerflow/alert-manager/tags).
 
 Next, we'll take a quick look at the *alert-manager-demo.yml* stack.
 
@@ -721,7 +721,7 @@ version: "3"
 services:
 
   alert-manager:
-    image: vfarcic/alert-manager:demo
+    image: dockerflow/alert-manager:demo
     ports:
       - 9093:9093
     networks:
@@ -768,7 +768,7 @@ The definition of the `alert-manager` service is as follows.
 
 ```
   alert-manager:
-    image: vfarcic/alert-manager:demo
+    image: dockerflow/alert-manager:demo
     networks:
       - monitor
 ```

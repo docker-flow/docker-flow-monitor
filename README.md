@@ -1,10 +1,10 @@
 
 # Docker Flow Monitor
 
-[![GitHub release](https://img.shields.io/github/release/vfarcic/docker-flow-monitor.svg)]()
-[![license](https://img.shields.io/github/license/vfarcic/docker-flow-monitor.svg)]()
-[![Docker Pulls](https://img.shields.io/docker/pulls/vfarcic/docker-flow-monitor.svg)]()
-[![Go Report Card](https://goreportcard.com/badge/github.com/vfarcic/docker-flow-monitor)](https://goreportcard.com/report/github.com/vfarcic/docker-flow-monitor)
+[![GitHub release](https://img.shields.io/github/release/docker-flow/docker-flow-monitor.svg)]()
+[![license](https://img.shields.io/github/license/docker-flow/docker-flow-monitor.svg)]()
+[![Docker Pulls](https://img.shields.io/docker/pulls/docker-flow/docker-flow-monitor.svg)]()
+[![Go Report Card](https://goreportcard.com/badge/github.com/docker-flow/docker-flow-monitor)](https://goreportcard.com/report/github.com/docker-flow/docker-flow-monitor)
 
 The goal of the *Docker Flow Monitor* project is to provide an easy way to reconfigure Prometheus every time a new service is deployed, or when a service is updated. It does not try to "reinvent the wheel", but to leverage the existing leaders and combine them through an easy to use integration. It uses [Prometheus](https://prometheus.io/) as a metrics storage and query engine and adds custom logic that allows on-demand reconfiguration.
 

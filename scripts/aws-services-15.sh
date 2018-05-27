@@ -7,7 +7,7 @@ docker network create -d overlay proxy
 docker network create -d overlay monitor
 
 curl -o proxy.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-proxy-aws.yml
+    https://raw.githubusercontent.com/docker-flow/docker-flow-monitor/master/stacks/docker-flow-proxy-aws.yml
 
 echo "admin:admin" | docker secret \
     create dfp_users_admin -
@@ -16,13 +16,13 @@ docker stack deploy -c proxy.yml \
     proxy
 
 curl -o exporters.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/exporters-alert.yml
+    https://raw.githubusercontent.com/docker-flow/docker-flow-monitor/master/stacks/exporters-alert.yml
 
 docker stack deploy -c exporters.yml \
     exporter
 
 curl -o monitor.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/docker-flow-monitor-aws.yml
+    https://raw.githubusercontent.com/docker-flow/docker-flow-monitor/master/stacks/docker-flow-monitor-aws.yml
 
 echo "route:
   group_by: [service,scale]
@@ -61,7 +61,7 @@ DOMAIN=$CLUSTER_DNS docker stack deploy \
     -c monitor.yml monitor
 
 curl -o jenkins.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/jenkins-aws.yml
+    https://raw.githubusercontent.com/docker-flow/docker-flow-monitor/master/stacks/jenkins-aws.yml
 
 echo "admin" | \
     docker secret create jenkins-user -
@@ -77,7 +77,7 @@ docker stack deploy \
     -c jenkins.yml jenkins
 
 curl -o go-demo.yml \
-    https://raw.githubusercontent.com/vfarcic/docker-flow-monitor/master/stacks/go-demo-instrument-alert-error.yml
+    https://raw.githubusercontent.com/docker-flow/docker-flow-monitor/master/stacks/go-demo-instrument-alert-error.yml
 
 docker stack deploy -c go-demo.yml \
     go-demo

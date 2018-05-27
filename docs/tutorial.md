@@ -13,7 +13,7 @@ The examples that follow assume that you have Docker Machine version v0.8+ that 
 We'll create a Swarm cluster consisting of three nodes created with Docker Machine.
 
 ```bash
-git clone https://github.com/vfarcic/docker-flow-monitor.git
+git clone https://github.com/docker-flow/docker-flow-monitor.git
 
 cd docker-flow-monitor
 
@@ -22,13 +22,13 @@ cd docker-flow-monitor
 eval $(docker-machine env swarm-1)
 ```
 
-We cloned the [vfarcic/docker-flow-monitor](https://github.com/vfarcic/docker-flow-monitor) repository. It contains all the scripts and stack files we'll use throughout this tutorial. Next, we executed the `dm-swarm.sh` script that created the cluster. Finally, we used the `eval` command to tell our local Docker client to use the remote Docker engine `swarm-1`.
+We cloned the [docker-flow/docker-flow-monitor](https://github.com/docker-flow/docker-flow-monitor) repository. It contains all the scripts and stack files we'll use throughout this tutorial. Next, we executed the `dm-swarm.sh` script that created the cluster. Finally, we used the `eval` command to tell our local Docker client to use the remote Docker engine `swarm-1`.
 
 Now that the cluster is up-and-running, we can deploy the *Docker Flow Monitor* stack.
 
 ## Deploying Docker Flow Monitor
 
-We'll deploy [stacks/docker-flow-monitor-tutorial.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-tutorial.yml) stack that contains an example combination of parameters. The stack is as follows.
+We'll deploy [stacks/docker-flow-monitor-tutorial.yml](https://github.com/docker-flow/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-tutorial.yml) stack that contains an example combination of parameters. The stack is as follows.
 
 The stack contains three services; `monitor`, `alert-manager`, and `swarm-listener`. We'll go through each separately.
 
@@ -36,7 +36,7 @@ The definition of the `monitor` service is as follows.
 
 ```
   monitor:
-    image: vfarcic/docker-flow-monitor
+    image: dockerflow/docker-flow-monitor
     environment:
       - LISTENER_ADDRESS=swarm-listener
       - GLOBAL_SCRAPE_INTERVAL=10s
@@ -115,7 +115,7 @@ Prometheus is a pull system. It scrapes exporters and stores metrics in its inte
 
 Let us deploy a few exporters.
 
-We'll deploy exporter stack defined in the [stacks/exporters-tutorial.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/exporters-tutorial.yml). It contains two services; `cadvisor` and `node-exporter`.
+We'll deploy exporter stack defined in the [stacks/exporters-tutorial.yml](https://github.com/docker-flow/docker-flow-monitor/blob/master/stacks/exporters-tutorial.yml). It contains two services; `cadvisor` and `node-exporter`.
 
 The definition of the `cadvisor` service is as follows.
 
@@ -221,7 +221,7 @@ It is up to you to configure [Alert Manager](https://hub.docker.com/r/prom/alert
 
 ## What Now?
 
-That was a very brief introduction to *Docker Flow Monitor*. Please consult the documentation for any additional information you might need. Feel free to open [an issue](https://github.com/vfarcic/docker-flow-monitor/issues) if you require additional info, if you find a bug, or if you have a feature request.
+That was a very brief introduction to *Docker Flow Monitor*. Please consult the documentation for any additional information you might need. Feel free to open [an issue](https://github.com/docker-flow/docker-flow-monitor/issues) if you require additional info, if you find a bug, or if you have a feature request.
 
 Before you go, please remove the cluster we created and free those resources for something else.
 

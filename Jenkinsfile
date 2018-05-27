@@ -15,8 +15,8 @@ pipeline {
           def dateFormat = new SimpleDateFormat("yy.MM.dd")
           currentBuild.displayName = dateFormat.format(new Date()) + "-" + env.BUILD_NUMBER
         }
-        sh "docker image build -t vfarcic/docker-flow-monitor ."
-        sh "docker image build -t vfarcic/docker-flow-monitor-docs -f Dockerfile.docs ."
+        sh "docker image build -t dockerflow/docker-flow-monitor ."
+        sh "docker image build -t dockerflow/docker-flow-monitor-docs -f Dockerfile.docs ."
       }
     }
     stage("release") {
@@ -25,14 +25,14 @@ pipeline {
       }
       steps {
         dockerLogin()
-        sh "docker tag vfarcic/docker-flow-monitor vfarcic/docker-flow-monitor:2-${currentBuild.displayName}"
-        sh "docker image push vfarcic/docker-flow-monitor:latest"
-        sh "docker image push vfarcic/docker-flow-monitor:2-${currentBuild.displayName}"
-        sh "docker tag vfarcic/docker-flow-monitor-docs vfarcic/docker-flow-monitor-docs:2-${currentBuild.displayName}"
-        sh "docker image push vfarcic/docker-flow-monitor-docs:latest"
-        sh "docker image push vfarcic/docker-flow-monitor-docs:2-${currentBuild.displayName}"
+        sh "docker tag dockerflow/docker-flow-monitor dockerflow/docker-flow-monitor:2-${currentBuild.displayName}"
+        sh "docker image push dockerflow/docker-flow-monitor:latest"
+        sh "docker image push dockerflow/docker-flow-monitor:2-${currentBuild.displayName}"
+        sh "docker tag dockerflow/docker-flow-monitor-docs dockerflow/docker-flow-monitor-docs:2-${currentBuild.displayName}"
+        sh "docker image push dockerflow/docker-flow-monitor-docs:latest"
+        sh "docker image push dockerflow/docker-flow-monitor-docs:2-${currentBuild.displayName}"
         dockerLogout()
-        dfReleaseGithub("docker-flow-monitor")
+        dfReleaseGithub2("docker-flow-monitor")
       }
     }
     stage("deploy") {
@@ -43,8 +43,8 @@ pipeline {
         label "prod"
       }
       steps {
-        sh "docker service update --image vfarcic/docker-flow-monitor:2-${currentBuild.displayName} monitor_monitor"
-        sh "docker service update --image vfarcic/docker-flow-monitor-docs:2-${currentBuild.displayName} monitor_docs"
+        sh "docker service update --image dockerflow/docker-flow-monitor:2-${currentBuild.displayName} monitor_monitor"
+        sh "docker service update --image dockerflow/docker-flow-monitor-docs:2-${currentBuild.displayName} monitor_docs"
       }
     }
   }

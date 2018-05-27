@@ -65,7 +65,7 @@ Please visit [Alerting Overview](https://prometheus.io/docs/alerting/overview/) 
 
 
 !!! note
-    I hope that the number of shortcuts will grow with time thanks to community contributions. Please create [an issue](https://github.com/vfarcic/docker-flow-monitor/issues) with the `alertIf` statement and the suggested shortcut and I'll add it to the code as soon as possible.
+    I hope that the number of shortcuts will grow with time thanks to community contributions. Please create [an issue](https://github.com/docker-flow/docker-flow-monitor/issues) with the `alertIf` statement and the suggested shortcut and I'll add it to the code as soon as possible.
 
 ### AlertIf Secrets Configuration
 

@@ -11,7 +11,7 @@ pages:
   - About:
     - Release Notes: release-notes.md
     - License: license.md
-repo_url: https://github.com/vfarcic/docker-flow-monitor
+repo_url: https://github.com/docker-flow/docker-flow-monitor
 site_author: Viktor Farcic
 copyright: Copyright © 2017 Viktor Farcic
 strict: true

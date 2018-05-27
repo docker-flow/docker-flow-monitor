@@ -1,5 +1,5 @@
 ```bash
-git clone https://github.com/vfarcic/docker-flow-monitor.git
+git clone https://github.com/docker-flow/docker-flow-monitor.git
 
 cd docker-flow-monitor
 

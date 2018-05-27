@@ -3,7 +3,7 @@ version: "3.1"
 services:
 
   monitor:
-    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    image: dockerflow/docker-flow-monitor:${TAG:-latest}
     networks:
       - proxy
       - monitor
@@ -62,7 +62,7 @@ services:
           memory: 20M
 
   docs:
-    image: vfarcic/docker-flow-monitor-docs:${TAG:-latest}
+    image: dockerflow/docker-flow-monitor-docs:${TAG:-latest}
     networks:
       - proxy
     deploy:

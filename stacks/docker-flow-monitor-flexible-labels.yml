@@ -3,7 +3,7 @@ version: "3"
 services:
 
   monitor:
-    image: vfarcic/docker-flow-monitor:${TAG:-latest}
+    image: dockerflow/docker-flow-monitor:${TAG:-latest}
     environment:
       - LISTENER_ADDRESS=swarm-listener
       - GLOBAL_SCRAPE_INTERVAL=10s

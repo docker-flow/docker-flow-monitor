@@ -29,7 +29,7 @@ The examples that follow assume that you have Docker Machine version v0.8+ that 
 We'll create a Swarm cluster consisting of three nodes created with Docker Machine.
 
 ```bash
-git clone https://github.com/vfarcic/docker-flow-monitor.git
+git clone https://github.com/docker-flow/docker-flow-monitor.git
 
 cd docker-flow-monitor
 
@@ -38,7 +38,7 @@ cd docker-flow-monitor
 eval $(docker-machine env swarm-1)
 ```
 
-We cloned the [vfarcic/docker-flow-monitor](https://github.com/vfarcic/docker-flow-monitor) repository. It contains all the scripts and stack files we'll use throughout this tutorial. Next, we executed the `dm-swarm.sh` script that created the cluster. Finally, we used the `eval` command to tell our local Docker client to use the remote Docker engine `swarm-1`.
+We cloned the [docker-flow/docker-flow-monitor](https://github.com/docker-flow/docker-flow-monitor) repository. It contains all the scripts and stack files we'll use throughout this tutorial. Next, we executed the `dm-swarm.sh` script that created the cluster. Finally, we used the `eval` command to tell our local Docker client to use the remote Docker engine `swarm-1`.
 
 ## Deploying Docker Flow Proxy (DFP) and Docker Flow Swarm Listener (DFSL)
 
@@ -52,7 +52,7 @@ docker stack deploy \
     proxy
 ```
 
-The stack deployed two services; `proxy` and `swarm-listener`. From now on, the proxy will be notified whenever a service is deployed or updated as long as it has the `com.df.notify` label set to `true`. Please consult [docker-flow-proxy-mem.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-proxy-mem.yml) for the full definition of the stack. For information about those two projects, please visit [proxy.dockerflow.com](http://proxy.dockerflow.com) and [swarmlistener.dockerflow.com](http://swarmlistener.dockerflow.com/).
+The stack deployed two services; `proxy` and `swarm-listener`. From now on, the proxy will be notified whenever a service is deployed or updated as long as it has the `com.df.notify` label set to `true`. Please consult [docker-flow-proxy-mem.yml](https://github.com/docker-flow/docker-flow-monitor/blob/master/stacks/docker-flow-proxy-mem.yml) for the full definition of the stack. For information about those two projects, please visit [proxy.dockerflow.com](http://proxy.dockerflow.com) and [swarmlistener.dockerflow.com](http://swarmlistener.dockerflow.com/).
 
 ## Deploying Docker Flow Monitor and Alertmanager
 
@@ -118,12 +118,12 @@ DOMAIN=$(docker-machine ip swarm-1) \
     monitor
 ```
 
-The full definition of the stack that we just deployed can be found in [docker-flow-monitor-slack.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-slack.yml). We'll comment only on a few interesting parts. The definition, limited to relevant parts, is as follows.
+The full definition of the stack that we just deployed can be found in [docker-flow-monitor-slack.yml](https://github.com/docker-flow/docker-flow-monitor/blob/master/stacks/docker-flow-monitor-slack.yml). We'll comment only on a few interesting parts. The definition, limited to relevant parts, is as follows.
 
 ```
 ...
   monitor:
-    image: vfarcic/docker-flow-monitor
+    image: dockerflow/docker-flow-monitor
     environment:
       - LISTENER_ADDRESS=swarm-listener
       - GLOBAL_SCRAPE_INTERVAL=${SCRAPE_INTERVAL:-10s}
@@ -278,7 +278,7 @@ docker stack deploy \
     go-demo
 ```
 
-Please visit [go-demo-instrument-alert-short.yml](https://github.com/vfarcic/docker-flow-monitor/blob/master/stacks/go-demo-instrument-alert-short.yml) for the full stack definition. We'll comment only on service labels since the rest should be pretty straightforward.
+Please visit [go-demo-instrument-alert-short.yml](https://github.com/docker-flow/docker-flow-monitor/blob/master/stacks/go-demo-instrument-alert-short.yml) for the full stack definition. We'll comment only on service labels since the rest should be pretty straightforward.
 
 
 ```

@@ -24,7 +24,7 @@ pipeline {
         branch "master"
       }
       steps {
-        dockerLogin()
+        dfLogin()
         sh "docker tag dockerflow/docker-flow-monitor dockerflow/docker-flow-monitor:2-${currentBuild.displayName}"
         sh "docker image push dockerflow/docker-flow-monitor:latest"
         sh "docker image push dockerflow/docker-flow-monitor:2-${currentBuild.displayName}"

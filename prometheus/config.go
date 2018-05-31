@@ -28,6 +28,11 @@ func WriteConfig(configPath string, scrapes map[string]Scrape,
 	FS.MkdirAll(fileSDDir, 0755)
 	c.InsertScrapes(scrapes)
 
+	configsDir := os.Getenv("CONFIGS_DIR")
+	if len(configDir) != 0 {
+		c.InsertScrapesFromDir(configsDir)
+	}
+
 	if len(alerts) > 0 {
 		logPrintf("Writing to alert.rules")
 		afero.WriteFile(FS, alertRulesPath, []byte(GetAlertConfig(alerts)), 0644)

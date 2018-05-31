@@ -551,20 +551,29 @@ func (s *ConfigTestSuite) Test_Writeconfig_WritesConfig() {
 		FS = fsOrig
 		os.Unsetenv("REMOTE_WRITE_URL")
 		os.Unsetenv("REMOTE_READ_URL")
+		os.Unsetenv("CONFIGS_DIR")
 	}()
 	os.Setenv("REMOTE_WRITE_URL", "http://acme.com/write")
 	os.Setenv("REMOTE_READ_URL", "http://acme.com/read")
+	os.Setenv("CONFIGS_DIR", "/tmp")
 	FS = afero.NewMemMapFs()
 	scrapes := map[string]Scrape{
 		"service-1": {ServiceName: "service-1", ScrapePort: 1234},
 		"service-2": {ServiceName: "service-2", ScrapePort: 5678},
 	}
 	alerts := map[string]Alert{}
+	job := `- job_name: "my-service"
+  dns_sd_configs:
+    - names: ["tasks.my-service"]
+      type: A
+      port: 5678`
+	afero.WriteFile(FS, "/tmp/scrape_job", []byte(job), 0644)
 
 	c := Config{}
 	c.InsertEnv("REMOTE_WRITE_URL", "http://acme.com/write")
 	c.InsertEnv("REMOTE_READ_URL", "http://acme.com/read")
 	c.InsertScrapes(scrapes)
+	c.InsertScrapesFromDir("/tmp")
 
 	nodeLabels := map[string]map[string]string{}
 	WriteConfig("/etc/prometheus/prometheus.yml", scrapes, alerts, nodeLabels)
@@ -578,8 +587,10 @@ func (s *ConfigTestSuite) Test_Writeconfig_WritesConfig() {
 	s.Equal(c.RemoteWriteConfigs[0].URL, actualConfig.RemoteWriteConfigs[0].URL)
 
 	// Order of scrapes can be different
+	s.Require().Len(actualConfig.ScrapeConfigs, 3)
 	s.Contains(actualConfig.ScrapeConfigs, c.ScrapeConfigs[0])
 	s.Contains(actualConfig.ScrapeConfigs, c.ScrapeConfigs[1])
+	s.Contains(actualConfig.ScrapeConfigs, c.ScrapeConfigs[2])
 }
 
 func (s *ConfigTestSuite) Test_Writeconfig_WithNodeInfoAndNodes_WritesConfig() {

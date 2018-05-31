@@ -172,7 +172,17 @@ docker stack ps monitor
 
 Please wait a few moments if some of the replicas do not yet have the status set to `running`.
 
-Now that the `monitor` stack is up and running, we should proceed with deployment of Jenkins and its agent.
+## Deploying Exporters
+
+Prometheus is a pull based system. It scrapes exporters and stores metrics in its internal database. We'll deploy exporter stack defined in the [stacks/exporters-tutorial.yml](https://github.com/docker-flow/docker-flow-monitor/blob/master/stacks/exporters-tutorial.yml). It contains two services: `cadvisor` and `node-exporter`. Please consult the [Collecting Metrics And Defining Alerts tutorial](https://monitor.dockerflow.com/tutorial/#collecting-metrics-and-defining-alerts) for details on these exporters.
+
+```bash
+docker stack deploy \
+    -c stacks/exporters-tutorial.yml \
+    exporter
+```
+
+Please wait until the service in the stack are up-and-running. You can check their status by executing `docker stack ps exporter` command. Once the `exporter` stack is up and running, we should proceed with deployment of Jenkins and its agent.
 
 ## Deploying Jenkins
 

@@ -43,8 +43,7 @@ pipeline {
         label "prod"
       }
       steps {
-        sh "docker service update --image dockerflow/docker-flow-monitor:2-${currentBuild.displayName} monitor_monitor"
-        sh "docker service update --image dockerflow/docker-flow-monitor-docs:2-${currentBuild.displayName} monitor_docs"
+        sh "helm upgrade -i docker-flow-monitor helm/docker-flow-monitor --namespace df --set image.tag=2-${currentBuild.displayName}"
       }
     }
   }

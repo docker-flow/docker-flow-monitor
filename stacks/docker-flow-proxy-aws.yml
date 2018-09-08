@@ -3,7 +3,7 @@ version: "3.2"
 services:
 
   proxy:
-    image: vfarcic/docker-flow-proxy:${TAG:-latest}
+    image: dockerflow/docker-flow-proxy:${TAG:-latest}
     ports:
       - 80:80
       - 443:443
@@ -25,7 +25,7 @@ services:
           memory: 20M
 
   swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
+    image: dockerflow/docker-flow-swarm-listener
     networks:
       - proxy
     volumes:

@@ -19,7 +19,7 @@ services:
       - monitor
 
   swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
+    image: dockerflow/docker-flow-swarm-listener
     networks:
       - monitor
     volumes:

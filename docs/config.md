@@ -130,7 +130,7 @@ The simplest way to add scrape configs is to use Docker [secrets](https://docs.d
 
 ## Scrape Label Configuration With Service and Node Labels
 
-When using a version of [Docker Flow Swarm Listener](https://github.com/vfarcic/docker-flow-swarm-listener), DFSL, newer than `18.03.20-39`, you can configure DFSL to send node information to `Docker Flow Monitor`, DFM. This can be done by setting `DF_INCLUDE_NODE_IP_INFO` to `true` in the DFSL environment. DFM will automatically display the node hostnames as a label for each prometheus target. The `DF_SCRAPE_TARGET_LABELS` env variable allows for additional labels to be displayed.
+When using a version of [Docker Flow Swarm Listener](https://github.com/docker-flow/docker-flow-swarm-listener), DFSL, newer than `18.03.20-39`, you can configure DFSL to send node information to `Docker Flow Monitor`, DFM. This can be done by setting `DF_INCLUDE_NODE_IP_INFO` to `true` in the DFSL environment. DFM will automatically display the node hostnames as a label for each prometheus target. The `DF_SCRAPE_TARGET_LABELS` env variable allows for additional labels to be displayed.
 
 In addition to service labels, DFM can be configured to import node and engine labels prefixed with `com.df.` as prometheus labels for our targets. First, configure DFSL to push node events to DFM by setting the following environment variables in DFSL:
 
@@ -151,7 +151,7 @@ For example, the stack file, [stacks/docker-flow-monitor-flexible-labels.yml](ht
 services:
 ...
   swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
+    image: dockerflow/docker-flow-swarm-listener
     environment:
       - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure
       - DF_NOTIFY_REMOVE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/remove

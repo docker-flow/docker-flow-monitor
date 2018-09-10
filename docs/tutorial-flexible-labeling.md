@@ -52,7 +52,7 @@ To get the nodes information, DFSL is configured to send node events to DFM by s
       - DF_GET_NODES_URL=http://swarm-listener:8080/v1/docker-flow-swarm-listener/get-nodes
   ...
   swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
+    image: dockerflow/docker-flow-swarm-listener
     environment:
       ...
       - DF_NOTIFY_CREATE_NODE_URL=http://monitor:8080/v1/docker-flow-monitor/node/reconfigure

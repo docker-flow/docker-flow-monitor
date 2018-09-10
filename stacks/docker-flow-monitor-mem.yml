@@ -26,7 +26,7 @@ services:
           memory: 800M
 
   swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
+    image: dockerflow/docker-flow-swarm-listener
     networks:
       - monitor
     volumes:

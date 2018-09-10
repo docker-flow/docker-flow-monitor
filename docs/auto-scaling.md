@@ -148,7 +148,7 @@ The full definition of the stack that we just deployed can be found in [docker-f
     command: --config.file=/run/secrets/alert_manager_config --storage.path=/alertmanager
 
   swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
+    image: dockerflow/docker-flow-swarm-listener
     ...
     environment:
       - DF_NOTIFY_CREATE_SERVICE_URL=http://monitor:8080/v1/docker-flow-monitor/reconfigure

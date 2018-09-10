@@ -67,7 +67,7 @@ Finally, the last service in the stack is `swarm-listener`. The definition is as
 
 ```
   swarm-listener:
-    image: vfarcic/docker-flow-swarm-listener
+    image: dockerflow/docker-flow-swarm-listener
     networks:
       - monitor
     volumes:

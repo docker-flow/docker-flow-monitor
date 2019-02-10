@@ -297,6 +297,9 @@ func (s *serve) getScrapeFromMap(data map[string]string) (prometheus.Scrape, err
 	scrape.ScrapeInterval = data["scrapeInterval"]
 	scrape.ServiceName = data["serviceName"]
 	scrape.ScrapeType = data["scrapeType"]
+	if path, ok := data["metricsPath"]; ok && len(path) > 0 {
+		scrape.MetricsPath = path
+	}
 
 	if nodeInfoStr, ok := data["nodeInfo"]; ok && len(nodeInfoStr) > 0 {
 		nodeInfo := prometheus.NodeIPSet{}

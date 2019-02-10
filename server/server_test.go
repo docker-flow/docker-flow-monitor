@@ -1563,12 +1563,14 @@ func (s *ServerTestSuite) Test_InitialConfig_AddsScrapes() {
 	expected := map[string]prometheus.Scrape{
 		"service-1": {ServiceName: "service-1", ScrapePort: 1111},
 		"service-2": {ServiceName: "service-2", ScrapePort: 2222},
+		"service-3": {ServiceName: "service-3", ScrapePort: 3333, MetricsPath: "/service-3/metrics"},
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		resp := []map[string]string{}
 		resp = append(resp, map[string]string{"scrapePort": "1111", "serviceName": "service-1"})
 		resp = append(resp, map[string]string{"scrapePort": "2222", "serviceName": "service-2"})
+		resp = append(resp, map[string]string{"scrapePort": "3333", "serviceName": "service-3", "metricsPath": "/service-3/metrics"})
 		js, _ := json.Marshal(resp)
 		w.Write(js)
 	}))

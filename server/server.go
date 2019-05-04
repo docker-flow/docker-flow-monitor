@@ -197,51 +197,55 @@ func (s *serve) RemoveNodeHandler(w http.ResponseWriter, req *http.Request) {
 
 func (s *serve) InitialConfig() error {
 	if len(os.Getenv("LISTENER_ADDRESS")) > 0 {
-		logPrintf("Requesting services from Docker Flow Swarm Listener")
-		addr := os.Getenv("LISTENER_ADDRESS")
-		if !strings.HasPrefix(addr, "http") {
-			addr = fmt.Sprintf("http://%s:8080", addr)
-		}
-
-		addr = fmt.Sprintf("%s/v1/docker-flow-swarm-listener/get-services", addr)
-		timeout := time.Duration(listenerTimeout)
-		client := http.Client{Timeout: timeout}
-		resp, err := client.Get(addr)
-		if err != nil {
-			return err
-		}
-		body, _ := ioutil.ReadAll(resp.Body)
-		logPrintf("Processing: %s", string(body))
-		data := []map[string]string{}
-		json.Unmarshal(body, &data)
-		for _, row := range data {
-			if scrape, err := s.getScrapeFromMap(row); err == nil {
-				s.scrapes[scrape.ServiceName] = scrape
+		addrs := strings.Split(os.Getenv("LISTENER_ADDRESS"), ",")
+		for _, addr := range addrs {
+			addr = strings.TrimSpace(addr)
+			
+			if !strings.HasPrefix(addr, "http") {
+				addr = fmt.Sprintf("http://%s:8080", addr)
 			}
-			if alert, err := s.getAlertFromMap(row, ""); err == nil {
-				s.alerts[alert.AlertNameFormatted] = alert
-			}
-			for i := 1; i <= 10; i++ {
-				suffix := fmt.Sprintf(".%d", i)
-				if alert, err := s.getAlertFromMap(row, suffix); err == nil {
-					s.alerts[alert.AlertNameFormatted] = alert
-				} else {
-					break
-				}
-			}
-		}
-
-		scrapeVariablesFromEnv := s.getScrapeVariablesFromEnv()
-		if len(scrapeVariablesFromEnv) > 0 {
-			scrape, err := s.parseScrapeFromEnvMap(scrapeVariablesFromEnv)
+			
+			logPrintf("Requesting services from %s", addr)
+			
+			addr = fmt.Sprintf("%s/v1/docker-flow-swarm-listener/get-services", addr)
+			timeout := time.Duration(listenerTimeout)
+			client := http.Client{Timeout: timeout}
+			resp, err := client.Get(addr)
 			if err != nil {
 				return err
 			}
-			for _, row := range scrape {
-				s.scrapes[row.ServiceName] = row
+			body, _ := ioutil.ReadAll(resp.Body)
+			logPrintf("Processing: %s", string(body))
+			data := []map[string]string{}
+			json.Unmarshal(body, &data)
+			for _, row := range data {
+				if scrape, err := s.getScrapeFromMap(row); err == nil {
+					s.scrapes[scrape.ServiceName] = scrape
+				}
+				if alert, err := s.getAlertFromMap(row, ""); err == nil {
+					s.alerts[alert.AlertNameFormatted] = alert
+				}
+				for i := 1; i <= 10; i++ {
+					suffix := fmt.Sprintf(".%d", i)
+					if alert, err := s.getAlertFromMap(row, suffix); err == nil {
+						s.alerts[alert.AlertNameFormatted] = alert
+					} else {
+						break
+					}
+				}
+			}
+
+			scrapeVariablesFromEnv := s.getScrapeVariablesFromEnv()
+			if len(scrapeVariablesFromEnv) > 0 {
+				scrape, err := s.parseScrapeFromEnvMap(scrapeVariablesFromEnv)
+				if err != nil {
+					return err
+				}
+				for _, row := range scrape {
+					s.scrapes[row.ServiceName] = row
+				}
 			}
 		}
-
 	}
 
 	// Get Nodes

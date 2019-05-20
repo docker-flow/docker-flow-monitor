@@ -1,0 +1,28 @@
+---
+# Source: docker-flow-monitor/templates/ing.yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: moonitor-docker-flow-monitor
+  labels:
+    app: docker-flow-monitor
+    chart: docker-flow-monitor-0.0.1
+    release: moonitor
+    heritage: Tiller
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    certmanager.k8s.io/issuer: "letsencrypt-prod"
+    certmanager.k8s.io/acme-challenge-type: http01
+spec:
+  rules:
+  - host: monitor.dockerflow.com
+    http:
+      paths:
+        - path: /
+          backend:
+            serviceName: moonitor-docker-flow-monitor
+            servicePort: 80
+  tls:
+  - hosts:
+    - monitor.dockerflow.com
+    secretName: le-moonitor-docker-flow-monitor

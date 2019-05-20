@@ -1,0 +1,42 @@
+---
+# Source: docker-flow-monitor/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moonitor-docker-flow-monitor
+  labels:
+    app: docker-flow-monitor
+    chart: docker-flow-monitor-0.0.1
+    release: moonitor
+    heritage: Tiller
+spec:
+  selector:
+    matchLabels:
+      app: docker-flow-monitor
+      release: moonitor
+  template:
+    metadata:
+      labels:
+        app: docker-flow-monitor
+        release: moonitor
+    spec:
+      containers:
+      - name: ui
+        image: dockerflow/docker-flow-monitor-docs:latest
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          periodSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+        resources:
+          limits:
+            cpu: 15m
+            memory: 15Mi
+          requests:
+            cpu: 5m
+            memory: 5Mi
+          

@@ -1,0 +1,18 @@
+---
+# Source: docker-flow-monitor/templates/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: moonitor-docker-flow-monitor
+  labels:
+    app: docker-flow-monitor
+    chart: docker-flow-monitor-0.0.1
+    release: moonitor
+    heritage: Tiller
+spec:
+  ports:
+  - port: 80
+  type: NodePort
+  selector:
+    app: docker-flow-monitor
+    release: moonitor

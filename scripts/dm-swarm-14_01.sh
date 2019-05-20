@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-./scripts/dm-swarm.sh
+./scripts/dm-swarm-14_00.sh
 if [[ $? -ne 0 ]]; then
     exit 1
 fi

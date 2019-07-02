@@ -1,4 +1,4 @@
-FROM golang:1.9.2 AS build
+FROM golang:1.12.6 AS build
 ADD . /src
 WORKDIR /src
 RUN go get -t github.com/stretchr/testify/suite
@@ -8,7 +8,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -o docker-flow-monitor
 
 
 
-FROM prom/prometheus:v2.3.2
+FROM prom/prometheus:v2.10.0
 
 ENV GLOBAL_SCRAPE_INTERVAL=10s \
     ARG_CONFIG_FILE=/etc/prometheus/prometheus.yml \

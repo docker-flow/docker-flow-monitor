@@ -1,0 +1,57 @@
+version: "3"
+
+services:
+
+  proxy:
+    image: dockerflow/docker-flow-proxy:${TAG:-latest}
+    ports:
+      - 80:80
+      - 443:443
+    networks:
+      - proxy
+      - default
+      - monitor
+    extra_hosts:
+    - "github.com:54.72.52.58"
+    environment:
+      #- ADDITIONAL_SERVICES=jenkins_master
+      - DOCKER_HOST=${MANAGER_IP}
+      #- LISTENER_ADDRESS=swarm-listener
+      #- MODE=swarm
+      #- CONNECTION_MODE=${CONNECTION_MODE:-http-server-close}
+      - STATS_USER=admin
+      - STATS_PASS=admin
+    deploy:
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          memory: 10M
+        limits:
+          memory: 20M
+
+  swarm-listener:
+    image: dockerflow/docker-flow-swarm-listener
+    networks:
+      - proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DF_NOTIFY_CREATE_SERVICE_URL=http://proxy:8080/v1/docker-flow-proxy/reconfigure
+      - DF_NOTIFY_REMOVE_SERVICE_URL=http://proxy:8080/v1/docker-flow-proxy/remove
+    deploy:
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        reservations:
+          memory: 5M
+        limits:
+          memory: 10M
+
+networks:
+  proxy:
+    external: true
+  monitor:
+    external: true

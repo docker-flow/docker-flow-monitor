@@ -1,0 +1,53 @@
+version: "3.7"
+
+services:
+
+  mongo:
+    # image: 'mongo:3.4.1'
+    container_name: mongo
+    restart: always
+    build:
+      context: .
+      dockerfile: ./config/dockerfile/mongo
+    volumes:
+      - ./data/db:/data/db
+    ports:
+      - '27017:27017'
+    networks:
+      - backend
+
+  app:
+    container_name: cloud-phoenix-kata
+    restart: always
+    depends_on:
+      - 'mongo'
+    build: 
+      context: .
+      dockerfile: ./config/dockerfile/node
+    ports:
+      - '3000:3000'
+    networks:
+      - backend
+      - frontend
+    # TODO: configure SWARM
+  
+  # fluent:
+  #   container_name: fluent
+  #   restart: always
+  #   depends_on:
+  #     - mongo
+  #   build:
+  #     dockerfile: ./config/dockerfile/fluent
+  #   volumes:
+  #     - ./vol_fluent:/vol_fluent
+  #   ports:
+  #     - '24284:24284'
+  #   networks:
+  #     - backend
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  db-data:

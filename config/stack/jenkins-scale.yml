@@ -1,0 +1,70 @@
+version: '3.1'
+
+services:
+
+  master:
+    image: vfarcic/jenkins:scale
+    ports:
+      - 50000:50000
+    environment:
+      - JENKINS_OPTS="--prefix=/jenkins"
+      - VIRTUAL_HOST=jenkinsMaster.local
+    # networks:
+    #   - proxy
+    #   - default
+    #   - monitor
+    deploy:
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.servicePath=/jenkins
+        - com.df.port=8080
+      resources:
+        reservations:
+          memory: 600M
+        limits:
+          memory: 800M
+    secrets:
+      - jenkins-user
+      - jenkins-pass
+
+  agent:
+    image: vfarcic/jenkins-swarm-agent
+    environment:
+      - USER_NAME_SECRET=/run/secrets/${JENKINS_USER_SECRET:-jenkins-user}
+      - PASSWORD_SECRET=/run/secrets/${JENKINS_PASS_SECRET:-jenkins-pass}
+      - COMMAND_OPTIONS=-master http://master:8080/jenkins -labels 'prod' -executors 2
+      - VIRTUAL_HOST=jenkins.local
+    # networks:
+    #   - proxy
+    #   - default
+    #   - monitor
+    ports:
+      - 8081:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # - ../resolv.conf:/etc/resolv.conf
+    secrets:
+      - jenkins-user
+      - jenkins-pass
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        reservations:
+          memory: 150M
+        limits:
+          memory: 300M
+
+
+networks:
+  proxy:
+    external: true
+  monitor:
+    external: true
+
+secrets:
+  jenkins-user:
+    external: true
+  jenkins-pass:
+    external: true

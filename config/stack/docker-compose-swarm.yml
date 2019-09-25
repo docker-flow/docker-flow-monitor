@@ -1,0 +1,78 @@
+version: "3.7"
+
+services:
+
+  mongo_app:
+    image: 'mongo:3.4.1'
+    volumes:
+      - data_mongo:/data/db
+    ports:
+      - '27017:${MONGO_EXT_PORT}'
+    # networks:
+    #   - proxy
+    #   - monitor
+    #   - default
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 100M
+
+  app:
+    image: alessandroaffinito/node-server:prd
+    depends_on:
+      - 'mongo_app'
+    ports:
+      - '3000:3000'
+    # volumes:
+    #   # Sharing the docker daemon to have docker control also from inside the image
+    #   - /var/run/docker.sock:/var/run/docker.sock
+    # networks:
+    #   - default
+    #   - proxy
+    #   - monitor
+    environment: 
+      - VIRTUAL_HOST=app.local
+    labels:
+      - com.df.notify=true
+      - com.df.distribute=true
+      - com.df.servicePath=/app
+      - com.df.port=8080
+
+      - com.df.alertName.1=mem_limit
+      - com.df.alertIf.1=@service_mem_limit:0.8
+      - com.df.alertFor.1=5m
+
+      - com.df.alertName.2=resptime
+      - com.df.alertIf.2=sum(rate(http_server_resp_time_bucket{job='phoenix_app_main', le='0.1'}[5m])) / sum(rate(http_server_resp_time_count{job='phoenix_app_main'}[5m])) < 0.99
+      - com.df.alertLabels.2=scale=up,service=phoenix_app
+
+      - com.df.scrapePort=8080
+      - com.df.scaleMin=1
+      - com.df.scaleMax=3
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 200M
+
+
+networks:
+  proxy:
+#    external: true
+  monitor:
+#    external: true
+  default:
+#    attachable: true
+
+volumes:
+  data:
+  data_mongo:

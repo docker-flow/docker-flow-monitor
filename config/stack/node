@@ -1,0 +1,20 @@
+FROM node:8.11.1
+
+# RUN mkdir -p /usr/app
+WORKDIR /usr/app
+COPY ../../package.json .
+
+ARG PORT=3000
+ENV NODE_ENV=production
+ENV PORT $PORT
+ENV DB_CONNECTION_STRING mongodb://mongo:27017/phoenix
+
+# Avoid old npm security vulnerabilities, build and clean install
+RUN npm i npm@6.11.2 -g && \
+    npm install --only=production && \
+    npm cache clean --force && \
+    npm audit fix
+
+COPY ../../. .
+CMD npm start
+EXPOSE $PORT

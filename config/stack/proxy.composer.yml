@@ -1,0 +1,59 @@
+version: "3"
+
+services:
+
+  proxy:
+    image: jwilder/nginx-proxy
+    ports:
+      - 80:80
+    # networks:
+    #   - proxy
+    #   - default
+    #   - monitor
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    #  - ./config/nginx-network-internal.conf:/etc/nginx/network_internal.conf
+    # environment:
+    #   - DOCKER_HOST=${MANAGER_IP}
+    deploy:
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          memory: 10M
+        limits:
+          memory: 20M
+
+#  On containers that should be restricted to the internal network, you should set the environment variable NETWORK_ACCESS=internal
+
+
+  swarm-listener:
+    image: dockerflow/docker-flow-swarm-listener
+    # networks:
+    #   - proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DF_NOTIFY_CREATE_SERVICE_URL=http://proxy:8080/v1/docker-flow-proxy/reconfigure
+      - DF_NOTIFY_REMOVE_SERVICE_URL=http://proxy:8080/v1/docker-flow-proxy/remove
+    deploy:
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        reservations:
+          memory: 5M
+        limits:
+          memory: 10M
+
+  whoami:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=whoami.local
+
+networks:
+  proxy:
+    external: true
+  monitor:
+    external: true

@@ -1,0 +1,110 @@
+# To redeploy a stack in the docker-machine from a local file
+rm -fr swarm-1      && \
+    mkdir -p swarm-1  && \
+    docker-machine mount swarm-1:/home/docker ./swarm-1  && \
+    cp -r config/ ./swarm-1/
+
+docker-machine ssh swarm-1 
+docker stack deploy -c config/stack/docker-monitoring-complete.yml monitor
+###
+
+# To install packages in docker-machines
+http://distro.ibiblio.org/tinycorelinux/tcz_2x.html
+tce-load PACKAGENAME
+####
+
+#
+https://success.docker.com/article/troubleshooting-container-networking
+####
+
+# Node Exporter - config/stack/docker-flow-monitor-slack.yml
+Once the Node Exporter is installed and running, you can verify that metrics
+are being exported by cURLing the /metrics endpoint:
+curl http://localhost:9100/metrics
+####
+
+# Auto Scaling
+https://prometheus.io/docs/prometheus/latest/querying/examples/
+
+http_requests_total{job=~".*phoenix_app"}
+rate(http_requests_total{job=~".*phoenix_app"}[5m])
+avg(http_requests_total[5m]) by (application)
+####
+
+# cAdvisor
+http://192.168.99.104:8080/containers/
+
+
+#### JENKINS
+1.  cloud-phoenix-kata$ cp -r config/ ./swarm-1/ &&  docker-machine ssh swarm-1
+
+2.  docker@swarm-1:~$ docker stack deploy -c config/stack/jenkins-scale.yml jenkins
+
+3.  docker@swarm-1:~$ docker service ps --no-trunc jenkins_agent -f desired-state=running
+    docker@swarm-1:~$ docker service ps --no-trunc jenkins_master -f desired-state=running
+
+docker@swarm-1:~$ docker exec -it jenkins_agent.1.tdzotcz7q3yx2agbwpn4d2w7t ping github.com
+docker@swarm-1:~$ docker exec -it jenkins_agent.1.ba5s1utit69omctrx2uwt33c2 ipaddr | grep inet
+
+# let the containers update their dns 
+# JENKINS_AGENT_ID=`docker service ps jenkins_agent -f desired-state=running --no-trunc | awk 'END{ printf $1"\n"}'`
+# docker exec -t jenkins_agent.1.${JENKINS_AGENT_ID} cat /etc/resolv.conf
+# echo -e "\nnameserver 8.8.8.8\nnameserver 8.8.4.4" >> /etc/resolv.conf
+# done through volumes.
+
+
+##### LOGS
+docker logs -f proxy_proxy.1.g4qp6dqnx3ppa0o28tciucqmr | grep jenkins
+
+docker service ps --filter desired-state=Running jenkins_agent
+
+
+
+
+
+
+
+
+
+
+
+###############################################################################
+### NETWORK EXAMPLE 
+docker@swarm-1:~$ docker exec -it jenkins_agent.1.ba5s1utit69omctrx2uwt33c2 ipaddr | grep inet
+    inet 127.0.0.1/8 scope host lo
+    inet 10.0.0.62/24 brd 10.0.0.255 scope global eth2
+    inet 10.0.1.75/24 brd 10.0.1.255 scope global eth1
+    inet 10.0.2.11/24 brd 10.0.2.255 scope global eth0
+    inet 172.18.0.8/16 brd 172.18.255.255 scope global eth3
+
+docker@swarm-1:~$ docker exec -it proxy_proxy.1.bbod8gq6tlabyqdprpkaorqgy ipaddr | grep inet
+    inet 127.0.0.1/8 scope host lo
+    inet 10.255.0.20/16 brd 10.255.255.255 scope global eth0
+    inet 172.18.0.7/16 brd 172.18.255.255 scope global eth4
+    inet 10.0.1.41/24 brd 10.0.1.255 scope global eth1
+    inet 10.0.0.29/24 brd 10.0.0.255 scope global eth2
+    inet 10.0.6.3/24 brd 10.0.6.255 scope global eth3
+
+---- NODE APP
+root@9d21f34ab70a:/usr/app# ifconfig -a | grep inet
+    inet 10.255.0.11  netmask 255.255.0.0  broadcast 10.255.255.255
+    inet 10.0.1.21  netmask 255.255.255.0  broadcast 10.0.1.255
+    inet 10.0.4.6  netmask 255.255.255.0  broadcast 10.0.4.255
+    inet 10.0.3.6  netmask 255.255.255.0  broadcast 10.0.3.255
+    inet 10.0.0.17  netmask 255.255.255.0  broadcast 10.0.0.255
+    inet 172.18.0.9  netmask 255.255.0.0  broadcast 172.18.255.255
+    inet 127.0.0.1  netmask 255.0.0.0
+
+root@9d21f34ab70a:/usr/app# cat /etc/hosts    
+127.0.0.1	localhost
+10.0.0.17	9d21f34ab70a
+10.0.1.21	9d21f34ab70a
+10.0.4.6	9d21f34ab70a
+10.0.3.6	9d21f34ab70a
+
+root@9d21f34ab70a:/usr/app# cat /etc/resolv.conf 
+search fritz.box
+nameserver 127.0.0.11
+options ndots:0
+
+-----

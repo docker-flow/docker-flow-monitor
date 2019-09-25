@@ -1,0 +1,10 @@
+version: '2.1'
+
+services:
+  cloud-phoenix-kata:
+    image: cloud-phoenix-kata
+    build: .
+    environment:
+      NODE_ENV: production
+    ports:
+      - 3000:3000

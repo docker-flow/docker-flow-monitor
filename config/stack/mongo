@@ -1,0 +1,7 @@
+FROM mongo:3.4.1
+
+WORKDIR /data/db
+COPY data/db .
+
+EXPOSE 27017
+

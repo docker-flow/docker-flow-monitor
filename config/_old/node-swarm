@@ -1,0 +1,48 @@
+# FROM node:8.11.1
+FROM ubuntu:19.04
+
+WORKDIR /usr/app
+COPY package.json .
+COPY package-lock.json .
+
+ARG PORT=3000
+ARG DB_CONNECTION_STRING=mongodb://phoenix_mongo_app:27017/phoenix
+
+ENV NODE_ENV=production
+ENV PORT=$PORT
+ENV DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
+
+RUN \
+    apt update  && \
+    apt upgrade -y && \
+    echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections && \
+    apt install -y -qq curl && \
+    curl -sL https://deb.nodesource.com/setup_10.x | bash -  && \    
+    apt install -y -qq npm=6.11.2 apt-utils apt-transport-https ca-certificates curl gnupg-agent software-properties-common && \
+    npm i npm@latest -g && \
+    # Get docker for managing autoscaling from the application tier
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
+    apt update && \
+    apt install -y -qq docker-ce docker-ce-cli containerd.io && \
+    curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && \
+    chmod +x /usr/local/bin/docker-compose      
+#    dockerd
+
+# Avoid old npm security vulnerabilities, build and clean install
+#   npm install --only=production && \
+#   npm install --dev
+RUN npm i npm@latest -g && \
+    npm i node@8.11.1   && \
+    npm cache verify    && \
+    npm install         && \
+    npm audit fix
+
+# set up backup up cron jobs
+# RUN 
+
+COPY . .
+
+CMD npm test && npm start
+
+EXPOSE $PORT

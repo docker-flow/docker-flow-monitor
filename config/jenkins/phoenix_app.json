@@ -1,0 +1,272 @@
+[
+    {
+        "ID": "pds0kuu57cmp5bud4964hdrf7",
+        "Version": {
+            "Index": 2090
+        },
+        "CreatedAt": "2019-09-13T15:17:40.636108496Z",
+        "UpdatedAt": "2019-09-15T17:20:02.208639375Z",
+        "Spec": {
+            "Name": "phoenix_app",
+            "Labels": {
+                "com.docker.stack.image": "alessandroaffinito/node-server:prd",
+                "com.docker.stack.namespace": "phoenix"
+            },
+            "TaskTemplate": {
+                "ContainerSpec": {
+                    "Image": "alessandroaffinito/node-server:prd@sha256:8e56f95b50829325f9a45b4ec1cfc8a3cb0313c9125f7d9a939850faee8e6a41",
+                    "Labels": {
+                        "com.df.alertFor.1": "5m",
+                        "com.df.alertIf.1": "@service_mem_limit:0.8",
+                        "com.df.alertIf.2": "sum(rate(http_server_resp_time_bucket{job='phoenix_app_main', le='0.1'}[5m])) / sum(rate(http_server_resp_time_count{job='phoenix_app_main'}[5m])) \u003c 0.99",
+                        "com.df.alertLabels.2": "scale=up,service=phoenix_app",
+                        "com.df.alertName.1": "mem_limit",
+                        "com.df.alertName.2": "resptime",
+                        "com.df.distribute": "true",
+                        "com.df.notify": "true",
+                        "com.df.port": "8080",
+                        "com.df.scaleMax": "3",
+                        "com.df.scaleMin": "1",
+                        "com.df.scrapePort": "8080",
+                        "com.df.servicePath": "/app",
+                        "com.docker.stack.namespace": "phoenix"
+                    },
+                    "Privileges": {
+                        "CredentialSpec": null,
+                        "SELinuxContext": null
+                    },
+                    "StopGracePeriod": 10000000000,
+                    "DNSConfig": {},
+                    "Isolation": "default"
+                },
+                "Resources": {
+                    "Limits": {
+                        "NanoCPUs": 500000000,
+                        "MemoryBytes": 209715200
+                    }
+                },
+                "RestartPolicy": {
+                    "Condition": "on-failure",
+                    "Delay": 5000000000,
+                    "MaxAttempts": 0
+                },
+                "Placement": {
+                    "Platforms": [
+                        {
+                            "Architecture": "amd64",
+                            "OS": "linux"
+                        }
+                    ]
+                },
+                "Networks": [
+                    {
+                        "Target": "cpyx6vpahpi8oezvivq27at6y",
+                        "Aliases": [
+                            "app"
+                        ]
+                    },
+                    {
+                        "Target": "0u4ep1fld59gjc4ap7df8kbca",
+                        "Aliases": [
+                            "app"
+                        ]
+                    },
+                    {
+                        "Target": "ngw1qyf3zn4awegqf98b85ogi",
+                        "Aliases": [
+                            "app"
+                        ]
+                    },
+                    {
+                        "Target": "8dznogrr78mv640hdiacqzrsl",
+                        "Aliases": [
+                            "app"
+                        ]
+                    }
+                ],
+                "ForceUpdate": 0,
+                "Runtime": "container"
+            },
+            "Mode": {
+                "Replicated": {
+                    "Replicas": 1
+                }
+            },
+            "UpdateConfig": {
+                "Parallelism": 2,
+                "FailureAction": "pause",
+                "Monitor": 5000000000,
+                "MaxFailureRatio": 0,
+                "Order": "stop-first"
+            },
+            "RollbackConfig": {
+                "Parallelism": 1,
+                "FailureAction": "pause",
+                "Monitor": 5000000000,
+                "MaxFailureRatio": 0,
+                "Order": "stop-first"
+            },
+            "EndpointSpec": {
+                "Mode": "vip",
+                "Ports": [
+                    {
+                        "Protocol": "tcp",
+                        "TargetPort": 3000,
+                        "PublishedPort": 3000,
+                        "PublishMode": "ingress"
+                    }
+                ]
+            }
+        },
+        "PreviousSpec": {
+            "Name": "phoenix_app",
+            "Labels": {
+                "com.docker.stack.image": "alessandroaffinito/node-server:prd",
+                "com.docker.stack.namespace": "phoenix"
+            },
+            "TaskTemplate": {
+                "ContainerSpec": {
+                    "Image": "alessandroaffinito/node-server:prd@sha256:8e56f95b50829325f9a45b4ec1cfc8a3cb0313c9125f7d9a939850faee8e6a41",
+                    "Labels": {
+                        "com.df.alertFor.1": "5m",
+                        "com.df.alertIf.1": "@service_mem_limit:0.8",
+                        "com.df.alertIf.2": "sum(rate(http_server_resp_time_bucket{job=\\\"phoenix_app_main\\\", le=\\\"0.1\\\"}[5m])) / sum(rate(http_server_resp_time_count{job=\\\"phoenix_app_main\\\"}[5m])) \u003c 0.99",
+                        "com.df.alertLabels.2": "scale=up,service=phoenix_app_main",
+                        "com.df.alertName.1": "mem_limit",
+                        "com.df.alertName.2": "resptime",
+                        "com.df.distribute": "true",
+                        "com.df.notify": "true",
+                        "com.df.port": "8080",
+                        "com.df.scaleMax": "3",
+                        "com.df.scaleMin": "1",
+                        "com.df.scrapePort": "8080",
+                        "com.df.servicePath": "/app",
+                        "com.docker.stack.namespace": "phoenix"
+                    },
+                    "Privileges": {
+                        "CredentialSpec": null,
+                        "SELinuxContext": null
+                    },
+                    "Isolation": "default"
+                },
+                "Resources": {
+                    "Limits": {
+                        "NanoCPUs": 500000000,
+                        "MemoryBytes": 209715200
+                    }
+                },
+                "RestartPolicy": {
+                    "Condition": "on-failure",
+                    "MaxAttempts": 0
+                },
+                "Placement": {
+                    "Platforms": [
+                        {
+                            "Architecture": "amd64",
+                            "OS": "linux"
+                        }
+                    ]
+                },
+                "Networks": [
+                    {
+                        "Target": "cpyx6vpahpi8oezvivq27at6y",
+                        "Aliases": [
+                            "app"
+                        ]
+                    },
+                    {
+                        "Target": "0u4ep1fld59gjc4ap7df8kbca",
+                        "Aliases": [
+                            "app"
+                        ]
+                    },
+                    {
+                        "Target": "ngw1qyf3zn4awegqf98b85ogi",
+                        "Aliases": [
+                            "app"
+                        ]
+                    },
+                    {
+                        "Target": "8dznogrr78mv640hdiacqzrsl",
+                        "Aliases": [
+                            "app"
+                        ]
+                    }
+                ],
+                "ForceUpdate": 0,
+                "Runtime": "container"
+            },
+            "Mode": {
+                "Replicated": {
+                    "Replicas": 1
+                }
+            },
+            "UpdateConfig": {
+                "Parallelism": 2,
+                "FailureAction": "pause",
+                "MaxFailureRatio": 0,
+                "Order": "stop-first"
+            },
+            "EndpointSpec": {
+                "Mode": "vip",
+                "Ports": [
+                    {
+                        "Protocol": "tcp",
+                        "TargetPort": 3000,
+                        "PublishedPort": 3000,
+                        "PublishMode": "ingress"
+                    }
+                ]
+            }
+        },
+        "Endpoint": {
+            "Spec": {
+                "Mode": "vip",
+                "Ports": [
+                    {
+                        "Protocol": "tcp",
+                        "TargetPort": 3000,
+                        "PublishedPort": 3000,
+                        "PublishMode": "ingress"
+                    }
+                ]
+            },
+            "Ports": [
+                {
+                    "Protocol": "tcp",
+                    "TargetPort": 3000,
+                    "PublishedPort": 3000,
+                    "PublishMode": "ingress"
+                }
+            ],
+            "VirtualIPs": [
+                {
+                    "NetworkID": "nokp8wtwdzqxzc59xe50shirh",
+                    "Addr": "10.255.0.10/16"
+                },
+                {
+                    "NetworkID": "cpyx6vpahpi8oezvivq27at6y",
+                    "Addr": "10.0.1.20/24"
+                },
+                {
+                    "NetworkID": "0u4ep1fld59gjc4ap7df8kbca",
+                    "Addr": "10.0.4.5/24"
+                },
+                {
+                    "NetworkID": "ngw1qyf3zn4awegqf98b85ogi",
+                    "Addr": "10.0.3.5/24"
+                },
+                {
+                    "NetworkID": "8dznogrr78mv640hdiacqzrsl",
+                    "Addr": "10.0.0.16/24"
+                }
+            ]
+        },
+        "UpdateStatus": {
+            "State": "completed",
+            "StartedAt": "2019-09-15T17:19:40.420921382Z",
+            "CompletedAt": "2019-09-15T17:20:02.208554371Z",
+            "Message": "update completed"
+        }
+    }
+]

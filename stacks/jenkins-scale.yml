@@ -24,6 +24,7 @@ services:
           memory: 800M
     extra_hosts:
       - "${SLACK_HOST:-devops20.slack.com}:${SLACK_IP:-54.192.78.227}"
+      - "github.com:54.72.52.58"
     secrets:
       - jenkins-user
       - jenkins-pass
@@ -54,7 +55,7 @@ networks:
   proxy:
     external: true
   default:
-    external: false
+  #   external: false
 
 secrets:
   jenkins-user:

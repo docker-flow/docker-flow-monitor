@@ -33,12 +33,12 @@ git clone https://github.com/docker-flow/docker-flow-monitor.git
 
 cd docker-flow-monitor
 
-./scripts/dm-swarm.sh
+./scripts/dm-swarm-14_01.sh
 
 eval $(docker-machine env swarm-1)
 ```
 
-We cloned the [docker-flow/docker-flow-monitor](https://github.com/docker-flow/docker-flow-monitor) repository. It contains all the scripts and stack files we'll use throughout this tutorial. Next, we executed the `dm-swarm.sh` script that created the cluster. Finally, we used the `eval` command to tell our local Docker client to use the remote Docker engine `swarm-1`.
+We cloned the [docker-flow/docker-flow-monitor](https://github.com/docker-flow/docker-flow-monitor) repository. It contains all the scripts and stack files we'll use throughout this tutorial. Next, we executed the `dm-swarm-14_01.sh` script that created the cluster. Finally, we used the `eval` command to tell our local Docker client to use the remote Docker engine `swarm-1`.
 
 ## Deploying Docker Flow Proxy (DFP) and Docker Flow Swarm Listener (DFSL)
 
@@ -200,7 +200,7 @@ export SLACK_IP=$(ping \
     | awk -F'[()]' '/PING/{print $2}')
 
 docker stack deploy \
-    -c stacks/jenkins-scale.yml jenkins
+    -c stacks/jenkins-scale_2.yml jenkins
 ```
 
 We created two secrets that define administrative username and password. The environment variable `SLACK_IP` might not be necessary. It's there just in case Docker Machine cannot resolve Slack. Finally, the last command deployed the `jenkins` stack.

@@ -47,14 +47,14 @@ Before we create a Prometheus service, we need to have a cluster. We'll create t
 > If you are a Windows user, please run all the examples from *Git Bash* (installed through *Git*) or any other Bash you might have.
 
 ```bash
-chmod +x scripts/dm-swarm.sh
+chmod +x scripts/dm-swarm-14_01.sh
 
-./scripts/dm-swarm.sh
+./scripts/dm-swarm-14_01.sh
 
 eval $(docker-machine env swarm-1)
 ```
 
-The `dm-swarm.sh` scripts created the nodes and joined them into a Swarm cluster.
+The `dm-swarm-14_01.sh` scripts created the nodes and joined them into a Swarm cluster.
 
 Now we can create the first Prometheus service. We'll start small and move slowly toward a more robust solution.
 

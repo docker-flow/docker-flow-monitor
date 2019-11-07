@@ -3,7 +3,7 @@ git clone https://github.com/docker-flow/docker-flow-monitor.git
 
 cd docker-flow-monitor
 
-./scripts/dm-swarm.sh
+./scripts/dm-swarm-14_01.sh
 
 eval $(docker-machine env swarm-1)
 

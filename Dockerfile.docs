@@ -1,5 +1,6 @@
-FROM cilerler/mkdocs AS build
-MAINTAINER 	Viktor Farcic <viktor@farcic.com>
+# https://hub.docker.com/r/polinux/mkdocs
+FROM  polinux/mkdocs AS build
+MAINTAINER 	Przemek Ozgo <linux@ozgo.info>
 ADD . /docs
 RUN pip install pygments && pip install pymdown-extensions
 RUN mkdocs build --site-dir /site

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-
+# MAINTAINER Affinito Alessandro <affinito.ale@gmail.com>
+########################################################################### 
 ./scripts/dm-swarm-14_00.sh
 if [[ $? -ne 0 ]]; then
     exit 1

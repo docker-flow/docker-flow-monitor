@@ -22,11 +22,13 @@ RUN \
 
 RUN mkdir /workdir && cd /workdir   && \
     pip install pygments pymdown-extensions   && \
-    mkdocs new mkdocs   && \
-    cd mkdocs  &&  mkdocs build --site-dir /site
+    mkdocs new mkdocs
+
+ADD ./docs /workdir/mkdocs/docs
+RUN cd mkdocs  &&  mkdocs build --site-dir /site
 
 WORKDIR /workdir/mkdocs
-ADD . /docs
+
 
 
 ### ---- NGINX ----

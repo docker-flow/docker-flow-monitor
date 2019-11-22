@@ -3,26 +3,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: moonitor-docker-flow-monitor
+  name: docker-flow-monitor-test
   labels:
-    app: docker-flow-monitor
+    app: docker-flow-monitor-test
     chart: docker-flow-monitor-0.0.1
-    release: moonitor
     heritage: Tiller
 spec:
   selector:
     matchLabels:
-      app: docker-flow-monitor
-      release: moonitor
+      app: docker-flow-monitor-test
   template:
     metadata:
       labels:
-        app: docker-flow-monitor
-        release: moonitor
+        app: docker-flow-monitor-test
     spec:
       containers:
       - name: ui
-        image: dockerflow/docker-flow-monitor-docs:2-18.09.10-6
+        image: dockerflow/docker-flow-monitor-docs:2-19.11.22-8
         readinessProbe:
           httpGet:
             path: /

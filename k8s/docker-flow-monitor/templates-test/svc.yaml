@@ -1,0 +1,16 @@
+---
+# Source: docker-flow-monitor/templates/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-flow-monitor-test
+  labels:
+    app: docker-flow-monitor-test
+    chart: docker-flow-monitor-0.0.1
+    heritage: Tiller
+spec:
+  ports:
+  - port: 80
+  type: NodePort
+  selector:
+    app: docker-flow-monitor-test

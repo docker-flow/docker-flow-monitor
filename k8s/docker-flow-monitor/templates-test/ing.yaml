@@ -1,0 +1,27 @@
+---
+# Source: docker-flow-monitor/templates/ing.yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: docker-flow-monitor-test
+  labels:
+    app: docker-flow-monitor-test
+    chart: docker-flow-monitor-0.0.1
+    heritage: Tiller
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    certmanager.k8s.io/issuer: "letsencrypt-prod"
+    certmanager.k8s.io/acme-challenge-type: http01
+spec:
+  rules:
+  - host: test.monitor.dockerflow.com
+    http:
+      paths:
+        - path: /
+          backend:
+            serviceName: docker-flow-monitor-test
+            servicePort: 80
+  tls:
+  - hosts:
+    - test.monitor.dockerflow.com
+    secretName: le-docker-flow-monitor-test

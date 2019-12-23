@@ -33,10 +33,12 @@ func WriteConfig(configPath string, scrapes map[string]Scrape,
 		c.InsertScrapesFromDir(configsDir)
 	}
 
+	c.RuleFiles = []string{"/run/secrets/*.rules"}
 	if len(alerts) > 0 {
 		logPrintf("Writing to alert.rules")
 		afero.WriteFile(FS, alertRulesPath, []byte(GetAlertConfig(alerts)), 0644)
-		c.RuleFiles = []string{"alert.rules"}
+		// c.RuleFiles = []string{"alert.rules"}
+		c.RuleFiles = append(c.RuleFiles, "alert.rules")
 	}
 
 	alertmanagerURLs := os.Getenv("ARG_ALERTMANAGER_URL")
@@ -66,7 +68,6 @@ func WriteConfig(configPath string, scrapes map[string]Scrape,
 	logPrintf("Writing to prometheus.yml")
 	configYAML, _ := yaml.Marshal(c)
 	afero.WriteFile(FS, configPath, configYAML, 0644)
-
 }
 
 // InsertEnv inserts envKey/envValue into config

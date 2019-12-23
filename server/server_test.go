@@ -137,6 +137,8 @@ alerting:
     - targets:
       - alert-manager:9093
     scheme: http
+rule_files:
+- /run/secrets/*.rules
 `
 	fsOrig := prometheus.FS
 	defer func() { prometheus.FS = fsOrig }()
@@ -952,6 +954,7 @@ alerting:
       - alert-manager:9093
     scheme: http
 rule_files:
+- /run/secrets/*.rules
 - alert.rules
 scrape_configs:
 - job_name: my-service
@@ -995,6 +998,7 @@ alerting:
       - alert-manager:9093
     scheme: http
 rule_files:
+- /run/secrets/*.rules
 - alert.rules
 scrape_configs:
 - job_name: my-service
@@ -1271,6 +1275,8 @@ alerting:
     - targets:
       - alert-manager:9093
     scheme: http
+rule_files:
+- /run/secrets/*.rules
 scrape_configs:
 - job_name: my-service
   metrics_path: /metrics
@@ -1301,6 +1307,8 @@ alerting:
     - targets:
       - alert-manager:9093
     scheme: http
+rule_files:
+- /run/secrets/*.rules
 `
 	addr = "/v1/docker-flow-monitor?serviceName=my-service"
 	req, _ = http.NewRequest("DELETE", addr, nil)
@@ -1450,6 +1458,8 @@ alerting:
     - targets:
       - alert-manager:9093
     scheme: http
+rule_files:
+- /run/secrets/*.rules
 `
 
 	actualConfig, _ := afero.ReadFile(prometheus.FS, "/etc/prometheus/prometheus.yml")

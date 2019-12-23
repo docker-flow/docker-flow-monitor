@@ -848,7 +848,7 @@ func (s *ConfigTestSuite) Test_WriteConfig_WriteAlerts() {
 	}
 
 	c := &Config{}
-	c.RuleFiles = []string{"alert.rules"}
+	c.RuleFiles = []string{"/run/secrets/*.rules", "alert.rules"}
 	cYAML, _ := yaml.Marshal(c)
 	expectedAlerts := GetAlertConfig(alerts)
 

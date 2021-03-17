@@ -8,7 +8,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -o docker-flow-monitor
 
 
 
-FROM prom/prometheus:v2.3.2
+FROM prom/prometheus:v2.25.2
 
 ENV GLOBAL_SCRAPE_INTERVAL=10s \
     ARG_CONFIG_FILE=/etc/prometheus/prometheus.yml \
@@ -30,5 +30,5 @@ COPY conf/shortcuts.yaml /etc/dfm/shortcuts.yaml
 USER root
 RUN chmod +x /bin/check.sh
 RUN chmod +x /bin/docker-flow-monitor
-USER nobody
+#USER nobody
 
